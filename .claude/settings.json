@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx electron-vite *)",
+      "Bash(npx electron-builder *)",
+      "Bash(gh *)",
+      "Bash(pkill -f electron*)",
+      "Bash(lsof *)"
+    ]
+  }
+}
