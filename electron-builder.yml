@@ -10,9 +10,9 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 mac:
   target:
-    - target: dmg
+    - target: dir
       arch:
         - arm64
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
-    - NSMicrophoneUsageDescription: "live-translate needs microphone access for speech recognition"
+    NSMicrophoneUsageDescription: "live-translate needs microphone access for real-time speech recognition and translation."
