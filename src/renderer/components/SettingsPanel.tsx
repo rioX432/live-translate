@@ -1,103 +1,260 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useAudioCapture } from '../hooks/useAudioCapture'
+
+type EngineMode = 'online' | 'offline'
+
+interface DisplayInfo {
+  id: number
+  label: string
+}
 
 function SettingsPanel(): JSX.Element {
+  const [engineMode, setEngineMode] = useState<EngineMode>('online')
+  const [apiKey, setApiKey] = useState('')
+  const [displays, setDisplays] = useState<DisplayInfo[]>([])
+  const [selectedDisplay, setSelectedDisplay] = useState<number>(0)
+  const [status, setStatus] = useState('Ready')
   const [isRunning, setIsRunning] = useState(false)
-  const [engineMode, setEngineMode] = useState<'online' | 'offline'>('online')
+
+  const audio = useAudioCapture()
+
+  // Load displays
+  useEffect(() => {
+    window.api.getDisplays().then((d) => {
+      setDisplays(d)
+      if (d.length > 1) setSelectedDisplay(d[1].id) // Default to external display
+    })
+  }, [])
+
+  // Handle audio chunks → send to main process for processing
+  useEffect(() => {
+    audio.onAudioChunk((chunk) => {
+      // In the full integration, this will go through TranslationPipeline
+      // For now, send raw audio data via IPC to main process
+      window.api.sendTranslationResult({
+        sourceText: '[Audio chunk received]',
+        translatedText: `[${chunk.length} samples]`,
+        sourceLanguage: 'ja',
+        timestamp: Date.now()
+      })
+    })
+  }, [audio])
+
+  const handleStart = async (): Promise<void> => {
+    try {
+      setStatus('Starting...')
+      await audio.start()
+      setIsRunning(true)
+      setStatus('Listening...')
+    } catch (err) {
+      setStatus(`Error: ${err}`)
+    }
+  }
+
+  const handleStop = (): void => {
+    audio.stop()
+    setIsRunning(false)
+    setStatus('Stopped')
+  }
+
+  const handleDisplayChange = (displayId: number): void => {
+    setSelectedDisplay(displayId)
+    window.api.moveSubtitleToDisplay(displayId)
+  }
 
   return (
-    <div style={{ padding: '24px', fontFamily: '-apple-system, sans-serif', color: '#e5e5e5', background: '#1a1a2e', minHeight: '100vh' }}>
-      <h1 style={{ fontSize: '20px', fontWeight: 700, marginBottom: '24px', color: '#fff' }}>
-        🌐 live-translate
-      </h1>
+    <div style={containerStyle}>
+      <h1 style={titleStyle}>live-translate</h1>
 
-      <section style={{ marginBottom: '20px' }}>
-        <label style={{ fontSize: '14px', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>
-          Microphone
-        </label>
-        <select style={selectStyle}>
-          <option>Default Microphone</option>
+      {/* Microphone Selection */}
+      <Section label="Microphone">
+        <select
+          value={audio.selectedDevice}
+          onChange={(e) => audio.setSelectedDevice(e.target.value)}
+          style={selectStyle}
+          disabled={isRunning}
+        >
+          {audio.devices.map((d) => (
+            <option key={d.deviceId} value={d.deviceId}>
+              {d.label}
+            </option>
+          ))}
         </select>
-      </section>
-
-      <section style={{ marginBottom: '20px' }}>
-        <label style={{ fontSize: '14px', color: '#94a3b8', display: 'block', marginBottom: '8px' }}>
-          Translation Engine
-        </label>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <label style={radioLabelStyle}>
-            <input
-              type="radio"
-              name="engine"
-              checked={engineMode === 'online'}
-              onChange={() => setEngineMode('online')}
-            />
-            <span>Online — Whisper STT + Google Translation</span>
-          </label>
-          <label style={radioLabelStyle}>
-            <input
-              type="radio"
-              name="engine"
-              checked={engineMode === 'offline'}
-              onChange={() => setEngineMode('offline')}
-            />
-            <span>Offline — Whisper Translate (JA→EN only)</span>
-          </label>
+        {/* Volume meter */}
+        <div style={{ marginTop: '6px', height: '4px', background: '#1e293b', borderRadius: '2px' }}>
+          <div
+            style={{
+              height: '100%',
+              width: `${audio.volume * 100}%`,
+              background: audio.volume > 0.7 ? '#ef4444' : '#22c55e',
+              borderRadius: '2px',
+              transition: 'width 0.1s'
+            }}
+          />
         </div>
-      </section>
+      </Section>
 
-      <section style={{ marginBottom: '20px' }}>
-        <label style={{ fontSize: '14px', color: '#94a3b8', display: 'block', marginBottom: '6px' }}>
-          Subtitle Display
+      {/* Engine Selection */}
+      <Section label="Translation Engine">
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'online'}
+            onChange={() => setEngineMode('online')}
+            disabled={isRunning}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Online — Whisper + Google Translation</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, high quality, requires internet</div>
+          </div>
         </label>
-        <select style={selectStyle}>
-          <option>Display 1 (Main)</option>
-          <option>Display 2 (External)</option>
-        </select>
-      </section>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline'}
+            onChange={() => setEngineMode('offline')}
+            disabled={isRunning}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Offline — Whisper Translate</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>JA→EN only, no internet required</div>
+          </div>
+        </label>
+      </Section>
 
+      {/* API Key (online mode only) */}
+      {engineMode === 'online' && (
+        <Section label="Google Cloud Translation API Key">
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            placeholder="Enter API key..."
+            style={inputStyle}
+            disabled={isRunning}
+          />
+        </Section>
+      )}
+
+      {/* Display Selection */}
+      <Section label="Subtitle Display">
+        <select
+          value={selectedDisplay}
+          onChange={(e) => handleDisplayChange(Number(e.target.value))}
+          style={selectStyle}
+        >
+          {displays.map((d) => (
+            <option key={d.id} value={d.id}>
+              {d.label}
+            </option>
+          ))}
+        </select>
+      </Section>
+
+      {/* Start/Stop Button */}
       <button
-        onClick={() => setIsRunning(!isRunning)}
+        onClick={isRunning ? handleStop : handleStart}
         style={{
-          width: '100%',
-          padding: '12px',
-          fontSize: '16px',
-          fontWeight: 700,
-          border: 'none',
-          borderRadius: '8px',
-          cursor: 'pointer',
-          background: isRunning ? '#ef4444' : '#22c55e',
-          color: '#fff',
-          transition: 'background 0.2s'
+          ...buttonStyle,
+          background: isRunning ? '#dc2626' : '#16a34a'
         }}
+        disabled={engineMode === 'online' && !apiKey && !isRunning}
       >
         {isRunning ? '⏹ Stop' : '▶ Start'}
       </button>
 
-      <div style={{ marginTop: '16px', fontSize: '12px', color: '#64748b', textAlign: 'center' }}>
-        {isRunning ? '🔴 Listening...' : 'Ready'}
+      {/* Status */}
+      <div style={statusStyle}>
+        <span style={{ color: isRunning ? '#22c55e' : '#64748b' }}>
+          {isRunning ? '●' : '○'}
+        </span>{' '}
+        {status}
       </div>
     </div>
   )
 }
 
+function Section({ label, children }: { label: string; children: React.ReactNode }): JSX.Element {
+  return (
+    <section style={{ marginBottom: '18px' }}>
+      <label style={sectionLabelStyle}>{label}</label>
+      {children}
+    </section>
+  )
+}
+
+const containerStyle: React.CSSProperties = {
+  padding: '20px 24px',
+  fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  color: '#e2e8f0',
+  background: '#0f172a',
+  minHeight: '100vh',
+  fontSize: '14px'
+}
+
+const titleStyle: React.CSSProperties = {
+  fontSize: '18px',
+  fontWeight: 700,
+  marginBottom: '20px',
+  color: '#f8fafc',
+  letterSpacing: '-0.02em'
+}
+
+const sectionLabelStyle: React.CSSProperties = {
+  fontSize: '12px',
+  fontWeight: 600,
+  color: '#94a3b8',
+  textTransform: 'uppercase',
+  letterSpacing: '0.05em',
+  display: 'block',
+  marginBottom: '6px'
+}
+
 const selectStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px 12px',
-  fontSize: '14px',
-  background: '#16213e',
-  color: '#e5e5e5',
+  fontSize: '13px',
+  background: '#1e293b',
+  color: '#e2e8f0',
   border: '1px solid #334155',
   borderRadius: '6px',
   outline: 'none'
 }
 
+const inputStyle: React.CSSProperties = {
+  ...selectStyle,
+  fontFamily: 'monospace'
+}
+
 const radioLabelStyle: React.CSSProperties = {
   display: 'flex',
-  alignItems: 'center',
+  alignItems: 'flex-start',
   gap: '8px',
-  fontSize: '14px',
-  color: '#e5e5e5',
-  cursor: 'pointer'
+  fontSize: '13px',
+  color: '#e2e8f0',
+  cursor: 'pointer',
+  padding: '6px 0'
+}
+
+const buttonStyle: React.CSSProperties = {
+  width: '100%',
+  padding: '12px',
+  fontSize: '15px',
+  fontWeight: 700,
+  border: 'none',
+  borderRadius: '8px',
+  cursor: 'pointer',
+  color: '#fff',
+  marginTop: '8px'
+}
+
+const statusStyle: React.CSSProperties = {
+  marginTop: '12px',
+  fontSize: '12px',
+  color: '#94a3b8',
+  textAlign: 'center'
 }
 
 export default SettingsPanel
