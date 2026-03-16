@@ -64,8 +64,6 @@ export function useAudioCapture(): UseAudioCaptureReturn {
           }
         })
       },
-      // Use verified defaults (positiveSpeechThreshold: 0.5, negativeSpeechThreshold: 0.35 are too aggressive)
-      // Library defaults: positiveSpeechThreshold=0.5, negativeSpeechThreshold=0.35
       // Override with more sensitive thresholds for real-time translation
       positiveSpeechThreshold: 0.3,
       negativeSpeechThreshold: 0.15,
