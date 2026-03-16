@@ -1,0 +1,18 @@
+appId: com.live-translate.app
+productName: live-translate
+directories:
+  buildResources: build
+files:
+  - '!**/.vscode/*'
+  - '!src/*'
+  - '!electron.vite.config.*'
+  - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+  entitlementsInherit: build/entitlements.mac.plist
+  extendInfo:
+    - NSMicrophoneUsageDescription: "live-translate needs microphone access for speech recognition"

@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "target": "ESNext",
+    "outDir": "./out/main",
+    "declaration": true,
+    "declarationMap": true,
+    "composite": true
+  },
+  "include": ["src/main/**/*", "src/engines/**/*", "src/pipeline/**/*", "src/logger/**/*", "electron.vite.config.ts"]
+}
