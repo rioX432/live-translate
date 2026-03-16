@@ -82,6 +82,9 @@ export function useAudioCapture(): UseAudioCaptureReturn {
     bufferRef.current = []
     bufferSamplesRef.current = 0
 
+    console.log('[audio-capture] AudioContext sampleRate:', context.sampleRate)
+    console.log('[audio-capture] Stream tracks:', stream.getAudioTracks().map(t => `${t.label} (${t.readyState})`))
+
     processor.onaudioprocess = (e): void => {
       const inputData = e.inputBuffer.getChannelData(0)
       const chunk = new Float32Array(inputData)
@@ -91,6 +94,16 @@ export function useAudioCapture(): UseAudioCaptureReturn {
       for (let i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i]
       const rms = Math.sqrt(sum / chunk.length)
       setVolume(Math.min(1, rms * 5))
+
+      // Debug: log first chunk stats
+      if (bufferSamplesRef.current === 0) {
+        let maxVal = 0
+        for (let i = 0; i < chunk.length; i++) {
+          const abs = Math.abs(chunk[i])
+          if (abs > maxVal) maxVal = abs
+        }
+        console.log(`[audio-capture] chunk: len=${chunk.length}, rms=${rms.toFixed(6)}, max=${maxVal.toFixed(6)}`)
+      }
 
       // Accumulate buffer
       bufferRef.current.push(chunk)
