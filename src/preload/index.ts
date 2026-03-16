@@ -4,7 +4,7 @@ contextBridge.exposeInMainWorld('api', {
   // Pipeline control
   pipelineStart: (config: unknown) => ipcRenderer.invoke('pipeline-start', config),
   pipelineStop: () => ipcRenderer.invoke('pipeline-stop'),
-  processAudio: (audioBuffer: ArrayBuffer) => ipcRenderer.invoke('process-audio', audioBuffer),
+  processAudio: (audioData: number[]) => ipcRenderer.invoke('process-audio', audioData),
 
   // Translation results
   sendTranslationResult: (data: unknown) => ipcRenderer.send('translation-result', data),

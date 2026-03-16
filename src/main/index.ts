@@ -84,7 +84,9 @@ function initPipeline(): void {
   // GoogleTranslator needs API key — registered dynamically when user provides one
 
   // Register E2E engines
-  pipeline.registerE2E('whisper-translate', () => new WhisperTranslateEngine())
+  pipeline.registerE2E('whisper-translate', () => new WhisperTranslateEngine({
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+  }))
 
   // Forward results to subtitle window and logger
   pipeline.on('result', (result: TranslationResult) => {
@@ -141,10 +143,48 @@ ipcMain.handle('pipeline-stop', async () => {
 })
 
 // Process audio chunk from renderer
-ipcMain.handle('process-audio', async (_event, audioData: ArrayBuffer) => {
+ipcMain.handle('process-audio', async (_event, audioData: unknown) => {
   if (!pipeline?.running) return null
-  const chunk = new Float32Array(audioData)
-  return await pipeline.process(chunk, 16000)
+
+  let chunk: Float32Array
+  if (audioData instanceof Float32Array) {
+    chunk = audioData
+  } else if (Array.isArray(audioData)) {
+    chunk = new Float32Array(audioData)
+  } else if (audioData instanceof ArrayBuffer || Buffer.isBuffer(audioData)) {
+    chunk = new Float32Array(
+      Buffer.isBuffer(audioData) ? audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength) : audioData
+    )
+  } else {
+    console.error('[audio] Unknown data type:', typeof audioData)
+    return null
+  }
+
+  // Minimum audio length check (at least 0.5 seconds at 16kHz)
+  if (chunk.length < 8000) {
+    console.log(`[audio] Chunk too short: ${chunk.length} samples, skipping`)
+    return null
+  }
+
+  // Debug: log audio stats
+  let maxAmp = 0
+  for (let i = 0; i < Math.min(chunk.length, 1000); i++) {
+    const abs = Math.abs(chunk[i])
+    if (abs > maxAmp) maxAmp = abs
+  }
+  console.log(`[audio] samples=${chunk.length}, max_amplitude=${maxAmp.toFixed(6)}`)
+
+  if (maxAmp < 0.001) {
+    console.log('[audio] Silent chunk, skipping')
+    return null
+  }
+
+  try {
+    return await pipeline.process(chunk, 16000)
+  } catch (err) {
+    console.error('[audio] Pipeline error:', err)
+    return null
+  }
 })
 
 // Get available displays

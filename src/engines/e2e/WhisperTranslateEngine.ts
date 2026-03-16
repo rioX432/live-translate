@@ -1,10 +1,6 @@
 import { transcribe } from '@kutalia/whisper-node-addon'
-import { app } from 'electron'
-import { join } from 'path'
-import { existsSync } from 'fs'
+import { getModelPath, isModelDownloaded, downloadModel } from '../model-downloader'
 import type { E2ETranslationEngine, TranslationResult } from '../types'
-
-const MODEL_FILENAME = 'ggml-large-v3-turbo-q5_0.bin'
 
 /**
  * Offline E2E translation engine using Whisper's built-in translate task.
@@ -18,14 +14,17 @@ export class WhisperTranslateEngine implements E2ETranslationEngine {
   readonly isOffline = true
 
   private modelPath = ''
+  private onProgress?: (message: string) => void
+
+  constructor(options?: { onProgress?: (message: string) => void }) {
+    this.onProgress = options?.onProgress
+  }
 
   async initialize(): Promise<void> {
-    this.modelPath = join(app.getPath('userData'), 'models', MODEL_FILENAME)
-
-    if (!existsSync(this.modelPath)) {
-      throw new Error(
-        'Whisper model not found. Please use Online mode first to download the model, then switch to Offline mode.'
-      )
+    if (!isModelDownloaded()) {
+      this.modelPath = await downloadModel(this.onProgress)
+    } else {
+      this.modelPath = getModelPath()
     }
   }
 

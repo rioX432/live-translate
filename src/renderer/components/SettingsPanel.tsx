@@ -30,7 +30,8 @@ function SettingsPanel(): JSX.Element {
   useEffect(() => {
     audio.onAudioChunk((chunk) => {
       // Send PCM data to main process for Whisper processing
-      window.api.processAudio(chunk.buffer)
+      // Convert Float32Array to plain array for IPC serialization
+      window.api.processAudio(Array.from(chunk))
     })
   }, [audio])
 
