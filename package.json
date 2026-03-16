@@ -4,6 +4,7 @@
   "description": "Real-time speech translation overlay for presentations",
   "main": "./out/main/index.js",
   "scripts": {
+    "postinstall": "node scripts/fix-whisper-addon.js",
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
