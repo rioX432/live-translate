@@ -1,0 +1,90 @@
+import { transcribe } from '@kutalia/whisper-node-addon'
+import { app } from 'electron'
+import { join } from 'path'
+import { existsSync } from 'fs'
+import type { E2ETranslationEngine, TranslationResult } from '../types'
+
+const MODEL_FILENAME = 'ggml-large-v3-turbo-q5_0.bin'
+
+/**
+ * Offline E2E translation engine using Whisper's built-in translate task.
+ *
+ * Limitation: Only supports JA → EN translation.
+ * Whisper's translate task always outputs English regardless of input language.
+ */
+export class WhisperTranslateEngine implements E2ETranslationEngine {
+  readonly id = 'whisper-translate'
+  readonly name = 'Whisper Translate (Offline, JA→EN only)'
+  readonly isOffline = true
+
+  private modelPath = ''
+
+  async initialize(): Promise<void> {
+    this.modelPath = join(app.getPath('userData'), 'models', MODEL_FILENAME)
+
+    if (!existsSync(this.modelPath)) {
+      throw new Error(
+        'Whisper model not found. Please use Online mode first to download the model, then switch to Offline mode.'
+      )
+    }
+  }
+
+  async processAudio(
+    audioChunk: Float32Array,
+    _sampleRate: number
+  ): Promise<TranslationResult | null> {
+    if (!this.modelPath) throw new Error('Engine not initialized')
+
+    try {
+      // First: transcribe to get original Japanese text
+      const transcribeResult = await transcribe({
+        model: this.modelPath,
+        pcmf32: audioChunk,
+        language: 'ja',
+        vad: true,
+        no_timestamps: true,
+        no_prints: true
+      })
+
+      const sourceText = this.extractText(transcribeResult.transcription)
+      if (!sourceText.trim()) return null
+
+      // Second: translate (Whisper outputs English)
+      const translateResult = await transcribe({
+        model: this.modelPath,
+        pcmf32: audioChunk,
+        language: 'ja',
+        translate: true,
+        vad: true,
+        no_timestamps: true,
+        no_prints: true
+      })
+
+      const translatedText = this.extractText(translateResult.transcription)
+      if (!translatedText.trim()) return null
+
+      return {
+        sourceText,
+        translatedText,
+        sourceLanguage: 'ja',
+        targetLanguage: 'en',
+        timestamp: Date.now()
+      }
+    } catch (err) {
+      console.error('Whisper translate error:', err)
+      return null
+    }
+  }
+
+  async dispose(): Promise<void> {
+    // No cleanup needed
+  }
+
+  private extractText(transcription: string[][] | string[]): string {
+    if (!transcription || transcription.length === 0) return ''
+    if (Array.isArray(transcription[0])) {
+      return (transcription as string[][]).map((seg) => seg[seg.length - 1] || '').join(' ')
+    }
+    return (transcription as string[]).join(' ')
+  }
+}
