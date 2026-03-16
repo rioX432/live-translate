@@ -26,23 +26,45 @@ function SettingsPanel(): JSX.Element {
     })
   }, [])
 
-  // Handle audio chunks → send to main process for processing
+  // Handle audio chunks → send to main process for pipeline processing
   useEffect(() => {
     audio.onAudioChunk((chunk) => {
-      // In the full integration, this will go through TranslationPipeline
-      // For now, send raw audio data via IPC to main process
-      window.api.sendTranslationResult({
-        sourceText: '[Audio chunk received]',
-        translatedText: `[${chunk.length} samples]`,
-        sourceLanguage: 'ja',
-        timestamp: Date.now()
-      })
+      // Send PCM data to main process for Whisper processing
+      window.api.processAudio(chunk.buffer)
     })
   }, [audio])
 
+  // Listen for status updates from main process
+  useEffect(() => {
+    window.api.onStatusUpdate((message) => {
+      setStatus(message)
+    })
+  }, [])
+
   const handleStart = async (): Promise<void> => {
     try {
-      setStatus('Starting...')
+      setStatus('Starting pipeline...')
+
+      // Build engine config
+      const config =
+        engineMode === 'online'
+          ? {
+              mode: 'cascade' as const,
+              sttEngineId: 'whisper-local',
+              translatorEngineId: 'google-translate',
+              apiKey
+            }
+          : {
+              mode: 'e2e' as const,
+              e2eEngineId: 'whisper-translate'
+            }
+
+      const result = await window.api.pipelineStart(config)
+      if (result.error) {
+        setStatus(`Error: ${result.error}`)
+        return
+      }
+
       await audio.start()
       setIsRunning(true)
       setStatus('Listening...')
@@ -51,10 +73,11 @@ function SettingsPanel(): JSX.Element {
     }
   }
 
-  const handleStop = (): void => {
+  const handleStop = async (): Promise<void> => {
     audio.stop()
+    const result = await window.api.pipelineStop()
     setIsRunning(false)
-    setStatus('Stopped')
+    setStatus(result.logPath ? `Saved: ${result.logPath}` : 'Stopped')
   }
 
   const handleDisplayChange = (displayId: number): void => {
