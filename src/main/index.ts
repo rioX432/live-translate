@@ -4,6 +4,7 @@ import { is } from '@electron-toolkit/utils'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { GoogleTranslator } from '../engines/translator/GoogleTranslator'
+import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { WhisperTranslateEngine } from '../engines/e2e/WhisperTranslateEngine'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
 import type { EngineConfig, TranslationResult } from '../engines/types'
@@ -81,6 +82,9 @@ function initPipeline(): void {
   }))
 
   // Register translator engines
+  pipeline.registerTranslator('opus-mt', () => new OpusMTTranslator({
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+  }))
   // GoogleTranslator needs API key — registered dynamically when user provides one
 
   // Register E2E engines
