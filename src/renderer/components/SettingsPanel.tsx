@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
 
-type EngineMode = 'online' | 'offline'
+type EngineMode = 'online' | 'offline-e2e' | 'offline-opus'
 
 interface DisplayInfo {
   id: number
@@ -55,10 +55,16 @@ function SettingsPanel(): JSX.Element {
               translatorEngineId: 'google-translate',
               apiKey
             }
-          : {
-              mode: 'e2e' as const,
-              e2eEngineId: 'whisper-translate'
-            }
+          : engineMode === 'offline-opus'
+            ? {
+                mode: 'cascade' as const,
+                sttEngineId: 'whisper-local',
+                translatorEngineId: 'opus-mt'
+              }
+            : {
+                mode: 'e2e' as const,
+                e2eEngineId: 'whisper-translate'
+              }
 
       const result = await window.api.pipelineStart(config)
       if (result.error) {
@@ -137,8 +143,21 @@ function SettingsPanel(): JSX.Element {
           <input
             type="radio"
             name="engine"
-            checked={engineMode === 'offline'}
-            onChange={() => setEngineMode('offline')}
+            checked={engineMode === 'offline-opus'}
+            onChange={() => setEngineMode('offline-opus')}
+            disabled={isRunning}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Offline — Whisper + OPUS-MT</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, no internet, ~100MB model download</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline-e2e'}
+            onChange={() => setEngineMode('offline-e2e')}
             disabled={isRunning}
           />
           <div>
