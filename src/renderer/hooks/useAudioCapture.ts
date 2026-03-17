@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-
-const TARGET_SAMPLE_RATE = 16000
-const CHUNK_DURATION_SEC = 3 // Send audio every 3 seconds
+import { MicVAD } from '@ricky0123/vad-web'
 
 export interface AudioDevice {
   deviceId: string
@@ -25,12 +23,8 @@ export function useAudioCapture(): UseAudioCaptureReturn {
   const [isCapturing, setIsCapturing] = useState(false)
   const [volume, setVolume] = useState(0)
 
-  const streamRef = useRef<MediaStream | null>(null)
-  const contextRef = useRef<AudioContext | null>(null)
-  const workletRef = useRef<AudioWorkletNode | ScriptProcessorNode | null>(null)
+  const vadRef = useRef<MicVAD | null>(null)
   const chunkCallbackRef = useRef<((chunk: Float32Array) => void) | null>(null)
-  const bufferRef = useRef<Float32Array[]>([])
-  const bufferSamplesRef = useRef(0)
 
   // Enumerate audio input devices
   useEffect(() => {
@@ -58,89 +52,64 @@ export function useAudioCapture(): UseAudioCaptureReturn {
   const start = useCallback(async () => {
     if (isCapturing) return
 
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId: selectedDevice ? { exact: selectedDevice } : undefined,
-        channelCount: 1,
-        sampleRate: { ideal: TARGET_SAMPLE_RATE },
-        echoCancellation: true,
-        noiseSuppression: true
+    const deviceId = selectedDevice
+    const vad = await MicVAD.new({
+      getStream: async () => {
+        return navigator.mediaDevices.getUserMedia({
+          audio: {
+            deviceId: deviceId ? { exact: deviceId } : undefined,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true
+          }
+        })
+      },
+      // Use verified defaults (positiveSpeechThreshold: 0.5, negativeSpeechThreshold: 0.35 are too aggressive)
+      // Library defaults: positiveSpeechThreshold=0.5, negativeSpeechThreshold=0.35
+      // Override with more sensitive thresholds for real-time translation
+      positiveSpeechThreshold: 0.3,
+      negativeSpeechThreshold: 0.15,
+      redemptionMs: 1400,
+      minSpeechMs: 400,
+      // ScriptProcessor for Electron compatibility
+      processorType: 'ScriptProcessor',
+      // Serve ONNX model and WASM from public/vad/
+      baseAssetPath: '/vad/',
+      onnxWASMBasePath: '/vad/',
+      onFrameProcessed: (_probs, frame) => {
+        // Volume meter (RMS) from each frame
+        let sum = 0
+        for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i]
+        const rms = Math.sqrt(sum / frame.length)
+        setVolume(Math.min(1, rms * 5))
+      },
+      onSpeechEnd: (audio: Float32Array) => {
+        // audio is 16kHz Float32Array from VAD
+        console.log(`[audio-capture] VAD speech segment: ${audio.length} samples (${(audio.length / 16000).toFixed(1)}s)`)
+        chunkCallbackRef.current?.(audio)
+      },
+      onSpeechStart: () => {
+        console.log('[audio-capture] VAD speech start')
+      },
+      onVADMisfire: () => {
+        console.log('[audio-capture] VAD misfire (speech too short)')
       }
     })
 
-    streamRef.current = stream
-    const context = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE })
-    contextRef.current = context
-    const source = context.createMediaStreamSource(stream)
-
-    // Use ScriptProcessorNode (deprecated but widely supported)
-    const bufferSize = 4096
-    const processor = context.createScriptProcessor(bufferSize, 1, 1)
-    workletRef.current = processor
-
-    const samplesPerChunk = TARGET_SAMPLE_RATE * CHUNK_DURATION_SEC
-    bufferRef.current = []
-    bufferSamplesRef.current = 0
-
-    console.log('[audio-capture] AudioContext sampleRate:', context.sampleRate)
-    console.log('[audio-capture] Stream tracks:', stream.getAudioTracks().map(t => `${t.label} (${t.readyState})`))
-
-    processor.onaudioprocess = (e): void => {
-      const inputData = e.inputBuffer.getChannelData(0)
-      const chunk = new Float32Array(inputData)
-
-      // Volume meter (RMS)
-      let sum = 0
-      for (let i = 0; i < chunk.length; i++) sum += chunk[i] * chunk[i]
-      const rms = Math.sqrt(sum / chunk.length)
-      setVolume(Math.min(1, rms * 5))
-
-      // Debug: log first chunk stats
-      if (bufferSamplesRef.current === 0) {
-        let maxVal = 0
-        for (let i = 0; i < chunk.length; i++) {
-          const abs = Math.abs(chunk[i])
-          if (abs > maxVal) maxVal = abs
-        }
-        console.log(`[audio-capture] chunk: len=${chunk.length}, rms=${rms.toFixed(6)}, max=${maxVal.toFixed(6)}`)
-      }
-
-      // Accumulate buffer
-      bufferRef.current.push(chunk)
-      bufferSamplesRef.current += chunk.length
-
-      // Emit chunk when buffer is full
-      if (bufferSamplesRef.current >= samplesPerChunk) {
-        const totalLength = bufferRef.current.reduce((acc, b) => acc + b.length, 0)
-        const merged = new Float32Array(totalLength)
-        let offset = 0
-        for (const buf of bufferRef.current) {
-          merged.set(buf, offset)
-          offset += buf.length
-        }
-        bufferRef.current = []
-        bufferSamplesRef.current = 0
-
-        chunkCallbackRef.current?.(merged)
-      }
-    }
-
-    source.connect(processor)
-    processor.connect(context.destination)
+    vadRef.current = vad
+    vad.start()
     setIsCapturing(true)
+    console.log('[audio-capture] VAD started')
   }, [selectedDevice, isCapturing])
 
   const stop = useCallback(() => {
-    workletRef.current?.disconnect()
-    streamRef.current?.getTracks().forEach((t) => t.stop())
-    contextRef.current?.close()
-    workletRef.current = null
-    streamRef.current = null
-    contextRef.current = null
-    bufferRef.current = []
-    bufferSamplesRef.current = 0
+    if (vadRef.current) {
+      vadRef.current.destroy()
+      vadRef.current = null
+    }
     setIsCapturing(false)
     setVolume(0)
+    console.log('[audio-capture] VAD stopped')
   }, [])
 
   const onAudioChunk = useCallback((callback: (chunk: Float32Array) => void) => {

@@ -1,6 +1,7 @@
 // Fix whisper-node-addon issues on macOS:
 // 1. Directory naming: addon expects 'darwin-arm64' but ships as 'mac-arm64'
 // 2. dylib rpath: libraries have hardcoded build paths, need to add local rpath
+// 3. Copy vad-web assets to renderer public dir for serving
 const fs = require('fs')
 const path = require('path')
 const { execSync } = require('child_process')
@@ -42,4 +43,38 @@ if (process.platform === 'darwin') {
       console.warn(`[fix-whisper-addon] Failed to add rpath: ${e.message}`)
     }
   }
+}
+
+// Fix 3: Copy vad-web assets to renderer public directory
+const vadSrc = path.join(__dirname, '..', 'node_modules', '@ricky0123', 'vad-web', 'dist')
+const vadDest = path.join(__dirname, '..', 'src', 'renderer', 'public', 'vad')
+
+if (fs.existsSync(vadSrc)) {
+  fs.mkdirSync(vadDest, { recursive: true })
+  const assetsToCopy = [
+    'silero_vad_legacy.onnx',
+    'silero_vad_v5.onnx',
+    'vad.worklet.bundle.min.js'
+  ]
+  for (const file of assetsToCopy) {
+    const src = path.join(vadSrc, file)
+    const dest = path.join(vadDest, file)
+    if (fs.existsSync(src)) {
+      fs.copyFileSync(src, dest)
+      console.log(`[fix-whisper-addon] Copied VAD asset: ${file}`)
+    }
+  }
+
+  // Copy ONNX Runtime WASM files
+  const ortDist = path.join(__dirname, '..', 'node_modules', 'onnxruntime-web', 'dist')
+  if (fs.existsSync(ortDist)) {
+    for (const file of fs.readdirSync(ortDist)) {
+      if (file.endsWith('.wasm')) {
+        fs.copyFileSync(path.join(ortDist, file), path.join(vadDest, file))
+        console.log(`[fix-whisper-addon] Copied ORT WASM: ${file}`)
+      }
+    }
+  }
+} else {
+  console.log('[fix-whisper-addon] vad-web not installed, skipping asset copy')
 }

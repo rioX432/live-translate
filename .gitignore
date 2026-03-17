@@ -5,3 +5,4 @@ models/
 logs/
 *.log
 .DS_Store
+src/renderer/public/vad/
