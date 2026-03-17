@@ -32,7 +32,7 @@ export class WhisperTranslateEngine implements E2ETranslationEngine {
     audioChunk: Float32Array,
     _sampleRate: number
   ): Promise<TranslationResult | null> {
-    if (!this.modelPath) throw new Error('Engine not initialized')
+    if (!this.modelPath) return null
 
     try {
       // First: transcribe to get original Japanese text

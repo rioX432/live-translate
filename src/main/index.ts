@@ -215,6 +215,11 @@ ipcMain.handle('pipeline-stop', async () => {
   return { logPath }
 })
 
+// Get session start time
+ipcMain.handle('get-session-start-time', () => {
+  return pipeline?.sessionStartTime ?? null
+})
+
 // Process audio chunk from renderer
 ipcMain.handle('process-audio', async (_event, audioData: unknown) => {
   if (!pipeline?.running) return null

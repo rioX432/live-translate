@@ -17,7 +17,7 @@ function SubtitleOverlay(): JSX.Element {
   const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    window.api.onTranslationResult((data) => {
+    const unsubscribe = window.api.onTranslationResult((data) => {
       const result = data as Omit<SubtitleLine, 'id' | 'opacity'>
       setLines((prev) => {
         const updated = [...prev, { ...result, id: Date.now(), opacity: 1 }]
@@ -41,6 +41,7 @@ function SubtitleOverlay(): JSX.Element {
     }, 500)
 
     return () => {
+      unsubscribe?.()
       if (fadeTimerRef.current) clearInterval(fadeTimerRef.current)
     }
   }, [])
