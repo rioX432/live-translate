@@ -1,214 +1,236 @@
-# live-translate アーキテクチャ（改訂版 v2）
+# live-translate Architecture
 
-## 概要
+## Overview
 
 Mac上で動作するリアルタイム同時翻訳オーバーレイアプリ。
 プレゼン中に拡張ディスプレイ上でスライドに重ねて翻訳字幕を表示する。
 
-**改訂理由**: SeamlessM4T v2 がモデル30GB超・Python必須で現実的でないため、Python不要の純Electronアプリに設計変更。
+## Tech Stack
 
-## 技術スタック
+- **Framework**: Electron + React + TypeScript
+- **Build**: electron-vite
+- **STT**: whisper-node-addon (whisper.cpp Node.js native addon)
+- **VAD**: @ricky0123/vad-web (Silero VAD, voice activity detection)
+- **Translation (online)**: Google Cloud Translation API v2, DeepL API, Azure Microsoft Translator, Gemini 2.5 Flash
+- **Translation (offline)**: OPUS-MT (Hugging Face transformers), Whisper translate task (JA→EN only)
+- **Streaming**: Local Agreement algorithm for low-latency display
+- **Python**: **Not required**
 
-- **フレームワーク**: Electron + React + TypeScript
-- **ビルド**: electron-vite
-- **STT**: whisper-node-addon (whisper.cpp のNode.js ネイティブアドオン)
-- **翻訳(オンライン)**: Google Cloud Translation API v2 (REST)
-- **翻訳(オフライン)**: Whisper translate task (JA→EN のみ)
-- **Python**: **不要**
-
-## システム構成図
+## System Diagram
 
 ```
-┌───────────────────────────────────────────────────────┐
-│  Electron App (Python不要)                             │
-│                                                         │
-│  ┌──────────────┐                                      │
-│  │ AudioCapture │ (Web Audio API, getUserMedia)        │
-│  │ 16kHz PCM32  │                                      │
-│  └──────┬───────┘                                      │
-│         │                                              │
-│         ▼                                              │
-│  ┌──────────────────────────────────────────────┐      │
-│  │ TranslationPipeline (Strategy Pattern)       │      │
-│  │                                              │      │
-│  │  Mode A: Cascade (Online)                    │      │
-│  │  ┌─────────────┐   ┌──────────────────┐     │      │
-│  │  │ WhisperLocal│──→│ GoogleTranslator │     │      │
-│  │  │ (STT+LangDet)│  │ (REST API)       │     │      │
-│  │  └─────────────┘   └──────────────────┘     │      │
-│  │                                              │      │
-│  │  Mode B: E2E (Offline, JA→EN only)           │      │
-│  │  ┌────────────────────────┐                  │      │
-│  │  │ WhisperTranslate       │                  │      │
-│  │  │ (translate task)       │                  │      │
-│  │  └────────────────────────┘                  │      │
-│  └──────────────────┬───────────────────────────┘      │
-│                     │                                  │
-│         ┌───────────┴───────────┐                      │
-│         ▼                       ▼                      │
-│  ┌──────────────┐    ┌──────────────────┐              │
-│  │ SubtitleOver │    │ TranscriptLogger │              │
-│  │ (透過Window) │    │ (ファイル保存)    │              │
-│  └──────────────┘    └──────────────────┘              │
-└───────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│  Electron App                                                           │
+│                                                                         │
+│  ┌──────────────────┐                                                   │
+│  │ AudioCapture     │ (Web Audio API + Silero VAD)                      │
+│  │ 16kHz PCM Float32│                                                   │
+│  └──────┬───────────┘                                                   │
+│         │ IPC (Array.from → Float32Array)                                │
+│         ▼                                                               │
+│  ┌──────────────────────────────────────────────────────────────────┐   │
+│  │ TranslationPipeline (Strategy Pattern)                           │   │
+│  │                                                                  │   │
+│  │  Mode A: Cascade (Online)                                        │   │
+│  │  ┌─────────────┐   ┌────────────────────────────────────────┐   │   │
+│  │  │ WhisperLocal│──→│ Translator                             │   │   │
+│  │  │ (STT+LangDet)│  │ Google / DeepL / Azure / Gemini /     │   │   │
+│  │  └─────────────┘   │ OPUS-MT / ApiRotationController       │   │   │
+│  │                     └────────────────────────────────────────┘   │   │
+│  │  Mode B: E2E (Offline, JA→EN only)                               │   │
+│  │  ┌────────────────────────┐                                      │   │
+│  │  │ WhisperTranslate       │                                      │   │
+│  │  └────────────────────────┘                                      │   │
+│  │                                                                  │   │
+│  │  Streaming: LocalAgreement                                       │   │
+│  │  ┌────────────────────────────────────────────────────┐          │   │
+│  │  │ processStreaming() → interim results (during speech)│          │   │
+│  │  │ finalizeStreaming() → final result (speech ends)    │          │   │
+│  │  └────────────────────────────────────────────────────┘          │   │
+│  │                                                                  │   │
+│  │  Production Hardening:                                           │   │
+│  │  • Memory monitoring (heap/RSS every 60s)                        │   │
+│  │  • Auto-recovery after 3 consecutive errors                      │   │
+│  │  • Whisper hallucination filter                                  │   │
+│  │  • Graceful degradation (STT-only on translator failure)         │   │
+│  └──────────────────┬───────────────────────────────────────────────┘   │
+│                     │                                                   │
+│         ┌───────────┴───────────┐                                       │
+│         ▼                       ▼                                       │
+│  ┌──────────────┐    ┌──────────────────┐                               │
+│  │ SubtitleOver │    │ TranscriptLogger │                               │
+│  │ (transparent │    │ (file logging)   │                               │
+│  │  + interim)  │    │                  │                               │
+│  └──────────────┘    └──────────────────┘                               │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
-## ディレクトリ構成
+## Directory Structure
 
 ```
 live-translate/
 ├── src/
 │   ├── main/                          # Electron main process
-│   │   ├── index.ts                   # エントリポイント
-│   │   └── window.ts                  # ウィンドウ管理（メイン+字幕）
+│   │   ├── index.ts                   # Entry point, IPC handlers, pipeline wiring
+│   │   └── store.ts                   # electron-store (settings, quota tracking)
 │   │
-│   ├── renderer/                      # Electron renderer process
-│   │   ├── App.tsx                    # React ルート
+│   ├── preload/                       # Context bridge (renderer ↔ main IPC)
+│   │   └── index.ts                   # Exposes IPC channels with unsubscribe support
+│   │
+│   ├── renderer/                      # React UI
+│   │   ├── App.tsx                    # Hash routing (#/subtitle for overlay)
 │   │   ├── components/
-│   │   │   ├── SubtitleOverlay.tsx    # 字幕表示UI
-│   │   │   └── SettingsPanel.tsx      # 設定画面
+│   │   │   ├── SettingsPanel.tsx      # Main control panel (6 engine modes, session timer)
+│   │   │   └── SubtitleOverlay.tsx    # Transparent subtitle window (final + interim lines)
 │   │   └── hooks/
-│   │       ├── useAudioCapture.ts     # マイク音声取得
-│   │       └── usePipeline.ts         # パイプライン管理
+│   │       └── useAudioCapture.ts     # Mic capture via Silero VAD
 │   │
-│   ├── engines/                       # プラグインエンジン
-│   │   ├── types.ts                   # 共通インターフェース定義
+│   ├── engines/                       # Pluggable engines (Strategy pattern)
+│   │   ├── types.ts                   # Interfaces: STTEngine, TranslatorEngine, E2ETranslationEngine
+│   │   ├── model-downloader.ts        # Whisper GGML model auto-download
 │   │   ├── stt/
-│   │   │   └── WhisperLocalEngine.ts  # Whisper STT (whisper-node-addon)
+│   │   │   └── WhisperLocalEngine.ts  # Local STT via whisper-node-addon + hallucination filter
 │   │   ├── translator/
-│   │   │   └── GoogleTranslator.ts    # Google Cloud Translation
+│   │   │   ├── GoogleTranslator.ts    # Google Cloud Translation API v2
+│   │   │   ├── DeepLTranslator.ts     # DeepL API
+│   │   │   ├── GeminiTranslator.ts    # Gemini 2.5 Flash (LLM-based)
+│   │   │   ├── MicrosoftTranslator.ts # Azure Microsoft Translator
+│   │   │   ├── OpusMTTranslator.ts    # OPUS-MT via Hugging Face transformers (offline)
+│   │   │   └── ApiRotationController.ts # Multi-provider rotation with quota tracking
 │   │   └── e2e/
-│   │       └── WhisperTranslateEngine.ts  # Whisper translate (JA→EN)
+│   │       └── WhisperTranslateEngine.ts # Offline JA→EN (Whisper translate task)
 │   │
 │   ├── pipeline/
-│   │   └── TranslationPipeline.ts     # STT→翻訳パイプライン
+│   │   ├── TranslationPipeline.ts     # STT → translate orchestration, streaming, recovery
+│   │   ├── LocalAgreement.ts          # Longest common prefix for streaming stability
+│   │   └── whisper-filter.ts          # Whisper hallucination detection and filtering
 │   │
 │   └── logger/
-│       └── TranscriptLogger.ts        # 文字起こしログ保存
+│       └── TranscriptLogger.ts        # Session transcript file writer
 │
-├── models/                            # Whisper GGMLモデル（初回DL）
-├── logs/                              # 文字起こしログ出力先
-├── package.json
-├── electron-builder.yml
-├── ARCHITECTURE.md
-└── RESEARCH.md
+├── scripts/
+│   └── fix-whisper-addon.js           # postinstall: fix macOS dylib paths
+├── models/                            # Whisper GGML models (auto-downloaded, gitignored)
+└── logs/                              # Transcript logs (gitignored)
 ```
 
-## エンジンインターフェース
+## Engine Interfaces
 
 ```typescript
-// engines/types.ts
-
 interface STTResult {
-  text: string;
-  language: 'ja' | 'en';
-  isFinal: boolean;
-  timestamp: number;
-}
-
-interface STTEngine {
-  readonly id: string;
-  readonly name: string;
-  readonly isOffline: boolean;
-  initialize(): Promise<void>;
-  processAudio(audioChunk: Float32Array, sampleRate: number): Promise<STTResult | null>;
-  dispose(): Promise<void>;
-}
-
-interface TranslatorEngine {
-  readonly id: string;
-  readonly name: string;
-  readonly isOffline: boolean;
-  initialize(): Promise<void>;
-  translate(text: string, from: 'ja' | 'en', to: 'ja' | 'en'): Promise<string>;
-  dispose(): Promise<void>;
+  text: string
+  language: 'ja' | 'en'
+  isFinal: boolean
+  timestamp: number
 }
 
 interface TranslationResult {
-  sourceText: string;
-  translatedText: string;
-  sourceLanguage: 'ja' | 'en';
-  targetLanguage: 'ja' | 'en';
-  timestamp: number;
+  sourceText: string
+  translatedText: string
+  sourceLanguage: 'ja' | 'en'
+  targetLanguage: 'ja' | 'en'
+  timestamp: number
+  isInterim?: boolean  // true for streaming interim results
+}
+
+interface STTEngine {
+  readonly id: string
+  readonly name: string
+  readonly isOffline: boolean
+  initialize(): Promise<void>
+  processAudio(audioChunk: Float32Array, sampleRate: number): Promise<STTResult | null>
+  dispose(): Promise<void>
+}
+
+interface TranslatorEngine {
+  readonly id: string
+  readonly name: string
+  readonly isOffline: boolean
+  initialize(): Promise<void>
+  translate(text: string, from: Language, to: Language): Promise<string>
+  dispose(): Promise<void>
 }
 
 interface E2ETranslationEngine {
-  readonly id: string;
-  readonly name: string;
-  readonly isOffline: boolean;
-  initialize(): Promise<void>;
-  processAudio(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null>;
-  dispose(): Promise<void>;
-}
-
-interface EngineConfig {
-  mode: 'cascade' | 'e2e';
-  sttEngineId?: string;
-  translatorEngineId?: string;
-  e2eEngineId?: string;
+  readonly id: string
+  readonly name: string
+  readonly isOffline: boolean
+  initialize(): Promise<void>
+  processAudio(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null>
+  dispose(): Promise<void>
 }
 ```
 
-## 動作モード
+## Pipeline Modes
 
-### Mode A: オンライン（推奨）
+### Mode A: Cascade (Online)
 ```
-Whisper STT (ローカル) → 言語検出 → Google Translation API → 字幕
+Mic → VAD → Whisper STT (local) → Language detection → Translator API → Subtitle
 ```
-- 日英双方向対応
-- 翻訳品質: 高
-- コスト: ¥0（月50万文字無料枠）
-- 要: インターネット + Google Cloud API Key
+- JA↔EN bidirectional
+- 6 translator options (Google, DeepL, Azure, Gemini, OPUS-MT, Auto Rotation)
+- Auto Rotation: Azure (2M) → Google (480K) → DeepL (500K) with quota tracking
 
-### Mode B: オフライン
+### Mode B: E2E (Offline)
 ```
-Whisper translate task → 字幕
+Mic → VAD → Whisper translate task → Subtitle
 ```
-- JA→EN のみ対応（EN→JA は不可）
-- 翻訳品質: 中
-- コスト: ¥0
-- インターネット不要
+- JA→EN only (Whisper translate always outputs English)
+- No internet required
 
-## 新しいエンジンの追加方法
-
-1ファイル追加するだけ:
-
-```typescript
-// 例: 将来 DeepL を追加する場合
-// src/engines/translator/DeepLTranslator.ts
-class DeepLTranslator implements TranslatorEngine {
-  readonly id = 'deepl';
-  readonly name = 'DeepL API';
-  readonly isOffline = false;
-  async initialize() { /* ... */ }
-  async translate(text, from, to) { /* ... */ }
-  async dispose() { /* ... */ }
-}
+### Streaming (Local Agreement)
 ```
+During speech:  processStreaming() → interim result (confirmed + tentative text)
+Speech ends:    finalizeStreaming() → final result (all text confirmed)
+```
+- Compares consecutive Whisper results to find stable (agreed-upon) text
+- Only translates newly confirmed text to minimize API calls
+- Word boundary snapping to avoid partial-word confirmation
+- Interim results displayed in italic, final results in normal style
 
-## 将来のエンジン候補（プラグインとして追加可能）
+## Production Hardening
 
-| エンジン | 種別 | Python要否 | 備考 |
-|---|---|---|---|
-| SeamlessM4T v2 | E2E | 必要 | 30GB超、将来Python同梱で対応 |
-| DeepL API | Translator | 不要 | 月$5.49〜 |
-| VoicePing whisper-ja-en | E2E | 必要 | 756M、日英特化 |
-| Deepgram Nova-3 | STT | 不要 | $26/月、コードスイッチング対応 |
+- **Memory monitoring**: Logs heap/RSS usage every 60 seconds during active sessions
+- **Auto-recovery**: After 3 consecutive processing errors, reinitializes engines with 1s delay
+- **Whisper hallucination filter**: Detects and filters repetitive patterns, known hallucination phrases (EN/JA), and extremely short text
+- **Graceful degradation**: When translator fails, shows STT-only result instead of dropping the segment
+- **IPC cleanup**: All IPC listeners return unsubscribe functions to prevent memory leaks on component unmount
+- **Session duration**: Elapsed time displayed in settings panel during active sessions
 
-## 配布
+## API Rotation Controller
 
-- macOS arm64 向け .app ファイル
-- Python **不要**（純Electronアプリ）
-- Whisper モデル (~800MB) は初回起動時に自動ダウンロード
-- 社内ファイル共有 or GitHub Private Releases で配布
-- Apple Developer Program 不要（社内配布のため署名なし）
+Manages multiple translation providers with automatic fallback on quota exhaustion:
 
-## 必要なマシンスペック
+| Priority | Provider | Free Tier |
+|----------|----------|-----------|
+| 1 | Azure Microsoft Translator | 2M chars/month |
+| 2 | Google Cloud Translation | 480K chars/month (safe cap) |
+| 3 | DeepL | 500K chars/month |
 
-| 項目 | 要件 |
-|---|---|
-| Mac | Apple Silicon (M1以上) |
-| RAM | 16GB以上推奨 |
-| ストレージ | 1GB空き（モデル保存用） |
-| macOS | 13 Ventura 以上 |
-| ネットワーク | オンラインモード時のみ必要 |
+- Tracks character usage per provider per month via electron-store
+- Automatically switches to next provider when current one's quota is exhausted
+- Resets counters on month change
+
+## Adding a New Engine
+
+1. Create a file in `src/engines/translator/` implementing `TranslatorEngine`
+2. Register the factory in `src/main/index.ts` → `initPipeline()`
+3. Add the engine option to `src/renderer/components/SettingsPanel.tsx`
+
+## Distribution
+
+- macOS arm64 .app file
+- Python **not required** (pure Electron app)
+- Whisper model (~540MB) auto-downloads on first launch
+- Internal distribution via file sharing or GitHub Private Releases
+- No Apple Developer Program required (unsigned for internal use)
+
+## System Requirements
+
+| Item | Requirement |
+|------|-------------|
+| Mac | Apple Silicon (M1+) |
+| RAM | 16GB+ recommended |
+| Storage | 1GB free (for models) |
+| macOS | 13 Ventura+ |
+| Network | Online engines only |
