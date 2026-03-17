@@ -4,7 +4,7 @@ import type { STTEngine, STTResult, Language } from '../types'
 
 export class WhisperLocalEngine implements STTEngine {
   readonly id = 'whisper-local'
-  readonly name = 'Whisper Local (large-v3-turbo)'
+  readonly name = 'Whisper Local (kotoba-whisper-v2.0)'
   readonly isOffline = true
 
   private modelPath = ''

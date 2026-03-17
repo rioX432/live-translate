@@ -3,8 +3,9 @@ import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 import { writeFile } from 'fs/promises'
 
-export const MODEL_FILENAME = 'ggml-large-v3-turbo-q5_0.bin'
-export const MODEL_URL = `https://huggingface.co/ggerganov/whisper.cpp/resolve/main/${MODEL_FILENAME}`
+export const MODEL_FILENAME = 'ggml-kotoba-whisper-v2.0-q5_0.bin'
+export const MODEL_URL =
+  'https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0-ggml/resolve/main/ggml-kotoba-whisper-v2.0-q5_0.bin'
 
 export function getModelPath(): string {
   return join(getModelsDir(), MODEL_FILENAME)
@@ -31,7 +32,7 @@ export async function downloadModel(
     return modelPath
   }
 
-  onProgress?.('Downloading Whisper model (~600MB)...')
+  onProgress?.('Downloading Whisper model (~540MB)...')
 
   const response = await fetch(MODEL_URL, { redirect: 'follow' })
   if (!response.ok) {

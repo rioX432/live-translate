@@ -1,0 +1,150 @@
+import type { TranslatorEngine, Language } from '../types'
+
+export interface ProviderConfig {
+  engine: TranslatorEngine
+  monthlyCharLimit: number
+}
+
+export interface QuotaRecord {
+  monthKey: string
+  charCount: number
+}
+
+export interface QuotaStore {
+  [providerId: string]: QuotaRecord
+}
+
+export interface QuotaPersistence {
+  load(): QuotaStore
+  save(quota: QuotaStore): void
+}
+
+/**
+ * Wraps multiple TranslatorEngine instances with automatic fallback.
+ * Tracks character usage per provider per month and skips exhausted providers.
+ */
+export class ApiRotationController implements TranslatorEngine {
+  readonly id = 'rotation-controller'
+  readonly name = 'API Rotation Controller'
+  readonly isOffline = false
+
+  private providers: ProviderConfig[]
+  private persistence: QuotaPersistence
+  private quota: QuotaStore = {}
+  private onStatusUpdate?: (message: string) => void
+
+  constructor(
+    providers: ProviderConfig[],
+    persistence: QuotaPersistence,
+    onStatusUpdate?: (message: string) => void
+  ) {
+    this.providers = providers
+    this.persistence = persistence
+    this.onStatusUpdate = onStatusUpdate
+    this.quota = persistence.load() || {}
+  }
+
+  async initialize(): Promise<void> {
+    // Initialize all provider engines
+    for (const provider of this.providers) {
+      await provider.engine.initialize()
+    }
+  }
+
+  async translate(text: string, from: Language, to: Language): Promise<string> {
+    if (!text.trim()) return ''
+
+    const currentMonth = this.getCurrentMonthKey()
+    const charCount = text.length
+    const errors: string[] = []
+
+    for (const provider of this.providers) {
+      const providerId = provider.engine.id
+      const record = this.getQuotaRecord(providerId, currentMonth)
+
+      // Skip if quota exhausted
+      if (record.charCount >= provider.monthlyCharLimit) {
+        continue
+      }
+
+      // Warn if approaching limit (90%)
+      const usageRatio = record.charCount / provider.monthlyCharLimit
+      if (usageRatio >= 0.9 && usageRatio < 1) {
+        console.warn(
+          `[rotation] ${providerId}: ${Math.round(usageRatio * 100)}% quota used (${record.charCount}/${provider.monthlyCharLimit})`
+        )
+      }
+
+      try {
+        const result = await provider.engine.translate(text, from, to)
+
+        // Track usage after successful translation
+        record.charCount += charCount
+        this.quota[providerId] = record
+        this.persistence.save(this.quota)
+
+        return result
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        errors.push(`${providerId}: ${message}`)
+        console.error(`[rotation] ${providerId} failed:`, message)
+
+        // Mark as exhausted on quota errors
+        if (message.includes('Quota exceeded') || message.includes('456')) {
+          record.charCount = provider.monthlyCharLimit
+          this.quota[providerId] = record
+          this.persistence.save(this.quota)
+        }
+
+        // Continue to next provider
+      }
+    }
+
+    this.onStatusUpdate?.('Translation quota exhausted — all providers used up')
+    const errorMsg = `All translation providers exhausted. Errors: ${errors.join('; ')}`
+    throw new Error(errorMsg)
+  }
+
+  async dispose(): Promise<void> {
+    for (const provider of this.providers) {
+      await provider.engine.dispose().catch(() => {})
+    }
+  }
+
+  /** Get quota usage summary for UI display */
+  getQuotaSummary(): Array<{
+    id: string
+    name: string
+    used: number
+    limit: number
+    exhausted: boolean
+  }> {
+    const currentMonth = this.getCurrentMonthKey()
+    return this.providers.map((p) => {
+      const record = this.getQuotaRecord(p.engine.id, currentMonth)
+      return {
+        id: p.engine.id,
+        name: p.engine.name,
+        used: record.charCount,
+        limit: p.monthlyCharLimit,
+        exhausted: record.charCount >= p.monthlyCharLimit
+      }
+    })
+  }
+
+  private getCurrentMonthKey(): string {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  }
+
+  private getQuotaRecord(providerId: string, currentMonth: string): QuotaRecord {
+    const existing = this.quota[providerId]
+    if (existing && existing.monthKey === currentMonth) {
+      return existing
+    }
+    // Reset for new month
+    const record: QuotaRecord = { monthKey: currentMonth, charCount: 0 }
+    this.quota[providerId] = record
+    return record
+  }
+}
