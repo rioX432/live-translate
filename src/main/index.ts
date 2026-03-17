@@ -239,9 +239,9 @@ ipcMain.handle('process-audio', async (_event, audioData: unknown) => {
     return null
   }
 
-  // Debug: log audio stats
+  // Debug: log audio stats (scan all samples)
   let maxAmp = 0
-  for (let i = 0; i < Math.min(chunk.length, 1000); i++) {
+  for (let i = 0; i < chunk.length; i++) {
     const abs = Math.abs(chunk[i])
     if (abs > maxAmp) maxAmp = abs
   }
