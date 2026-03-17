@@ -2,8 +2,8 @@
 
 ## Overview
 
-Mac上で動作するリアルタイム同時翻訳オーバーレイアプリ。
-プレゼン中に拡張ディスプレイ上でスライドに重ねて翻訳字幕を表示する。
+Real-time speech translation overlay app for macOS.
+Displays bilingual subtitles over slides on an external display during live presentations.
 
 ## Tech Stack
 
@@ -222,8 +222,7 @@ Manages multiple translation providers with automatic fallback on quota exhausti
 - macOS arm64 .app file
 - Python **not required** (pure Electron app)
 - Whisper model (~540MB) auto-downloads on first launch
-- Internal distribution via file sharing or GitHub Private Releases
-- No Apple Developer Program required (unsigned for internal use)
+- No Apple Developer Program required (unsigned, for local use)
 
 ## System Requirements
 

@@ -2,19 +2,19 @@
 
 Real-time speech translation overlay for presentations.
 
-Mac のプレゼン発表中に、拡張ディスプレイ上のスライドに重ねてリアルタイム翻訳字幕を表示する社内ツール。
+Displays bilingual subtitles over slides on an external display during live presentations on macOS.
 
 ## Features
 
-- 🎤 **リアルタイム音声認識** — Whisper (whisper.cpp) によるローカル STT
-- 🌐 **日英双方向翻訳** — 日本語 → 英語、英語 → 日本語を自動検出・自動切替
-- 🖥️ **透過字幕オーバーレイ** — スライドに重ねて表示。拡張ディスプレイ対応
-- ⚡ **ストリーミング表示** — Local Agreement アルゴリズムで発話中から字幕を表示
-- 🔌 **エンジン差し替え可能** — Strategy パターンで翻訳エンジンをプラグイン式に切替
-- 🔄 **API 自動ローテーション** — 複数翻訳 API を月間無料枠で自動切替（最大 3M chars/月）
-- 🛡️ **本番安定性** — 自動リカバリ、hallucination フィルター、メモリ監視
-- 📝 **文字起こしログ保存** — セッションごとにタイムスタンプ付きログを自動保存
-- 💰 **無料** — API 無料枠 + ローカルモデルで月額 ¥0
+- **Real-time speech recognition** — Local STT via Whisper (whisper.cpp)
+- **Bidirectional JA↔EN translation** — Auto-detects language and translates both directions
+- **Transparent subtitle overlay** — Rendered on top of slides on an external display
+- **Streaming display** — Local Agreement algorithm shows subtitles while still speaking
+- **Pluggable engines** — Strategy pattern allows swapping translation engines
+- **API auto-rotation** — Automatically rotates across multiple translation APIs' free tiers (up to 3M chars/month)
+- **Production stability** — Auto-recovery, hallucination filter, memory monitoring
+- **Transcript logging** — Timestamped session logs saved automatically
+- **Free** — Runs on API free tiers + local models at ¥0/month
 
 ## Translation Engines
 
@@ -111,4 +111,4 @@ export class MyTranslator implements TranslatorEngine {
 
 ## License
 
-Private — Internal use only
+MIT
