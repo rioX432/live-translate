@@ -5,6 +5,7 @@ import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { GoogleTranslator } from '../engines/translator/GoogleTranslator'
 import { DeepLTranslator } from '../engines/translator/DeepLTranslator'
+import { GeminiTranslator } from '../engines/translator/GeminiTranslator'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { WhisperTranslateEngine } from '../engines/e2e/WhisperTranslateEngine'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
@@ -126,6 +127,9 @@ ipcMain.handle('pipeline-start', async (_event, config: EngineConfig & { apiKey?
     }
     if (config.deeplApiKey) {
       pipeline.registerTranslator('deepl-translate', () => new DeepLTranslator(config.deeplApiKey!))
+    }
+    if (config.geminiApiKey) {
+      pipeline.registerTranslator('gemini-translate', () => new GeminiTranslator(config.geminiApiKey!))
     }
 
     await pipeline.switchEngine(config)

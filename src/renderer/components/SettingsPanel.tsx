@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
 
-type EngineMode = 'online' | 'online-deepl' | 'offline-e2e' | 'offline-opus'
+type EngineMode = 'online' | 'online-deepl' | 'online-gemini' | 'offline-e2e' | 'offline-opus'
 
 interface DisplayInfo {
   id: number
@@ -12,6 +12,7 @@ function SettingsPanel(): JSX.Element {
   const [engineMode, setEngineMode] = useState<EngineMode>('online')
   const [apiKey, setApiKey] = useState('')
   const [deeplApiKey, setDeeplApiKey] = useState('')
+  const [geminiApiKey, setGeminiApiKey] = useState('')
   const [displays, setDisplays] = useState<DisplayInfo[]>([])
   const [selectedDisplay, setSelectedDisplay] = useState<number>(0)
   const [status, setStatus] = useState('Ready')
@@ -63,7 +64,14 @@ function SettingsPanel(): JSX.Element {
                 translatorEngineId: 'deepl-translate',
                 deeplApiKey
               }
-            : engineMode === 'offline-opus'
+            : engineMode === 'online-gemini'
+              ? {
+                  mode: 'cascade' as const,
+                  sttEngineId: 'whisper-local',
+                  translatorEngineId: 'gemini-translate',
+                  geminiApiKey
+                }
+              : engineMode === 'offline-opus'
               ? {
                   mode: 'cascade' as const,
                   sttEngineId: 'whisper-local',
@@ -164,6 +172,19 @@ function SettingsPanel(): JSX.Element {
           <input
             type="radio"
             name="engine"
+            checked={engineMode === 'online-gemini'}
+            onChange={() => setEngineMode('online-gemini')}
+            disabled={isRunning}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Online — Whisper + Gemini 2.5 Flash</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, LLM-based, generous free tier</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
             checked={engineMode === 'offline-opus'}
             onChange={() => setEngineMode('offline-opus')}
             disabled={isRunning}
@@ -213,6 +234,18 @@ function SettingsPanel(): JSX.Element {
           />
         </Section>
       )}
+      {engineMode === 'online-gemini' && (
+        <Section label="Gemini API Key">
+          <input
+            type="password"
+            value={geminiApiKey}
+            onChange={(e) => setGeminiApiKey(e.target.value)}
+            placeholder="Enter Gemini API key..."
+            style={inputStyle}
+            disabled={isRunning}
+          />
+        </Section>
+      )}
 
       {/* Display Selection */}
       <Section label="Subtitle Display">
@@ -236,7 +269,7 @@ function SettingsPanel(): JSX.Element {
           ...buttonStyle,
           background: isRunning ? '#dc2626' : '#16a34a'
         }}
-        disabled={!isRunning && ((engineMode === 'online' && !apiKey) || (engineMode === 'online-deepl' && !deeplApiKey))}
+        disabled={!isRunning && ((engineMode === 'online' && !apiKey) || (engineMode === 'online-deepl' && !deeplApiKey) || (engineMode === 'online-gemini' && !geminiApiKey))}
       >
         {isRunning ? '⏹ Stop' : '▶ Start'}
       </button>
