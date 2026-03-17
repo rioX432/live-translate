@@ -89,7 +89,7 @@ function SubtitleOverlay(): JSX.Element {
             style={{
               color: line.sourceLanguage === 'ja' ? '#93c5fd' : '#86efac',
               fontSize: '28px',
-              fontWeight: 500,
+              fontWeight: 600,
               lineHeight: 1.4,
               marginTop: '2px',
               textShadow: '0 1px 3px rgba(0,0,0,0.5)'
