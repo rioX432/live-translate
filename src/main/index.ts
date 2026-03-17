@@ -6,9 +6,13 @@ import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { GoogleTranslator } from '../engines/translator/GoogleTranslator'
 import { DeepLTranslator } from '../engines/translator/DeepLTranslator'
 import { GeminiTranslator } from '../engines/translator/GeminiTranslator'
+import { MicrosoftTranslator } from '../engines/translator/MicrosoftTranslator'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
+import { ApiRotationController } from '../engines/translator/ApiRotationController'
+import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { WhisperTranslateEngine } from '../engines/e2e/WhisperTranslateEngine'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
+import { store } from './store'
 import type { EngineConfig, TranslationResult } from '../engines/types'
 
 let mainWindow: BrowserWindow | null = null
@@ -117,7 +121,15 @@ function initPipeline(): void {
 // --- IPC Handlers ---
 
 // Start pipeline with given config
-ipcMain.handle('pipeline-start', async (_event, config: EngineConfig & { apiKey?: string; deeplApiKey?: string; geminiApiKey?: string }) => {
+interface PipelineStartConfig extends EngineConfig {
+  apiKey?: string
+  deeplApiKey?: string
+  geminiApiKey?: string
+  microsoftApiKey?: string
+  microsoftRegion?: string
+}
+
+ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => {
   if (!pipeline) return { error: 'Pipeline not initialized' }
 
   try {
@@ -130,6 +142,52 @@ ipcMain.handle('pipeline-start', async (_event, config: EngineConfig & { apiKey?
     }
     if (config.geminiApiKey) {
       pipeline.registerTranslator('gemini-translate', () => new GeminiTranslator(config.geminiApiKey!))
+    }
+    if (config.microsoftApiKey && config.microsoftRegion) {
+      pipeline.registerTranslator('microsoft-translate', () =>
+        new MicrosoftTranslator(config.microsoftApiKey!, config.microsoftRegion!)
+      )
+    }
+
+    // Build rotation controller when rotation mode is selected
+    if (config.translatorEngineId === 'rotation-controller') {
+      const providers: ProviderConfig[] = []
+      const statusFn = (msg: string): void => {
+        mainWindow?.webContents.send('status-update', msg)
+      }
+
+      // Order: Azure (2M) → Google (480K safe cap) → DeepL (500K)
+      if (config.microsoftApiKey && config.microsoftRegion) {
+        providers.push({
+          engine: new MicrosoftTranslator(config.microsoftApiKey, config.microsoftRegion),
+          monthlyCharLimit: 2_000_000
+        })
+      }
+      if (config.apiKey) {
+        providers.push({
+          engine: new GoogleTranslator(config.apiKey),
+          monthlyCharLimit: 480_000
+        })
+      }
+      if (config.deeplApiKey) {
+        providers.push({
+          engine: new DeepLTranslator(config.deeplApiKey),
+          monthlyCharLimit: 500_000
+        })
+      }
+
+      if (providers.length === 0) {
+        return { error: 'Rotation mode requires at least one API key' }
+      }
+
+      const persistence = {
+        load: (): QuotaStore => store.get('quotaTracking') as QuotaStore,
+        save: (quota: QuotaStore): void => { store.set('quotaTracking', quota) }
+      }
+
+      pipeline.registerTranslator('rotation-controller', () =>
+        new ApiRotationController(providers, persistence, statusFn)
+      )
     }
 
     await pipeline.switchEngine(config)

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
 
-type EngineMode = 'online' | 'online-deepl' | 'online-gemini' | 'offline-e2e' | 'offline-opus'
+type EngineMode = 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-e2e' | 'offline-opus'
 
 interface DisplayInfo {
   id: number
@@ -13,6 +13,8 @@ function SettingsPanel(): JSX.Element {
   const [apiKey, setApiKey] = useState('')
   const [deeplApiKey, setDeeplApiKey] = useState('')
   const [geminiApiKey, setGeminiApiKey] = useState('')
+  const [microsoftApiKey, setMicrosoftApiKey] = useState('')
+  const [microsoftRegion, setMicrosoftRegion] = useState('')
   const [displays, setDisplays] = useState<DisplayInfo[]>([])
   const [selectedDisplay, setSelectedDisplay] = useState<number>(0)
   const [status, setStatus] = useState('Ready')
@@ -49,38 +51,49 @@ function SettingsPanel(): JSX.Element {
       setStatus('Starting pipeline...')
 
       // Build engine config
-      const config =
-        engineMode === 'online'
-          ? {
-              mode: 'cascade' as const,
-              sttEngineId: 'whisper-local',
-              translatorEngineId: 'google-translate',
-              apiKey
-            }
-          : engineMode === 'online-deepl'
-            ? {
-                mode: 'cascade' as const,
-                sttEngineId: 'whisper-local',
-                translatorEngineId: 'deepl-translate',
-                deeplApiKey
-              }
-            : engineMode === 'online-gemini'
-              ? {
-                  mode: 'cascade' as const,
-                  sttEngineId: 'whisper-local',
-                  translatorEngineId: 'gemini-translate',
-                  geminiApiKey
-                }
-              : engineMode === 'offline-opus'
-              ? {
-                  mode: 'cascade' as const,
-                  sttEngineId: 'whisper-local',
-                  translatorEngineId: 'opus-mt'
-                }
-              : {
-                  mode: 'e2e' as const,
-                  e2eEngineId: 'whisper-translate'
-                }
+      let config: Record<string, unknown>
+      if (engineMode === 'rotation') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: 'whisper-local',
+          translatorEngineId: 'rotation-controller',
+          ...(apiKey && { apiKey }),
+          ...(deeplApiKey && { deeplApiKey }),
+          ...(microsoftApiKey && microsoftRegion && { microsoftApiKey, microsoftRegion })
+        }
+      } else if (engineMode === 'online') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: 'whisper-local',
+          translatorEngineId: 'google-translate',
+          apiKey
+        }
+      } else if (engineMode === 'online-deepl') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: 'whisper-local',
+          translatorEngineId: 'deepl-translate',
+          deeplApiKey
+        }
+      } else if (engineMode === 'online-gemini') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: 'whisper-local',
+          translatorEngineId: 'gemini-translate',
+          geminiApiKey
+        }
+      } else if (engineMode === 'offline-opus') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: 'whisper-local',
+          translatorEngineId: 'opus-mt'
+        }
+      } else {
+        config = {
+          mode: 'e2e' as const,
+          e2eEngineId: 'whisper-translate'
+        }
+      }
 
       const result = await window.api.pipelineStart(config)
       if (result.error) {
@@ -142,6 +155,19 @@ function SettingsPanel(): JSX.Element {
 
       {/* Engine Selection */}
       <Section label="Translation Engine">
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'rotation'}
+            onChange={() => setEngineMode('rotation')}
+            disabled={isRunning}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Auto Rotation — 3M chars/month free</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>Azure → Google → DeepL, auto-fallback on quota</div>
+          </div>
+        </label>
         <label style={radioLabelStyle}>
           <input
             type="radio"
@@ -209,7 +235,45 @@ function SettingsPanel(): JSX.Element {
         </label>
       </Section>
 
-      {/* API Key (online modes) */}
+      {/* API Keys */}
+      {engineMode === 'rotation' && (
+        <Section label="API Keys (provide at least one)">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <input
+              type="password"
+              value={microsoftApiKey}
+              onChange={(e) => setMicrosoftApiKey(e.target.value)}
+              placeholder="Azure Microsoft Translator key"
+              style={inputStyle}
+              disabled={isRunning}
+            />
+            <input
+              type="text"
+              value={microsoftRegion}
+              onChange={(e) => setMicrosoftRegion(e.target.value)}
+              placeholder="Azure region (e.g. eastus)"
+              style={inputStyle}
+              disabled={isRunning}
+            />
+            <input
+              type="password"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder="Google Cloud Translation key"
+              style={inputStyle}
+              disabled={isRunning}
+            />
+            <input
+              type="password"
+              value={deeplApiKey}
+              onChange={(e) => setDeeplApiKey(e.target.value)}
+              placeholder="DeepL API key"
+              style={inputStyle}
+              disabled={isRunning}
+            />
+          </div>
+        </Section>
+      )}
       {engineMode === 'online' && (
         <Section label="Google Cloud Translation API Key">
           <input
@@ -269,7 +333,12 @@ function SettingsPanel(): JSX.Element {
           ...buttonStyle,
           background: isRunning ? '#dc2626' : '#16a34a'
         }}
-        disabled={!isRunning && ((engineMode === 'online' && !apiKey) || (engineMode === 'online-deepl' && !deeplApiKey) || (engineMode === 'online-gemini' && !geminiApiKey))}
+        disabled={!isRunning && (
+          (engineMode === 'online' && !apiKey) ||
+          (engineMode === 'online-deepl' && !deeplApiKey) ||
+          (engineMode === 'online-gemini' && !geminiApiKey) ||
+          (engineMode === 'rotation' && !microsoftApiKey && !apiKey && !deeplApiKey)
+        )}
       >
         {isRunning ? '⏹ Stop' : '▶ Start'}
       </button>
