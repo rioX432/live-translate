@@ -41,7 +41,7 @@ export class ApiRotationController implements TranslatorEngine {
     this.providers = providers
     this.persistence = persistence
     this.onStatusUpdate = onStatusUpdate
-    this.quota = persistence.load()
+    this.quota = persistence.load() || {}
   }
 
   async initialize(): Promise<void> {
@@ -100,8 +100,8 @@ export class ApiRotationController implements TranslatorEngine {
       }
     }
 
-    const errorMsg = `All translation providers exhausted. Errors: ${errors.join('; ')}`
     this.onStatusUpdate?.('Translation quota exhausted — all providers used up')
+    const errorMsg = `All translation providers exhausted. Errors: ${errors.join('; ')}`
     throw new Error(errorMsg)
   }
 
