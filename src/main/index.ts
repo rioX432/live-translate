@@ -221,6 +221,11 @@ ipcMain.handle('pipeline-stop', async () => {
   return { logPath }
 })
 
+// Get session start time
+ipcMain.handle('get-session-start-time', () => {
+  return pipeline?.sessionStartTime ?? null
+})
+
 /** Convert IPC audio data to Float32Array */
 function toFloat32Array(audioData: unknown): Float32Array | null {
   let chunk: Float32Array

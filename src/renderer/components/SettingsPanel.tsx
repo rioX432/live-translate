@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
 
 type EngineMode = 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-e2e' | 'offline-opus'
@@ -19,8 +19,38 @@ function SettingsPanel(): JSX.Element {
   const [selectedDisplay, setSelectedDisplay] = useState<number>(0)
   const [status, setStatus] = useState('Ready')
   const [isRunning, setIsRunning] = useState(false)
+  const [sessionDuration, setSessionDuration] = useState('')
+  const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const sessionStartRef = useRef<number | null>(null)
 
   const audio = useAudioCapture()
+
+  const formatDuration = useCallback((ms: number): string => {
+    const totalSec = Math.floor(ms / 1000)
+    const h = Math.floor(totalSec / 3600)
+    const m = Math.floor((totalSec % 3600) / 60)
+    const s = totalSec % 60
+    if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+    return `${m}:${String(s).padStart(2, '0')}`
+  }, [])
+
+  const startSessionTimer = useCallback(() => {
+    sessionStartRef.current = Date.now()
+    sessionTimerRef.current = setInterval(() => {
+      if (sessionStartRef.current) {
+        setSessionDuration(formatDuration(Date.now() - sessionStartRef.current))
+      }
+    }, 1000)
+  }, [formatDuration])
+
+  const stopSessionTimer = useCallback(() => {
+    if (sessionTimerRef.current) {
+      clearInterval(sessionTimerRef.current)
+      sessionTimerRef.current = null
+    }
+    sessionStartRef.current = null
+    setSessionDuration('')
+  }, [])
 
   // Load displays
   useEffect(() => {
@@ -50,9 +80,19 @@ function SettingsPanel(): JSX.Element {
 
   // Listen for status updates from main process
   useEffect(() => {
-    window.api.onStatusUpdate((message) => {
+    const unsubscribe = window.api.onStatusUpdate((message) => {
       setStatus(message)
     })
+    return () => unsubscribe?.()
+  }, [])
+
+  // Cleanup session timer on unmount
+  useEffect(() => {
+    return () => {
+      if (sessionTimerRef.current) {
+        clearInterval(sessionTimerRef.current)
+      }
+    }
   }, [])
 
   const handleStart = async (): Promise<void> => {
@@ -112,6 +152,7 @@ function SettingsPanel(): JSX.Element {
 
       await audio.start()
       setIsRunning(true)
+      startSessionTimer()
       setStatus('Listening...')
     } catch (err) {
       setStatus(`Error: ${err}`)
@@ -120,6 +161,7 @@ function SettingsPanel(): JSX.Element {
 
   const handleStop = async (): Promise<void> => {
     audio.stop()
+    stopSessionTimer()
     const result = await window.api.pipelineStop()
     setIsRunning(false)
     setStatus(result.logPath ? `Saved: ${result.logPath}` : 'Stopped')
@@ -358,6 +400,11 @@ function SettingsPanel(): JSX.Element {
           {isRunning ? '●' : '○'}
         </span>{' '}
         {status}
+        {sessionDuration && (
+          <span style={{ marginLeft: '8px', color: '#64748b' }}>
+            ({sessionDuration})
+          </span>
+        )}
       </div>
     </div>
   )

@@ -1,5 +1,6 @@
 import { transcribe } from '@kutalia/whisper-node-addon'
 import { getModelPath, isModelDownloaded, downloadModel } from '../model-downloader'
+import { filterWhisperHallucination } from '../../pipeline/whisper-filter'
 import type { STTEngine, STTResult, Language } from '../types'
 
 export class WhisperLocalEngine implements STTEngine {
@@ -23,7 +24,7 @@ export class WhisperLocalEngine implements STTEngine {
   }
 
   async processAudio(audioChunk: Float32Array, _sampleRate: number): Promise<STTResult | null> {
-    if (!this.modelPath) throw new Error('Engine not initialized')
+    if (!this.modelPath) return null
 
     try {
       const result = await transcribe({
@@ -35,8 +36,9 @@ export class WhisperLocalEngine implements STTEngine {
         no_prints: true
       })
 
-      const text = this.extractText(result.transcription)
-      if (!text.trim()) return null
+      const rawText = this.extractText(result.transcription)
+      const text = filterWhisperHallucination(rawText)
+      if (!text) return null
 
       const language = this.detectLanguage(text)
 

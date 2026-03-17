@@ -17,6 +17,9 @@ export interface PipelineEvents {
   'engine-ready': () => void
 }
 
+const MAX_CONSECUTIVE_ERRORS = 3
+const RECOVERY_DELAY_MS = 1000
+
 /**
  * Manages the STT → Translation pipeline.
  * Supports two modes:
@@ -39,6 +42,14 @@ export class TranslationPipeline extends EventEmitter {
   private sttFactories = new Map<string, () => STTEngine>()
   private translatorFactories = new Map<string, () => TranslatorEngine>()
   private e2eFactories = new Map<string, () => E2ETranslationEngine>()
+
+  // Auto-recovery state
+  private consecutiveErrors = 0
+  private recovering = false
+
+  // Memory monitoring
+  private memoryTimer: ReturnType<typeof setInterval> | null = null
+  private startedAt: number | null = null
 
   /** Register an STT engine factory */
   registerSTT(id: string, factory: () => STTEngine): void {
@@ -103,45 +114,98 @@ export class TranslationPipeline extends EventEmitter {
 
   /** Process an audio chunk through the current pipeline */
   async process(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (!this.isRunning || !this.config) return null
+    if (!this.isRunning || !this.config || this.recovering) return null
 
     try {
+      let result: TranslationResult | null = null
+
       if (this.config.mode === 'e2e' && this.e2eEngine) {
-        const result = await this.e2eEngine.processAudio(audioChunk, sampleRate)
-        if (result) {
-          this.emit('result', result)
-        }
-        return result
+        result = await this.e2eEngine.processAudio(audioChunk, sampleRate)
+      } else if (this.config.mode === 'cascade' && this.sttEngine) {
+        result = await this.processCascade(audioChunk, sampleRate)
       }
 
-      if (this.config.mode === 'cascade' && this.sttEngine && this.translator) {
-        const sttResult = await this.sttEngine.processAudio(audioChunk, sampleRate)
-        if (!sttResult || !sttResult.isFinal || !sttResult.text.trim()) return null
+      if (result) {
+        this.consecutiveErrors = 0
+        this.emit('result', result)
+      }
+      return result
+    } catch (err) {
+      this.consecutiveErrors++
+      const error = err instanceof Error ? err : new Error(String(err))
+      this.emit('error', error)
 
-        // Determine translation direction
-        const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
+      if (this.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+        await this.attemptRecovery()
+      }
+
+      return null
+    }
+  }
+
+  private async processCascade(
+    audioChunk: Float32Array,
+    sampleRate: number
+  ): Promise<TranslationResult | null> {
+    if (!this.sttEngine) return null
+
+    const sttResult = await this.sttEngine.processAudio(audioChunk, sampleRate)
+    if (!sttResult || !sttResult.isFinal || !sttResult.text.trim()) return null
+
+    const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
+
+    // Graceful degradation: if translator fails, emit STT-only result
+    if (this.translator) {
+      try {
         const translated = await this.translator.translate(
           sttResult.text,
           sttResult.language,
           targetLang
         )
 
-        const result: TranslationResult = {
+        return {
           sourceText: sttResult.text,
           translatedText: translated,
           sourceLanguage: sttResult.language,
           targetLanguage: targetLang,
           timestamp: Date.now()
         }
+      } catch (translatorErr) {
+        console.error('[pipeline] Translator error, falling back to STT-only:', translatorErr)
+        this.emit('error', new Error(`Translation unavailable: ${translatorErr}`))
 
-        this.emit('result', result)
-        return result
+        // Return STT-only result so the user at least sees transcription
+        return {
+          sourceText: sttResult.text,
+          translatedText: '(translation unavailable)',
+          sourceLanguage: sttResult.language,
+          targetLanguage: targetLang,
+          timestamp: Date.now()
+        }
       }
+    }
 
-      return null
+    return null
+  }
+
+  private async attemptRecovery(): Promise<void> {
+    if (this.recovering || !this.config) return
+    this.recovering = true
+
+    console.log('[pipeline] Attempting auto-recovery after consecutive errors...')
+    this.emit('engine-loading', 'Recovering from errors...')
+
+    try {
+      await new Promise((resolve) => setTimeout(resolve, RECOVERY_DELAY_MS))
+      await this.switchEngine(this.config)
+      this.consecutiveErrors = 0
+      console.log('[pipeline] Auto-recovery successful')
+      this.emit('engine-ready')
     } catch (err) {
-      this.emit('error', err instanceof Error ? err : new Error(String(err)))
-      return null
+      console.error('[pipeline] Auto-recovery failed:', err)
+      this.emit('error', new Error('Auto-recovery failed. Please restart manually.'))
+    } finally {
+      this.recovering = false
     }
   }
 
@@ -257,10 +321,15 @@ export class TranslationPipeline extends EventEmitter {
 
   start(): void {
     this.isRunning = true
+    this.startedAt = Date.now()
+    this.consecutiveErrors = 0
+    this.startMemoryMonitor()
   }
 
   stop(): void {
     this.isRunning = false
+    this.startedAt = null
+    this.stopMemoryMonitor()
     this.agreement.reset()
     this.lastTranslatedConfirmed = ''
   }
@@ -271,6 +340,37 @@ export class TranslationPipeline extends EventEmitter {
 
   get currentConfig(): EngineConfig | null {
     return this.config
+  }
+
+  get sessionStartTime(): number | null {
+    return this.startedAt
+  }
+
+  private startMemoryMonitor(): void {
+    this.stopMemoryMonitor()
+    this.logMemoryUsage()
+    this.memoryTimer = setInterval(() => this.logMemoryUsage(), 60_000)
+    if (typeof this.memoryTimer === 'object' && 'unref' in this.memoryTimer) {
+      this.memoryTimer.unref()
+    }
+  }
+
+  private stopMemoryMonitor(): void {
+    if (this.memoryTimer) {
+      clearInterval(this.memoryTimer)
+      this.memoryTimer = null
+    }
+  }
+
+  private logMemoryUsage(): void {
+    const mem = process.memoryUsage()
+    const mb = (bytes: number): string => (bytes / 1024 / 1024).toFixed(1)
+    const elapsed = this.startedAt
+      ? `${((Date.now() - this.startedAt) / 60_000).toFixed(1)}min`
+      : '0min'
+    console.log(
+      `[memory] elapsed=${elapsed} heap=${mb(mem.heapUsed)}/${mb(mem.heapTotal)}MB rss=${mb(mem.rss)}MB external=${mb(mem.external)}MB`
+    )
   }
 
   private async disposeEngines(): Promise<void> {

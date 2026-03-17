@@ -11,7 +11,9 @@ contextBridge.exposeInMainWorld('api', {
   // Translation results
   sendTranslationResult: (data: unknown) => ipcRenderer.send('translation-result', data),
   onTranslationResult: (callback: (data: unknown) => void) => {
-    ipcRenderer.on('translation-result', (_event, data) => callback(data))
+    const handler = (_event: Electron.IpcRendererEvent, data: unknown): void => callback(data)
+    ipcRenderer.on('translation-result', handler)
+    return () => ipcRenderer.off('translation-result', handler)
   },
   onInterimResult: (callback: (data: unknown) => void) => {
     ipcRenderer.on('interim-result', (_event, data) => callback(data))
@@ -19,8 +21,13 @@ contextBridge.exposeInMainWorld('api', {
 
   // Status updates from main process
   onStatusUpdate: (callback: (message: string) => void) => {
-    ipcRenderer.on('status-update', (_event, message) => callback(message))
+    const handler = (_event: Electron.IpcRendererEvent, message: string): void => callback(message)
+    ipcRenderer.on('status-update', handler)
+    return () => ipcRenderer.off('status-update', handler)
   },
+
+  // Session info
+  getSessionStartTime: () => ipcRenderer.invoke('get-session-start-time'),
 
   // Display management
   getDisplays: () => ipcRenderer.invoke('get-displays'),

@@ -20,7 +20,7 @@ function SubtitleOverlay(): JSX.Element {
 
   useEffect(() => {
     // Final (confirmed) results — add as permanent line
-    window.api.onTranslationResult((data) => {
+    const unsubscribeResult = window.api.onTranslationResult((data) => {
       const result = data as Omit<SubtitleLine, 'id' | 'opacity'>
       setLines((prev) => {
         // Remove any interim line, add the final result
@@ -64,6 +64,7 @@ function SubtitleOverlay(): JSX.Element {
     }, 500)
 
     return () => {
+      unsubscribeResult?.()
       if (fadeTimerRef.current) clearInterval(fadeTimerRef.current)
     }
   }, [])
