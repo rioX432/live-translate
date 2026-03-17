@@ -105,6 +105,12 @@ function initPipeline(): void {
     logger?.log(result)
   })
 
+  // Forward interim (streaming) results to subtitle window
+  pipeline.on('interim-result', (result: TranslationResult) => {
+    subtitleWindow?.webContents.send('interim-result', result)
+    mainWindow?.webContents.send('interim-result', result)
+  })
+
   pipeline.on('error', (err: Error) => {
     mainWindow?.webContents.send('status-update', `Error: ${err.message}`)
   })
@@ -215,10 +221,8 @@ ipcMain.handle('pipeline-stop', async () => {
   return { logPath }
 })
 
-// Process audio chunk from renderer
-ipcMain.handle('process-audio', async (_event, audioData: unknown) => {
-  if (!pipeline?.running) return null
-
+/** Convert IPC audio data to Float32Array */
+function toFloat32Array(audioData: unknown): Float32Array | null {
   let chunk: Float32Array
   if (audioData instanceof Float32Array) {
     chunk = audioData
@@ -230,12 +234,6 @@ ipcMain.handle('process-audio', async (_event, audioData: unknown) => {
     )
   } else {
     console.error('[audio] Unknown data type:', typeof audioData)
-    return null
-  }
-
-  // Minimum audio length check (at least 0.5 seconds at 16kHz)
-  if (chunk.length < 8000) {
-    console.log(`[audio] Chunk too short: ${chunk.length} samples, skipping`)
     return null
   }
 
@@ -252,10 +250,50 @@ ipcMain.handle('process-audio', async (_event, audioData: unknown) => {
     return null
   }
 
+  return chunk
+}
+
+// Process audio chunk from renderer
+ipcMain.handle('process-audio', async (_event, audioData: unknown) => {
+  if (!pipeline?.running) return null
+
+  const chunk = toFloat32Array(audioData)
+  if (!chunk || chunk.length < 8000) return null
+
   try {
     return await pipeline.process(chunk, 16000)
   } catch (err) {
     console.error('[audio] Pipeline error:', err)
+    return null
+  }
+})
+
+// Process streaming audio (rolling buffer during speech)
+ipcMain.handle('process-audio-streaming', async (_event, audioData: unknown) => {
+  if (!pipeline?.running) return null
+
+  const chunk = toFloat32Array(audioData)
+  if (!chunk || chunk.length < 8000) return null
+
+  try {
+    return await pipeline.processStreaming(chunk, 16000)
+  } catch (err) {
+    console.error('[audio] Streaming pipeline error:', err)
+    return null
+  }
+})
+
+// Finalize streaming (speech segment ended)
+ipcMain.handle('finalize-streaming', async (_event, audioData: unknown) => {
+  if (!pipeline?.running) return null
+
+  const chunk = toFloat32Array(audioData)
+  if (!chunk || chunk.length < 8000) return null
+
+  try {
+    return await pipeline.finalizeStreaming(chunk, 16000)
+  } catch (err) {
+    console.error('[audio] Finalize streaming error:', err)
     return null
   }
 })

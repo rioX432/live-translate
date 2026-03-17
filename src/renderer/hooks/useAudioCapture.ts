@@ -14,8 +14,16 @@ export interface UseAudioCaptureReturn {
   volume: number // 0-1 for level meter
   start: () => Promise<void>
   stop: () => void
+  /** Callback for VAD-detected complete speech segments (legacy mode) */
   onAudioChunk: (callback: (chunk: Float32Array) => void) => void
+  /** Callback for periodic rolling buffer during speech (streaming mode) */
+  onStreamingChunk: (callback: (buffer: Float32Array) => void) => void
+  /** Callback when speech segment ends (streaming mode finalization) */
+  onSpeechSegmentEnd: (callback: (finalBuffer: Float32Array) => void) => void
 }
+
+const STREAMING_INTERVAL_MS = 2000
+const SAMPLE_RATE = 16000
 
 export function useAudioCapture(): UseAudioCaptureReturn {
   const [devices, setDevices] = useState<AudioDevice[]>([])
@@ -25,6 +33,13 @@ export function useAudioCapture(): UseAudioCaptureReturn {
 
   const vadRef = useRef<MicVAD | null>(null)
   const chunkCallbackRef = useRef<((chunk: Float32Array) => void) | null>(null)
+  const streamingCallbackRef = useRef<((buffer: Float32Array) => void) | null>(null)
+  const speechEndCallbackRef = useRef<((finalBuffer: Float32Array) => void) | null>(null)
+
+  // Rolling buffer state for streaming
+  const isSpeakingRef = useRef(false)
+  const rollingBufferRef = useRef<Float32Array[]>([])
+  const streamingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Enumerate audio input devices
   useEffect(() => {
@@ -47,6 +62,39 @@ export function useAudioCapture(): UseAudioCaptureReturn {
       }
     }
     enumerate()
+  }, [])
+
+  const getRollingBuffer = useCallback((): Float32Array | null => {
+    const frames = rollingBufferRef.current
+    if (frames.length === 0) return null
+    const totalLength = frames.reduce((sum, f) => sum + f.length, 0)
+    if (totalLength < SAMPLE_RATE * 0.5) return null // Need at least 0.5s
+    const buffer = new Float32Array(totalLength)
+    let offset = 0
+    for (const frame of frames) {
+      buffer.set(frame, offset)
+      offset += frame.length
+    }
+    return buffer
+  }, [])
+
+  const startStreamingTimer = useCallback(() => {
+    if (streamingTimerRef.current) return
+    streamingTimerRef.current = setInterval(() => {
+      if (!isSpeakingRef.current) return
+      const buffer = getRollingBuffer()
+      if (buffer) {
+        console.log(`[audio-capture] Streaming chunk: ${buffer.length} samples (${(buffer.length / SAMPLE_RATE).toFixed(1)}s)`)
+        streamingCallbackRef.current?.(buffer)
+      }
+    }, STREAMING_INTERVAL_MS)
+  }, [getRollingBuffer])
+
+  const stopStreamingTimer = useCallback(() => {
+    if (streamingTimerRef.current) {
+      clearInterval(streamingTimerRef.current)
+      streamingTimerRef.current = null
+    }
   }, [])
 
   const start = useCallback(async () => {
@@ -80,38 +128,71 @@ export function useAudioCapture(): UseAudioCaptureReturn {
         for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i]
         const rms = Math.sqrt(sum / frame.length)
         setVolume(Math.min(1, rms * 5))
+
+        // Accumulate frames for rolling buffer during speech
+        if (isSpeakingRef.current) {
+          rollingBufferRef.current.push(new Float32Array(frame))
+          // Cap rolling buffer at ~30 seconds to prevent memory growth
+          const maxFrames = (30 * SAMPLE_RATE) / frame.length
+          if (rollingBufferRef.current.length > maxFrames) {
+            rollingBufferRef.current = rollingBufferRef.current.slice(-Math.floor(maxFrames))
+          }
+        }
       },
       onSpeechEnd: (audio: Float32Array) => {
         // audio is 16kHz Float32Array from VAD
-        console.log(`[audio-capture] VAD speech segment: ${audio.length} samples (${(audio.length / 16000).toFixed(1)}s)`)
+        console.log(`[audio-capture] VAD speech segment: ${audio.length} samples (${(audio.length / SAMPLE_RATE).toFixed(1)}s)`)
+
+        // Finalize streaming with the VAD-provided segment
+        isSpeakingRef.current = false
+        speechEndCallbackRef.current?.(audio)
+        rollingBufferRef.current = []
+
+        // Also fire legacy callback
         chunkCallbackRef.current?.(audio)
       },
       onSpeechStart: () => {
         console.log('[audio-capture] VAD speech start')
+        isSpeakingRef.current = true
+        rollingBufferRef.current = []
       },
       onVADMisfire: () => {
         console.log('[audio-capture] VAD misfire (speech too short)')
+        isSpeakingRef.current = false
+        rollingBufferRef.current = []
       }
     })
 
     vadRef.current = vad
     vad.start()
+    startStreamingTimer()
     setIsCapturing(true)
-    console.log('[audio-capture] VAD started')
-  }, [selectedDevice, isCapturing])
+    console.log('[audio-capture] VAD started with streaming')
+  }, [selectedDevice, isCapturing, startStreamingTimer])
 
   const stop = useCallback(() => {
+    stopStreamingTimer()
     if (vadRef.current) {
       vadRef.current.destroy()
       vadRef.current = null
     }
+    isSpeakingRef.current = false
+    rollingBufferRef.current = []
     setIsCapturing(false)
     setVolume(0)
     console.log('[audio-capture] VAD stopped')
-  }, [])
+  }, [stopStreamingTimer])
 
   const onAudioChunk = useCallback((callback: (chunk: Float32Array) => void) => {
     chunkCallbackRef.current = callback
+  }, [])
+
+  const onStreamingChunk = useCallback((callback: (buffer: Float32Array) => void) => {
+    streamingCallbackRef.current = callback
+  }, [])
+
+  const onSpeechSegmentEnd = useCallback((callback: (finalBuffer: Float32Array) => void) => {
+    speechEndCallbackRef.current = callback
   }, [])
 
   return {
@@ -122,6 +203,8 @@ export function useAudioCapture(): UseAudioCaptureReturn {
     volume,
     start,
     stop,
-    onAudioChunk
+    onAudioChunk,
+    onStreamingChunk,
+    onSpeechSegmentEnd
   }
 }
