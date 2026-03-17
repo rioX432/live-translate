@@ -7,9 +7,11 @@ import type {
   TranslationResult,
   Language
 } from '../engines/types'
+import { LocalAgreement } from './LocalAgreement'
 
 export interface PipelineEvents {
   result: (result: TranslationResult) => void
+  'interim-result': (result: TranslationResult) => void
   error: (error: Error) => void
   'engine-loading': (message: string) => void
   'engine-ready': () => void
@@ -29,6 +31,9 @@ export class TranslationPipeline extends EventEmitter {
   private translator: TranslatorEngine | null = null
   private e2eEngine: E2ETranslationEngine | null = null
   private isRunning = false
+  private agreement = new LocalAgreement()
+  private lastTranslatedConfirmed = ''
+  private streamingLock = false
 
   // Engine factories — registered externally
   private sttFactories = new Map<string, () => STTEngine>()
@@ -140,12 +145,124 @@ export class TranslationPipeline extends EventEmitter {
     }
   }
 
+  /**
+   * Process a rolling audio buffer for streaming (Local Agreement).
+   * Emits interim-result with confirmed + interim text.
+   * Only translates newly confirmed text.
+   */
+  async processStreaming(audioBuffer: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
+    if (!this.isRunning || !this.config) return null
+    if (this.config.mode !== 'cascade' || !this.sttEngine) return null
+    if (this.streamingLock) return null
+
+    this.streamingLock = true
+    try {
+      const sttResult = await this.sttEngine.processAudio(audioBuffer, sampleRate)
+      if (!sttResult || !sttResult.text.trim()) return null
+
+      const agreement = this.agreement.update(sttResult.text)
+
+      const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
+
+      // Translate only newly confirmed text
+      let translatedText = ''
+      if (agreement.newConfirmed && this.translator) {
+        // Translate the full confirmed text for better context
+        translatedText = await this.translator.translate(
+          agreement.confirmedText,
+          sttResult.language,
+          targetLang
+        )
+        this.lastTranslatedConfirmed = translatedText
+      } else {
+        translatedText = this.lastTranslatedConfirmed
+      }
+
+      // Emit interim result (confirmed + interim text for display)
+      const interimResult: TranslationResult = {
+        sourceText: agreement.confirmedText + agreement.interimText,
+        translatedText,
+        sourceLanguage: sttResult.language,
+        targetLanguage: targetLang,
+        timestamp: Date.now(),
+        isInterim: true
+      }
+
+      this.emit('interim-result', interimResult)
+      return interimResult
+    } catch (err) {
+      this.emit('error', err instanceof Error ? err : new Error(String(err)))
+      return null
+    } finally {
+      this.streamingLock = false
+    }
+  }
+
+  /**
+   * Finalize streaming for the current speech segment.
+   * Promotes all text to confirmed, translates, and emits a final result.
+   */
+  async finalizeStreaming(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
+    if (!this.isRunning || !this.config) return null
+    if (this.config.mode !== 'cascade' || !this.sttEngine) return null
+
+    // Wait for any in-flight streaming operation to complete
+    while (this.streamingLock) {
+      await new Promise((resolve) => setTimeout(resolve, 50))
+    }
+    this.streamingLock = true
+
+    try {
+      const sttResult = await this.sttEngine.processAudio(audioChunk, sampleRate)
+      if (!sttResult || !sttResult.text.trim()) {
+        this.agreement.reset()
+        this.lastTranslatedConfirmed = ''
+        return null
+      }
+
+      const agreement = this.agreement.finalize(sttResult.text)
+      const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
+
+      let translatedText = ''
+      if (this.translator && agreement.confirmedText.trim()) {
+        translatedText = await this.translator.translate(
+          agreement.confirmedText,
+          sttResult.language,
+          targetLang
+        )
+      }
+
+      this.lastTranslatedConfirmed = ''
+
+      const result: TranslationResult = {
+        sourceText: agreement.confirmedText,
+        translatedText,
+        sourceLanguage: sttResult.language,
+        targetLanguage: targetLang,
+        timestamp: Date.now(),
+        isInterim: false
+      }
+
+      this.emit('result', result)
+      return result
+    } catch (err) {
+      this.agreement.reset()
+      this.lastTranslatedConfirmed = ''
+      this.emit('error', err instanceof Error ? err : new Error(String(err)))
+      return null
+    } finally {
+      this.streamingLock = false
+    }
+  }
+
   start(): void {
     this.isRunning = true
   }
 
   stop(): void {
     this.isRunning = false
+    this.agreement.reset()
+    this.lastTranslatedConfirmed = ''
   }
 
   get running(): boolean {
