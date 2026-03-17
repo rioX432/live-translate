@@ -7,20 +7,41 @@ interface SubtitleLine {
   sourceLanguage: string
   timestamp: number
   opacity: number
+  isInterim?: boolean
 }
 
 const MAX_LINES = 3
 const FADE_DURATION_MS = 8000
+const INTERIM_LINE_ID = -1
 
 function SubtitleOverlay(): JSX.Element {
   const [lines, setLines] = useState<SubtitleLine[]>([])
   const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
-    const unsubscribe = window.api.onTranslationResult((data) => {
+    // Final (confirmed) results — add as permanent line
+    const unsubscribeResult = window.api.onTranslationResult((data) => {
       const result = data as Omit<SubtitleLine, 'id' | 'opacity'>
       setLines((prev) => {
-        const updated = [...prev, { ...result, id: Date.now(), opacity: 1 }]
+        // Remove any interim line, add the final result
+        const withoutInterim = prev.filter((l) => l.id !== INTERIM_LINE_ID)
+        const updated = [...withoutInterim, { ...result, id: Date.now(), opacity: 1 }]
+        return updated.slice(-MAX_LINES)
+      })
+    })
+
+    // Interim (streaming) results — replace the interim line in place
+    window.api.onInterimResult((data) => {
+      const result = data as Omit<SubtitleLine, 'id' | 'opacity' | 'isInterim'>
+      setLines((prev) => {
+        const withoutInterim = prev.filter((l) => l.id !== INTERIM_LINE_ID)
+        const interimLine: SubtitleLine = {
+          ...result,
+          id: INTERIM_LINE_ID,
+          opacity: 1,
+          isInterim: true
+        }
+        const updated = [...withoutInterim, interimLine]
         return updated.slice(-MAX_LINES)
       })
     })
@@ -30,6 +51,8 @@ function SubtitleOverlay(): JSX.Element {
       setLines((prev) =>
         prev
           .map((line) => {
+            // Don't fade interim lines
+            if (line.isInterim) return line
             const age = Date.now() - line.timestamp
             if (age > FADE_DURATION_MS) {
               return { ...line, opacity: Math.max(0, 1 - (age - FADE_DURATION_MS) / 2000) }
@@ -41,7 +64,7 @@ function SubtitleOverlay(): JSX.Element {
     }, 500)
 
     return () => {
-      unsubscribe?.()
+      unsubscribeResult?.()
       if (fadeTimerRef.current) clearInterval(fadeTimerRef.current)
     }
   }, [])
@@ -64,7 +87,7 @@ function SubtitleOverlay(): JSX.Element {
         <div
           key={line.id}
           style={{
-            background: 'rgba(0, 0, 0, 0.78)',
+            background: line.isInterim ? 'rgba(0, 0, 0, 0.65)' : 'rgba(0, 0, 0, 0.78)',
             borderRadius: '10px',
             padding: '10px 20px',
             marginBottom: '6px',
@@ -72,32 +95,46 @@ function SubtitleOverlay(): JSX.Element {
             transition: 'opacity 0.5s ease-out',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
-            borderLeft: `4px solid ${line.sourceLanguage === 'ja' ? '#4ade80' : '#60a5fa'}`
+            borderLeft: `4px solid ${
+              line.isInterim
+                ? '#94a3b8'
+                : line.sourceLanguage === 'ja'
+                  ? '#4ade80'
+                  : '#60a5fa'
+            }`
           }}
         >
           <div
             style={{
-              color: '#f0f0f0',
+              color: line.isInterim ? '#cbd5e1' : '#f0f0f0',
               fontSize: '30px',
               fontWeight: 600,
               lineHeight: 1.4,
-              textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+              textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+              fontStyle: line.isInterim ? 'italic' : 'normal'
             }}
           >
             {line.sourceText}
           </div>
-          <div
-            style={{
-              color: line.sourceLanguage === 'ja' ? '#93c5fd' : '#86efac',
-              fontSize: '28px',
-              fontWeight: 600,
-              lineHeight: 1.4,
-              marginTop: '2px',
-              textShadow: '0 1px 3px rgba(0,0,0,0.5)'
-            }}
-          >
-            {line.translatedText}
-          </div>
+          {line.translatedText && (
+            <div
+              style={{
+                color: line.isInterim
+                  ? '#94a3b8'
+                  : line.sourceLanguage === 'ja'
+                    ? '#93c5fd'
+                    : '#86efac',
+                fontSize: '28px',
+                fontWeight: 600,
+                lineHeight: 1.4,
+                marginTop: '2px',
+                textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                fontStyle: line.isInterim ? 'italic' : 'normal'
+              }}
+            >
+              {line.translatedText}
+            </div>
+          )}
         </div>
       ))}
     </div>

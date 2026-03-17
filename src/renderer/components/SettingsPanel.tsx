@@ -60,12 +60,21 @@ function SettingsPanel(): JSX.Element {
     })
   }, [])
 
-  // Handle audio chunks → send to main process for pipeline processing
+  // Handle audio: streaming chunks during speech, final segment on speech end
   useEffect(() => {
+    // Legacy: VAD speech end → final processing (non-streaming fallback for e2e mode)
     audio.onAudioChunk((chunk) => {
-      // Send PCM data to main process for Whisper processing
-      // Convert Float32Array to plain array for IPC serialization
       window.api.processAudio(Array.from(chunk))
+    })
+
+    // Streaming: periodic rolling buffer during speech
+    audio.onStreamingChunk((buffer) => {
+      window.api.processAudioStreaming(Array.from(buffer))
+    })
+
+    // Streaming: finalize when speech ends
+    audio.onSpeechSegmentEnd((finalBuffer) => {
+      window.api.finalizeStreaming(Array.from(finalBuffer))
     })
   }, [audio])
 

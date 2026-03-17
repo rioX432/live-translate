@@ -25,6 +25,8 @@ export interface TranslationResult {
   targetLanguage: Language
   /** Unix timestamp in ms */
   timestamp: number
+  /** Whether this is an interim (unconfirmed) result from streaming mode */
+  isInterim?: boolean
 }
 
 /**
