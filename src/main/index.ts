@@ -4,6 +4,7 @@ import { is } from '@electron-toolkit/utils'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { GoogleTranslator } from '../engines/translator/GoogleTranslator'
+import { DeepLTranslator } from '../engines/translator/DeepLTranslator'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { WhisperTranslateEngine } from '../engines/e2e/WhisperTranslateEngine'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
@@ -115,20 +116,26 @@ function initPipeline(): void {
 // --- IPC Handlers ---
 
 // Start pipeline with given config
-ipcMain.handle('pipeline-start', async (_event, config: EngineConfig & { apiKey?: string }) => {
+ipcMain.handle('pipeline-start', async (_event, config: EngineConfig & { apiKey?: string; deeplApiKey?: string; geminiApiKey?: string }) => {
   if (!pipeline) return { error: 'Pipeline not initialized' }
 
   try {
-    // Register Google Translator with provided API key
+    // Register online translators with provided API keys
     if (config.apiKey) {
       pipeline.registerTranslator('google-translate', () => new GoogleTranslator(config.apiKey!))
+    }
+    if (config.deeplApiKey) {
+      pipeline.registerTranslator('deepl-translate', () => new DeepLTranslator(config.deeplApiKey!))
     }
 
     await pipeline.switchEngine(config)
 
     // Start logger
     logger = new TranscriptLogger()
-    logger.startSession(config.mode === 'cascade' ? 'Online (Whisper + Google)' : 'Offline (Whisper Translate)')
+    const sessionLabel = config.mode === 'e2e'
+      ? 'Offline (Whisper Translate)'
+      : `Cascade (Whisper + ${config.translatorEngineId})`
+    logger.startSession(sessionLabel)
 
     pipeline.start()
     return { success: true }

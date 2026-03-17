@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
 
-type EngineMode = 'online' | 'offline-e2e' | 'offline-opus'
+type EngineMode = 'online' | 'online-deepl' | 'offline-e2e' | 'offline-opus'
 
 interface DisplayInfo {
   id: number
@@ -11,6 +11,7 @@ interface DisplayInfo {
 function SettingsPanel(): JSX.Element {
   const [engineMode, setEngineMode] = useState<EngineMode>('online')
   const [apiKey, setApiKey] = useState('')
+  const [deeplApiKey, setDeeplApiKey] = useState('')
   const [displays, setDisplays] = useState<DisplayInfo[]>([])
   const [selectedDisplay, setSelectedDisplay] = useState<number>(0)
   const [status, setStatus] = useState('Ready')
@@ -55,16 +56,23 @@ function SettingsPanel(): JSX.Element {
               translatorEngineId: 'google-translate',
               apiKey
             }
-          : engineMode === 'offline-opus'
+          : engineMode === 'online-deepl'
             ? {
                 mode: 'cascade' as const,
                 sttEngineId: 'whisper-local',
-                translatorEngineId: 'opus-mt'
+                translatorEngineId: 'deepl-translate',
+                deeplApiKey
               }
-            : {
-                mode: 'e2e' as const,
-                e2eEngineId: 'whisper-translate'
-              }
+            : engineMode === 'offline-opus'
+              ? {
+                  mode: 'cascade' as const,
+                  sttEngineId: 'whisper-local',
+                  translatorEngineId: 'opus-mt'
+                }
+              : {
+                  mode: 'e2e' as const,
+                  e2eEngineId: 'whisper-translate'
+                }
 
       const result = await window.api.pipelineStart(config)
       if (result.error) {
@@ -143,6 +151,19 @@ function SettingsPanel(): JSX.Element {
           <input
             type="radio"
             name="engine"
+            checked={engineMode === 'online-deepl'}
+            onChange={() => setEngineMode('online-deepl')}
+            disabled={isRunning}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Online — Whisper + DeepL</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, high quality, 500K chars/month free</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
             checked={engineMode === 'offline-opus'}
             onChange={() => setEngineMode('offline-opus')}
             disabled={isRunning}
@@ -167,7 +188,7 @@ function SettingsPanel(): JSX.Element {
         </label>
       </Section>
 
-      {/* API Key (online mode only) */}
+      {/* API Key (online modes) */}
       {engineMode === 'online' && (
         <Section label="Google Cloud Translation API Key">
           <input
@@ -175,6 +196,18 @@ function SettingsPanel(): JSX.Element {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="Enter API key..."
+            style={inputStyle}
+            disabled={isRunning}
+          />
+        </Section>
+      )}
+      {engineMode === 'online-deepl' && (
+        <Section label="DeepL API Key">
+          <input
+            type="password"
+            value={deeplApiKey}
+            onChange={(e) => setDeeplApiKey(e.target.value)}
+            placeholder="Enter DeepL API key..."
             style={inputStyle}
             disabled={isRunning}
           />
@@ -203,7 +236,7 @@ function SettingsPanel(): JSX.Element {
           ...buttonStyle,
           background: isRunning ? '#dc2626' : '#16a34a'
         }}
-        disabled={engineMode === 'online' && !apiKey && !isRunning}
+        disabled={!isRunning && ((engineMode === 'online' && !apiKey) || (engineMode === 'online-deepl' && !deeplApiKey))}
       >
         {isRunning ? '⏹ Stop' : '▶ Start'}
       </button>
