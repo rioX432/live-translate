@@ -16,7 +16,9 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('translation-result', handler)
   },
   onInterimResult: (callback: (data: unknown) => void) => {
-    ipcRenderer.on('interim-result', (_event, data) => callback(data))
+    const handler = (_event: Electron.IpcRendererEvent, data: unknown): void => callback(data)
+    ipcRenderer.on('interim-result', handler)
+    return () => ipcRenderer.off('interim-result', handler)
   },
 
   // Status updates from main process
