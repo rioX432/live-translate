@@ -92,6 +92,11 @@ export class TranslationPipeline extends EventEmitter {
 
   /** Whether the pipeline is actively processing audio */
   get running(): boolean {
+    return this._state === PipelineState.RUNNING
+  }
+
+  /** Whether the pipeline is in any active state (running or recovering) */
+  get active(): boolean {
     return this._state === PipelineState.RUNNING || this._state === PipelineState.RECOVERING
   }
 
