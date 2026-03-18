@@ -66,6 +66,10 @@ export class TranslationPipeline extends EventEmitter {
   private translatorFactories = new Map<string, () => TranslatorEngine>()
   private e2eFactories = new Map<string, () => E2ETranslationEngine>()
 
+  // Processing lock — prevents disposeEngines() while processAudio is in-flight
+  private processingCount = 0
+  private processingDoneResolvers: (() => void)[] = []
+
   // Auto-recovery state
   private consecutiveErrors = 0
 
@@ -129,6 +133,16 @@ export class TranslationPipeline extends EventEmitter {
     this.e2eFactories.set(id, factory)
   }
 
+  // --- Processing lock ---
+
+  /** Wait until all in-flight processAudio calls complete */
+  private async waitForProcessing(): Promise<void> {
+    if (this.processingCount === 0) return
+    return new Promise((resolve) => {
+      this.processingDoneResolvers.push(resolve)
+    })
+  }
+
   // --- Lifecycle ---
 
   /** Switch to a new engine configuration. Disposes previous engines. */
@@ -141,6 +155,7 @@ export class TranslationPipeline extends EventEmitter {
     this.setState(PipelineState.INITIALIZING)
 
     try {
+      await this.waitForProcessing()
       await this.disposeEngines()
       this.config = config
 
@@ -220,6 +235,7 @@ export class TranslationPipeline extends EventEmitter {
   async process(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
     if (this._state !== PipelineState.RUNNING || !this.config) return null
 
+    this.processingCount++
     try {
       let result: TranslationResult | null = null
 
@@ -244,6 +260,12 @@ export class TranslationPipeline extends EventEmitter {
       }
 
       return null
+    } finally {
+      this.processingCount--
+      if (this.processingCount === 0) {
+        for (const resolve of this.processingDoneResolvers) resolve()
+        this.processingDoneResolvers = []
+      }
     }
   }
 
