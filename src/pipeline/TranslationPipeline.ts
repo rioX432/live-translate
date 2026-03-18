@@ -351,6 +351,8 @@ export class TranslationPipeline extends EventEmitter {
   async processStreaming(audioBuffer: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
     if (this._state !== PipelineState.RUNNING || !this.config) return null
     if (this.config.mode !== 'cascade' || !this.sttEngine) return null
+    // Drop chunk if another streaming call is in-flight — acceptable because
+    // the rolling buffer re-sends accumulated audio on the next interval (#103)
     if (this.streamingLock) return null
 
     this.streamingLock = true
