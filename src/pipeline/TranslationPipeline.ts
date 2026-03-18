@@ -39,6 +39,7 @@ export enum PipelineState {
 
 const MAX_CONSECUTIVE_ERRORS = 3
 const RECOVERY_DELAY_MS = 1000
+const ENGINE_INIT_TIMEOUT_MS = 5 * 60_000 // 5 minutes for model download
 
 /**
  * Manages the STT → Translation pipeline.
@@ -138,6 +139,16 @@ export class TranslationPipeline extends EventEmitter {
     this.e2eFactories.set(id, factory)
   }
 
+  /** Run a promise with a timeout */
+  private withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) =>
+        setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+      )
+    ])
+  }
+
   // --- Processing lock ---
 
   /** Wait until all in-flight processAudio calls complete */
@@ -178,11 +189,11 @@ export class TranslationPipeline extends EventEmitter {
 
         this.emit('engine-loading', 'Loading STT model...')
         this.sttEngine = sttFactory()
-        await this.sttEngine.initialize()
+        await this.withTimeout(this.sttEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'STT initialization')
 
         this.emit('engine-loading', 'Initializing translator...')
         this.translator = translatorFactory()
-        await this.translator.initialize()
+        await this.withTimeout(this.translator.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Translator initialization')
       } else if (config.mode === 'e2e') {
         const e2eId = config.e2eEngineId
         if (!e2eId) throw new Error('e2e mode requires e2eEngineId')
@@ -192,7 +203,7 @@ export class TranslationPipeline extends EventEmitter {
 
         this.emit('engine-loading', 'Loading translation model...')
         this.e2eEngine = e2eFactory()
-        await this.e2eEngine.initialize()
+        await this.withTimeout(this.e2eEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'E2E engine initialization')
       }
 
       // If was RUNNING (hot-swap), go back to RUNNING; otherwise stay IDLE until start()
