@@ -219,6 +219,7 @@ function SettingsPanel(): JSX.Element {
           onChange={(e) => audio.setSelectedDevice(e.target.value)}
           style={selectStyle}
           disabled={isRunning}
+          aria-label="Microphone device"
         >
           {audio.devices.map((d) => (
             <option key={d.deviceId} value={d.deviceId}>
@@ -246,7 +247,7 @@ function SettingsPanel(): JSX.Element {
       </Section>
 
       {/* Engine Selection */}
-      <Section label="Translation Engine">
+      <Section label="Translation Engine" role="radiogroup">
         <label style={radioLabelStyle}>
           <input
             type="radio"
@@ -409,6 +410,7 @@ function SettingsPanel(): JSX.Element {
           value={selectedDisplay}
           onChange={(e) => handleDisplayChange(Number(e.target.value))}
           style={selectStyle}
+          aria-label="Subtitle display"
         >
           {displays.map((d) => (
             <option key={d.id} value={d.id}>
@@ -420,6 +422,7 @@ function SettingsPanel(): JSX.Element {
 
       {/* Start/Stop Button */}
       <button
+        aria-label={isRunning ? 'Stop translation' : 'Start translation'}
         onClick={isRunning ? handleStop : handleStart}
         style={{
           ...buttonStyle,
@@ -451,9 +454,9 @@ function SettingsPanel(): JSX.Element {
   )
 }
 
-function Section({ label, children }: { label: string; children: React.ReactNode }): JSX.Element {
+function Section({ label, children, role }: { label: string; children: React.ReactNode; role?: string }): JSX.Element {
   return (
-    <section style={{ marginBottom: '18px' }}>
+    <section style={{ marginBottom: '18px' }} role={role} aria-label={label}>
       <label style={sectionLabelStyle}>{label}</label>
       {children}
     </section>

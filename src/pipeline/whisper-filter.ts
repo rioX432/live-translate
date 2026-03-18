@@ -28,12 +28,16 @@ export function filterWhisperHallucination(text: string): string | null {
   const lower = trimmed.toLowerCase()
   for (const phrase of hallucinationPhrases) {
     if (lower === phrase || lower === `${phrase}.` || lower === `${phrase}!`) {
+      console.debug(`[whisper-filter] Filtered hallucination: "${trimmed}"`)
       return null
     }
   }
 
   // Filter repetitive patterns (same word/phrase repeated 3+ times)
-  if (hasRepetitivePattern(trimmed)) return null
+  if (hasRepetitivePattern(trimmed)) {
+    console.debug(`[whisper-filter] Filtered repetitive: "${trimmed}"`)
+    return null
+  }
 
   // Filter text that is only punctuation or special characters
   if (/^[\s.,!?…。、！？・\-—]+$/.test(trimmed)) return null
