@@ -246,9 +246,12 @@ function SettingsPanel(): JSX.Element {
     setStatus('Ready')
   }
 
-  const handleDisplayChange = (displayId: number): void => {
+  const handleDisplayChange = async (displayId: number): Promise<void> => {
     setSelectedDisplay(displayId)
-    window.api.moveSubtitleToDisplay(displayId)
+    const result = await window.api.moveSubtitleToDisplay(displayId)
+    if (result?.error) {
+      setStatus(`Display error: ${result.error}`)
+    }
   }
 
   return (
@@ -281,12 +284,13 @@ function SettingsPanel(): JSX.Element {
                 fontWeight: 600,
                 border: 'none',
                 borderRadius: '6px',
-                cursor: 'pointer',
+                cursor: isStarting ? 'not-allowed' : 'pointer',
+                opacity: isStarting ? 0.6 : 1,
                 color: '#fff',
                 background: '#16a34a'
               }}
             >
-              Resume
+              {isStarting ? 'Resuming...' : 'Resume'}
             </button>
             <button
               onClick={handleDismissResume}
@@ -312,9 +316,10 @@ function SettingsPanel(): JSX.Element {
         <select
           value={audio.selectedDevice}
           onChange={(e) => audio.setSelectedDevice(e.target.value)}
-          style={selectStyle}
+          style={withDisabled(selectStyle, isRunning)}
           disabled={isRunning}
           aria-label="Microphone device"
+          {...focusHandlers}
         >
           {audio.devices.map((d) => (
             <option key={d.deviceId} value={d.deviceId}>
@@ -432,32 +437,36 @@ function SettingsPanel(): JSX.Element {
               value={microsoftApiKey}
               onChange={(e) => setMicrosoftApiKey(e.target.value)}
               placeholder="Azure Microsoft Translator key"
-              style={inputStyle}
+              style={withDisabled(inputStyle, isRunning)}
               disabled={isRunning}
+              {...focusHandlers}
             />
             <input
               type="text"
               value={microsoftRegion}
               onChange={(e) => setMicrosoftRegion(e.target.value)}
               placeholder="Azure region (e.g. eastus)"
-              style={inputStyle}
+              style={withDisabled(inputStyle, isRunning)}
               disabled={isRunning}
+              {...focusHandlers}
             />
             <input
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="Google Cloud Translation key"
-              style={inputStyle}
+              style={withDisabled(inputStyle, isRunning)}
               disabled={isRunning}
+              {...focusHandlers}
             />
             <input
               type="password"
               value={deeplApiKey}
               onChange={(e) => setDeeplApiKey(e.target.value)}
               placeholder="DeepL API key"
-              style={inputStyle}
+              style={withDisabled(inputStyle, isRunning)}
               disabled={isRunning}
+              {...focusHandlers}
             />
           </div>
         </Section>
@@ -593,12 +602,18 @@ const selectStyle: React.CSSProperties = {
   color: '#e2e8f0',
   border: '1px solid #334155',
   borderRadius: '6px',
-  outline: 'none'
+  outline: 'none',
+  transition: 'border-color 0.2s, box-shadow 0.2s, opacity 0.2s'
 }
 
 const inputStyle: React.CSSProperties = {
   ...selectStyle,
   fontFamily: 'monospace'
+}
+
+const disabledStyle: React.CSSProperties = {
+  opacity: 0.5,
+  cursor: 'not-allowed'
 }
 
 const radioLabelStyle: React.CSSProperties = {
@@ -610,6 +625,28 @@ const radioLabelStyle: React.CSSProperties = {
   cursor: 'pointer',
   padding: '6px 0'
 }
+
+function withDisabled(base: React.CSSProperties, disabled?: boolean): React.CSSProperties {
+  return disabled ? { ...base, ...disabledStyle } : base
+}
+
+function addFocusHandlers(): {
+  onFocus: (e: React.FocusEvent<HTMLElement>) => void
+  onBlur: (e: React.FocusEvent<HTMLElement>) => void
+} {
+  return {
+    onFocus: (e) => {
+      e.currentTarget.style.borderColor = '#3b82f6'
+      e.currentTarget.style.boxShadow = '0 0 0 2px rgba(59, 130, 246, 0.15)'
+    },
+    onBlur: (e) => {
+      e.currentTarget.style.borderColor = '#334155'
+      e.currentTarget.style.boxShadow = 'none'
+    }
+  }
+}
+
+const focusHandlers = addFocusHandlers()
 
 const buttonStyle: React.CSSProperties = {
   width: '100%',

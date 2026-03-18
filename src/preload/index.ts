@@ -34,7 +34,7 @@ contextBridge.exposeInMainWorld('api', {
   // Display management
   getDisplays: () => ipcRenderer.invoke('get-displays'),
   moveSubtitleToDisplay: (displayId: number) =>
-    ipcRenderer.send('move-subtitle-to-display', displayId),
+    ipcRenderer.invoke('move-subtitle-to-display', displayId),
 
   // Settings persistence (#49)
   getSettings: () => ipcRenderer.invoke('get-settings'),

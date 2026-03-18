@@ -25,7 +25,7 @@ let logger: TranscriptLogger | null = null
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 480,
+    width: 580,
     height: 640,
     resizable: true,
     webPreferences: {
@@ -49,8 +49,9 @@ function createMainWindow(): void {
 
 function createSubtitleWindow(): void {
   const displays = screen.getAllDisplays()
-  const externalDisplay = displays.find((d) => d.bounds.x !== 0 || d.bounds.y !== 0)
-  const targetDisplay = externalDisplay || displays[0]
+  const savedDisplayId = store.get('selectedDisplay')
+  const savedDisplay = savedDisplayId ? displays.find((d) => d.id === savedDisplayId) : null
+  const targetDisplay = savedDisplay || displays.find((d) => d.bounds.x !== 0 || d.bounds.y !== 0) || displays[0]
 
   subtitleWindow = new BrowserWindow({
     x: targetDisplay.bounds.x,
@@ -348,16 +349,17 @@ ipcMain.handle('get-displays', () => {
 })
 
 // Move subtitle window to target display
-ipcMain.on('move-subtitle-to-display', (_event, displayId: number) => {
+ipcMain.handle('move-subtitle-to-display', (_event, displayId: number) => {
   const display = screen.getAllDisplays().find((d) => d.id === displayId)
-  if (display && subtitleWindow) {
-    subtitleWindow.setBounds({
-      x: display.bounds.x,
-      y: display.bounds.y + display.bounds.height - 200,
-      width: display.bounds.width,
-      height: 200
-    })
-  }
+  if (!display) return { error: 'Display not found' }
+  if (!subtitleWindow || subtitleWindow.isDestroyed()) return { error: 'Subtitle window not available' }
+  subtitleWindow.setBounds({
+    x: display.bounds.x,
+    y: display.bounds.y + display.bounds.height - 200,
+    width: display.bounds.width,
+    height: 200
+  })
+  return { success: true }
 })
 
 // Forward translation result to subtitle window (from renderer)
@@ -404,10 +406,12 @@ app.whenReady().then(() => {
   createMainWindow()
   createSubtitleWindow()
 
-  // #46: reposition subtitle window when external display is disconnected
+  // #46/#64: reposition subtitle window when external display is disconnected
   screen.on('display-removed', () => {
-    if (!subtitleWindow) return
-    const primaryDisplay = screen.getPrimaryDisplay()
+    if (!subtitleWindow || subtitleWindow.isDestroyed()) return
+    const allDisplays = screen.getAllDisplays()
+    if (allDisplays.length === 0) return
+    const primaryDisplay = allDisplays[0]
     subtitleWindow.setBounds({
       x: primaryDisplay.bounds.x,
       y: primaryDisplay.bounds.y + primaryDisplay.bounds.height - 200,
