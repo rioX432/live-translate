@@ -39,6 +39,7 @@ export enum PipelineState {
 
 const MAX_CONSECUTIVE_ERRORS = 3
 const RECOVERY_DELAY_MS = 1000
+const ENGINE_INIT_TIMEOUT_MS = 300_000 // 5 minutes (model download can be large)
 
 /**
  * Manages the STT → Translation pipeline.
@@ -68,6 +69,8 @@ export class TranslationPipeline extends EventEmitter {
 
   // Auto-recovery state
   private consecutiveErrors = 0
+  private consecutiveEmptyResults = 0
+  private static readonly MAX_CONSECUTIVE_EMPTY = 10
 
   // Memory monitoring
   private memoryTimer: ReturnType<typeof setInterval> | null = null
@@ -88,6 +91,11 @@ export class TranslationPipeline extends EventEmitter {
 
   /** Whether the pipeline is actively processing audio */
   get running(): boolean {
+    return this._state === PipelineState.RUNNING
+  }
+
+  /** Whether the pipeline is running or recovering from errors */
+  get activeOrRecovering(): boolean {
     return this._state === PipelineState.RUNNING || this._state === PipelineState.RECOVERING
   }
 
@@ -141,6 +149,17 @@ export class TranslationPipeline extends EventEmitter {
     this.setState(PipelineState.INITIALIZING)
 
     try {
+      // Wait for any active streaming to finish before disposing engines
+      if (this.streamingLock) {
+        await new Promise<void>((resolve) => {
+          const prev = this.streamingLockResolve
+          this.streamingLockResolve = () => {
+            prev?.()
+            resolve()
+          }
+        })
+      }
+
       await this.disposeEngines()
       this.config = config
 
@@ -158,11 +177,11 @@ export class TranslationPipeline extends EventEmitter {
 
         this.emit('engine-loading', 'Loading STT model...')
         this.sttEngine = sttFactory()
-        await this.sttEngine.initialize()
+        await this.withTimeout(this.sttEngine.initialize(), 'STT initialization')
 
         this.emit('engine-loading', 'Initializing translator...')
         this.translator = translatorFactory()
-        await this.translator.initialize()
+        await this.withTimeout(this.translator.initialize(), 'Translator initialization')
       } else if (config.mode === 'e2e') {
         const e2eId = config.e2eEngineId
         if (!e2eId) throw new Error('e2e mode requires e2eEngineId')
@@ -172,7 +191,7 @@ export class TranslationPipeline extends EventEmitter {
 
         this.emit('engine-loading', 'Loading translation model...')
         this.e2eEngine = e2eFactory()
-        await this.e2eEngine.initialize()
+        await this.withTimeout(this.e2eEngine.initialize(), 'E2E engine initialization')
       }
 
       // If was RUNNING (hot-swap), go back to RUNNING; otherwise stay IDLE until start()
@@ -200,7 +219,6 @@ export class TranslationPipeline extends EventEmitter {
     }
     this.setState(PipelineState.RUNNING)
     this.startedAt = Date.now()
-    this.consecutiveErrors = 0
     this.startMemoryMonitor()
   }
 
@@ -213,6 +231,8 @@ export class TranslationPipeline extends EventEmitter {
     this.stopMemoryMonitor()
     this.agreement.reset()
     this.lastTranslatedConfirmed = ''
+    this.consecutiveEmptyResults = 0
+    this.consecutiveErrors = 0
   }
 
   // --- Audio processing ---
@@ -260,13 +280,7 @@ export class TranslationPipeline extends EventEmitter {
 
     if (!this.translator) {
       this.emit('error', new Error('Translator engine not initialized'))
-      return {
-        sourceText: sttResult.text,
-        translatedText: '(translator not available)',
-        sourceLanguage: sttResult.language,
-        targetLanguage: targetLang,
-        timestamp: Date.now()
-      }
+      return null
     }
 
     try {
@@ -284,16 +298,9 @@ export class TranslationPipeline extends EventEmitter {
         timestamp: Date.now()
       }
     } catch (translatorErr) {
-      console.error('[pipeline] Translator error, falling back to STT-only:', translatorErr)
-      this.emit('error', new Error(`Translation unavailable: ${translatorErr}`))
-
-      return {
-        sourceText: sttResult.text,
-        translatedText: '(translation unavailable)',
-        sourceLanguage: sttResult.language,
-        targetLanguage: targetLang,
-        timestamp: Date.now()
-      }
+      console.error('[pipeline] Translator error:', translatorErr)
+      this.emit('error', new Error(`Translation failed: ${translatorErr}`))
+      return null
     }
   }
 
@@ -307,18 +314,24 @@ export class TranslationPipeline extends EventEmitter {
     try {
       await new Promise((resolve) => setTimeout(resolve, RECOVERY_DELAY_MS))
 
+      // Clear streaming state before recovery
+      this.agreement.reset()
+      this.lastTranslatedConfirmed = ''
+      this.consecutiveEmptyResults = 0
+
       // Temporarily go to IDLE so switchEngine can transition to INITIALIZING
       this.setState(PipelineState.IDLE)
       await this.switchEngine(this.config)
-      this.consecutiveErrors = 0
 
-      // switchEngine leaves us in IDLE, so start again
-      this.setState(PipelineState.RUNNING)
+      // switchEngine leaves us in IDLE — use start() for proper transition
+      this.start()
+
+      // Reset error counter only after successful recovery
+      this.consecutiveErrors = 0
       console.log('[pipeline] Auto-recovery successful')
       this.emit('engine-ready')
     } catch (err) {
       console.error('[pipeline] Auto-recovery failed:', err)
-      this.consecutiveErrors = 0 // reset to prevent re-triggering
       this.setState(PipelineState.IDLE)
       this.emit('error', new Error('Auto-recovery failed. Please restart manually.'))
     }
@@ -334,8 +347,17 @@ export class TranslationPipeline extends EventEmitter {
     this.streamingLock = true
     try {
       const sttResult = await this.sttEngine.processAudio(audioBuffer, sampleRate)
-      if (!sttResult || !sttResult.text.trim()) return null
+      if (!sttResult || !sttResult.text.trim()) {
+        this.consecutiveEmptyResults++
+        if (this.consecutiveEmptyResults >= TranslationPipeline.MAX_CONSECUTIVE_EMPTY) {
+          this.agreement.reset()
+          this.lastTranslatedConfirmed = ''
+          this.consecutiveEmptyResults = 0
+        }
+        return null
+      }
 
+      this.consecutiveEmptyResults = 0
       const agreement = this.agreement.update(sttResult.text)
       const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
 
@@ -366,14 +388,19 @@ export class TranslationPipeline extends EventEmitter {
       this.emit('error', err instanceof Error ? err : new Error(String(err)))
       return null
     } finally {
-      this.streamingLock = false
-      this.streamingLockResolve?.()
-      this.streamingLockResolve = null
+      try {
+        this.streamingLock = false
+        this.streamingLockResolve?.()
+        this.streamingLockResolve = null
+      } catch (cleanupErr) {
+        console.error('[pipeline] Error cleaning up streaming lock:', cleanupErr)
+        this.streamingLock = false
+      }
     }
   }
 
   async finalizeStreaming(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (!this.running || !this.config) return null
+    if (this._state !== PipelineState.RUNNING || !this.config) return null
     if (this.config.mode !== 'cascade' || !this.sttEngine) return null
 
     if (this.streamingLock) {
@@ -426,9 +453,14 @@ export class TranslationPipeline extends EventEmitter {
       this.emit('error', err instanceof Error ? err : new Error(String(err)))
       return null
     } finally {
-      this.streamingLock = false
-      this.streamingLockResolve?.()
-      this.streamingLockResolve = null
+      try {
+        this.streamingLock = false
+        this.streamingLockResolve?.()
+        this.streamingLockResolve = null
+      } catch (cleanupErr) {
+        console.error('[pipeline] Error cleaning up streaming lock:', cleanupErr)
+        this.streamingLock = false
+      }
     }
   }
 
@@ -481,7 +513,21 @@ export class TranslationPipeline extends EventEmitter {
   }
 
   async dispose(): Promise<void> {
+    this.stopMemoryMonitor()
     this.stop()
     await this.disposeEngines()
+    this.removeAllListeners()
+  }
+
+  private withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(
+          () => reject(new Error(`${label} timed out after ${ENGINE_INIT_TIMEOUT_MS}ms`)),
+          ENGINE_INIT_TIMEOUT_MS
+        )
+      )
+    ])
   }
 }

@@ -137,7 +137,7 @@ interface PipelineStartConfig extends EngineConfig {
 
 ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => {
   if (!pipeline) return { error: 'Pipeline not initialized' }
-  if (pipeline.running) return { error: 'Pipeline already running' } // #30
+  if (pipeline.activeOrRecovering) return { error: 'Pipeline already running' } // #30
 
   try {
     // Register online translators with provided API keys

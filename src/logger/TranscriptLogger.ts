@@ -31,7 +31,11 @@ export class TranscriptLogger {
       ''
     ].join('\n')
 
-    writeFileSync(this.logPath, header, 'utf-8')
+    try {
+      writeFileSync(this.logPath, header, 'utf-8')
+    } catch (err) {
+      console.error('[logger] Error writing session header:', err)
+    }
   }
 
   /** Append a translation result to the log */
@@ -43,7 +47,11 @@ export class TranscriptLogger {
       ''
     ].join('\n')
 
-    appendFileSync(this.logPath, entry, 'utf-8')
+    try {
+      appendFileSync(this.logPath, entry, 'utf-8')
+    } catch (err) {
+      console.error('[logger] Error writing log entry:', err)
+    }
   }
 
   /** Write session footer */
@@ -57,7 +65,11 @@ export class TranscriptLogger {
       ''
     ].join('\n')
 
-    appendFileSync(this.logPath, footer, 'utf-8')
+    try {
+      appendFileSync(this.logPath, footer, 'utf-8')
+    } catch (err) {
+      console.error('[logger] Error writing session footer:', err)
+    }
   }
 
   /** Get the log file path */
