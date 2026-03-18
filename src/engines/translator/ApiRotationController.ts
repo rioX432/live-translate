@@ -32,6 +32,8 @@ export class ApiRotationController implements TranslatorEngine {
   private persistence: QuotaPersistence
   private quota: QuotaStore = {}
   private onStatusUpdate?: (message: string) => void
+  private failureCount = new Map<string, number>() // #40: track transient failures
+  private static readonly MAX_CONSECUTIVE_FAILURES = 5
 
   constructor(
     providers: ProviderConfig[],
@@ -67,6 +69,12 @@ export class ApiRotationController implements TranslatorEngine {
         continue
       }
 
+      // #40: skip if too many consecutive transient failures
+      const failures = this.failureCount.get(providerId) ?? 0
+      if (failures >= ApiRotationController.MAX_CONSECUTIVE_FAILURES) {
+        continue
+      }
+
       // Warn if approaching limit (90%)
       const usageRatio = record.charCount / provider.monthlyCharLimit
       if (usageRatio >= 0.9 && usageRatio < 1) {
@@ -83,6 +91,9 @@ export class ApiRotationController implements TranslatorEngine {
         this.quota[providerId] = record
         this.persistence.save(this.quota)
 
+        // Reset failure count on success (#40)
+        this.failureCount.set(providerId, 0)
+
         return result
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
@@ -94,6 +105,14 @@ export class ApiRotationController implements TranslatorEngine {
           record.charCount = provider.monthlyCharLimit
           this.quota[providerId] = record
           this.persistence.save(this.quota)
+        }
+
+        // #40: track consecutive failures for transient errors
+        const currentFailures = (this.failureCount.get(providerId) ?? 0) + 1
+        this.failureCount.set(providerId, currentFailures)
+        if (currentFailures >= ApiRotationController.MAX_CONSECUTIVE_FAILURES) {
+          console.warn(`[rotation] ${providerId}: disabled after ${currentFailures} consecutive failures`)
+          this.onStatusUpdate?.(`${provider.engine.name} temporarily disabled after repeated failures`)
         }
 
         // Continue to next provider
