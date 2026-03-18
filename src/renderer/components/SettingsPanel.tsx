@@ -238,6 +238,11 @@ function SettingsPanel(): JSX.Element {
             }}
           />
         </div>
+        {audio.permissionError && (
+          <div style={{ marginTop: '6px', fontSize: '12px', color: '#ef4444' }}>
+            {audio.permissionError}
+          </div>
+        )}
       </Section>
 
       {/* Engine Selection */}

@@ -12,6 +12,7 @@ export interface UseAudioCaptureReturn {
   setSelectedDevice: (id: string) => void
   isCapturing: boolean
   volume: number // 0-1 for level meter
+  permissionError: string | null // #48: mic permission error
   start: () => Promise<void>
   stop: () => void
   /** Callback for VAD-detected complete speech segments (legacy mode) */
@@ -30,15 +31,18 @@ export function useAudioCapture(): UseAudioCaptureReturn {
   const [selectedDevice, setSelectedDevice] = useState<string>('')
   const [isCapturing, setIsCapturing] = useState(false)
   const [volume, setVolume] = useState(0)
+  const [permissionError, setPermissionError] = useState<string | null>(null) // #48
 
   const vadRef = useRef<MicVAD | null>(null)
   const chunkCallbackRef = useRef<((chunk: Float32Array) => void) | null>(null)
   const streamingCallbackRef = useRef<((buffer: Float32Array) => void) | null>(null)
   const speechEndCallbackRef = useRef<((finalBuffer: Float32Array) => void) | null>(null)
 
-  // Rolling buffer state for streaming
+  // Rolling buffer state for streaming (#53: use circular buffer)
   const isSpeakingRef = useRef(false)
   const rollingBufferRef = useRef<Float32Array[]>([])
+  const rollingBufferIndexRef = useRef(0)
+  const rollingBufferFullRef = useRef(false)
   const streamingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   // Enumerate audio input devices
@@ -59,6 +63,13 @@ export function useAudioCapture(): UseAudioCaptureReturn {
         }
       } catch (err) {
         console.error('Failed to enumerate audio devices:', err)
+        // #48: surface permission errors to UI
+        const message = err instanceof Error ? err.message : String(err)
+        if (message.includes('Permission') || message.includes('NotAllowedError')) {
+          setPermissionError('Microphone access denied. Please grant permission in System Preferences.')
+        } else {
+          setPermissionError(`Microphone error: ${message}`)
+        }
       }
     }
     enumerate()
@@ -66,12 +77,21 @@ export function useAudioCapture(): UseAudioCaptureReturn {
 
   const getRollingBuffer = useCallback((): Float32Array | null => {
     const frames = rollingBufferRef.current
-    if (frames.length === 0) return null
-    const totalLength = frames.reduce((sum, f) => sum + f.length, 0)
+    const index = rollingBufferIndexRef.current
+    const isFull = rollingBufferFullRef.current
+    const count = isFull ? frames.length : index
+    if (count === 0) return null
+
+    // Reconstruct buffer in correct order from circular buffer
+    const orderedFrames = isFull
+      ? [...frames.slice(index), ...frames.slice(0, index)]
+      : frames.slice(0, index)
+
+    const totalLength = orderedFrames.reduce((sum, f) => sum + f.length, 0)
     if (totalLength < SAMPLE_RATE * 0.5) return null // Need at least 0.5s
     const buffer = new Float32Array(totalLength)
     let offset = 0
-    for (const frame of frames) {
+    for (const frame of orderedFrames) {
       buffer.set(frame, offset)
       offset += frame.length
     }
@@ -129,13 +149,22 @@ export function useAudioCapture(): UseAudioCaptureReturn {
         const rms = Math.sqrt(sum / frame.length)
         setVolume(Math.min(1, rms * 5))
 
-        // Accumulate frames for rolling buffer during speech
+        // #53: accumulate frames in circular buffer during speech
         if (isSpeakingRef.current) {
-          rollingBufferRef.current.push(new Float32Array(frame))
-          // Cap rolling buffer at ~30 seconds to prevent memory growth
-          const maxFrames = (30 * SAMPLE_RATE) / frame.length
-          if (rollingBufferRef.current.length > maxFrames) {
-            rollingBufferRef.current = rollingBufferRef.current.slice(-Math.floor(maxFrames))
+          const maxFrames = Math.floor((30 * SAMPLE_RATE) / frame.length)
+          const buf = rollingBufferRef.current
+          if (buf.length < maxFrames && !rollingBufferFullRef.current) {
+            buf.push(new Float32Array(frame))
+            rollingBufferIndexRef.current = buf.length
+          } else {
+            // Circular overwrite — no allocation, no slice
+            if (buf.length < maxFrames) {
+              buf.length = maxFrames
+            }
+            rollingBufferFullRef.current = true
+            const idx = rollingBufferIndexRef.current % maxFrames
+            buf[idx] = new Float32Array(frame)
+            rollingBufferIndexRef.current = idx + 1
           }
         }
       },
@@ -147,6 +176,8 @@ export function useAudioCapture(): UseAudioCaptureReturn {
         isSpeakingRef.current = false
         speechEndCallbackRef.current?.(audio)
         rollingBufferRef.current = []
+        rollingBufferIndexRef.current = 0
+        rollingBufferFullRef.current = false
 
         // Also fire legacy callback
         chunkCallbackRef.current?.(audio)
@@ -155,11 +186,15 @@ export function useAudioCapture(): UseAudioCaptureReturn {
         console.log('[audio-capture] VAD speech start')
         isSpeakingRef.current = true
         rollingBufferRef.current = []
+        rollingBufferIndexRef.current = 0
+        rollingBufferFullRef.current = false
       },
       onVADMisfire: () => {
         console.log('[audio-capture] VAD misfire (speech too short)')
         isSpeakingRef.current = false
         rollingBufferRef.current = []
+        rollingBufferIndexRef.current = 0
+        rollingBufferFullRef.current = false
       }
     })
 
@@ -178,6 +213,8 @@ export function useAudioCapture(): UseAudioCaptureReturn {
     }
     isSpeakingRef.current = false
     rollingBufferRef.current = []
+    rollingBufferIndexRef.current = 0
+    rollingBufferFullRef.current = false
     setIsCapturing(false)
     setVolume(0)
     console.log('[audio-capture] VAD stopped')
@@ -201,6 +238,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
     setSelectedDevice,
     isCapturing,
     volume,
+    permissionError,
     start,
     stop,
     onAudioChunk,
