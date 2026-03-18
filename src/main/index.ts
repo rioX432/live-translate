@@ -15,6 +15,9 @@ import { TranscriptLogger } from '../logger/TranscriptLogger'
 import { store } from './store'
 import type { EngineConfig, TranslationResult } from '../engines/types'
 
+/** Minimum amplitude to consider a chunk as non-silent */
+const SILENCE_THRESHOLD = 0.001
+
 let mainWindow: BrowserWindow | null = null
 let subtitleWindow: BrowserWindow | null = null
 let pipeline: TranslationPipeline | null = null
@@ -265,7 +268,7 @@ function toFloat32Array(audioData: unknown): Float32Array | null {
   }
   console.debug(`[audio] samples=${chunk.length}, max_amplitude=${maxAmp.toFixed(6)}`)
 
-  if (maxAmp < 0.001) {
+  if (maxAmp < SILENCE_THRESHOLD) {
     console.debug('[audio] Silent chunk, skipping')
     return null
   }
