@@ -13,6 +13,7 @@ interface SubtitleLine {
 const MAX_LINES = 3
 const FADE_DURATION_MS = 8000
 const INTERIM_LINE_ID = -1
+let nextLineId = 1
 
 function SubtitleOverlay(): JSX.Element {
   const [lines, setLines] = useState<SubtitleLine[]>([])
@@ -25,7 +26,7 @@ function SubtitleOverlay(): JSX.Element {
       setLines((prev) => {
         // Remove any interim line, add the final result
         const withoutInterim = prev.filter((l) => l.id !== INTERIM_LINE_ID)
-        const updated = [...withoutInterim, { ...result, id: Date.now(), opacity: 1 }]
+        const updated = [...withoutInterim, { ...result, id: nextLineId++, opacity: 1 }]
         return updated.slice(-MAX_LINES)
       })
     })
