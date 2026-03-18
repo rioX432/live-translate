@@ -21,6 +21,7 @@ export class WhisperTranslateEngine implements E2ETranslationEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.modelPath) return
     if (!isModelDownloaded()) {
       this.modelPath = await downloadModel(this.onProgress)
     } else {

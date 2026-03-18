@@ -16,6 +16,7 @@ export class WhisperLocalEngine implements STTEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.modelPath) return
     if (!isModelDownloaded()) {
       this.modelPath = await downloadModel(this.onProgress)
     } else {

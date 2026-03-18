@@ -34,6 +34,7 @@ export class ApiRotationController implements TranslatorEngine {
   private onStatusUpdate?: (message: string) => void
   private failureCount = new Map<string, number>() // #40: track transient failures
   private static readonly MAX_CONSECUTIVE_FAILURES = 5
+  private initialized = false
 
   constructor(
     providers: ProviderConfig[],
@@ -47,10 +48,12 @@ export class ApiRotationController implements TranslatorEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.initialized) return
     // Initialize all provider engines
     for (const provider of this.providers) {
       await provider.engine.initialize()
     }
+    this.initialized = true
   }
 
   async translate(text: string, from: Language, to: Language): Promise<string> {

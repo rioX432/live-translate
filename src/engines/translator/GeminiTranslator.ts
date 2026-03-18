@@ -14,12 +14,14 @@ export class GeminiTranslator implements TranslatorEngine {
   readonly isOffline = false
 
   private apiKey: string
+  private initialized = false
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
   }
 
   async initialize(): Promise<void> {
+    if (this.initialized) return
     if (!this.apiKey) {
       throw new Error('Gemini API key is required')
     }
@@ -30,6 +32,7 @@ export class GeminiTranslator implements TranslatorEngine {
       const msg = err instanceof Error ? err.message : String(err)
       throw new Error(`Invalid Gemini API key: ${msg}`)
     }
+    this.initialized = true
   }
 
   async translate(text: string, from: Language, to: Language): Promise<string> {

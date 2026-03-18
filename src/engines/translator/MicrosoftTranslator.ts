@@ -10,6 +10,7 @@ export class MicrosoftTranslator implements TranslatorEngine {
 
   private apiKey: string
   private region: string
+  private initialized = false
 
   constructor(apiKey: string, region: string) {
     this.apiKey = apiKey
@@ -17,6 +18,7 @@ export class MicrosoftTranslator implements TranslatorEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.initialized) return
     if (!this.apiKey) {
       throw new Error('Microsoft Translator API key is required')
     }
@@ -30,6 +32,7 @@ export class MicrosoftTranslator implements TranslatorEngine {
       const msg = err instanceof Error ? err.message : String(err)
       throw new Error(`Invalid Microsoft Translator credentials: ${msg}`)
     }
+    this.initialized = true
   }
 
   async translate(text: string, from: Language, to: Language): Promise<string> {
