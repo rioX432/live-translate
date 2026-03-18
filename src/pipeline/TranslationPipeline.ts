@@ -287,13 +287,7 @@ export class TranslationPipeline extends EventEmitter {
 
     if (!this.translator) {
       this.emit('error', new Error('Translator engine not initialized'))
-      return {
-        sourceText: sttResult.text,
-        translatedText: '(translator not available)',
-        sourceLanguage: sttResult.language,
-        targetLanguage: targetLang,
-        timestamp: Date.now()
-      }
+      return null
     }
 
     try {
@@ -311,12 +305,12 @@ export class TranslationPipeline extends EventEmitter {
         timestamp: Date.now()
       }
     } catch (translatorErr) {
-      console.error('[pipeline] Translator error, falling back to STT-only:', translatorErr)
-      this.emit('error', new Error(`Translation unavailable: ${translatorErr}`))
-
+      console.error('[pipeline] Translator error:', translatorErr)
+      this.emit('error', new Error(`Translation failed: ${translatorErr instanceof Error ? translatorErr.message : translatorErr}`))
+      // Return STT-only result so source text still displays
       return {
         sourceText: sttResult.text,
-        translatedText: '(translation unavailable)',
+        translatedText: '',
         sourceLanguage: sttResult.language,
         targetLanguage: targetLang,
         timestamp: Date.now()
