@@ -46,8 +46,10 @@ function createMainWindow(): void {
 
 function createSubtitleWindow(): void {
   const displays = screen.getAllDisplays()
+  const savedDisplayId = store.get('selectedDisplay')
+  const savedDisplay = savedDisplayId ? displays.find((d) => d.id === savedDisplayId) : null
   const externalDisplay = displays.find((d) => d.bounds.x !== 0 || d.bounds.y !== 0)
-  const targetDisplay = externalDisplay || displays[0]
+  const targetDisplay = savedDisplay || externalDisplay || displays[0]
 
   subtitleWindow = new BrowserWindow({
     x: targetDisplay.bounds.x,
