@@ -15,6 +15,27 @@ export interface PipelineEvents {
   error: (error: Error) => void
   'engine-loading': (message: string) => void
   'engine-ready': () => void
+  'state-change': (state: PipelineState) => void
+}
+
+/**
+ * Pipeline lifecycle states (#52).
+ * Valid transitions:
+ *   IDLE → INITIALIZING → RUNNING → IDLE (normal lifecycle)
+ *   RUNNING → RECOVERING → RUNNING (auto-recovery success)
+ *   RUNNING → RECOVERING → IDLE (auto-recovery failure)
+ *   RUNNING → INITIALIZING → RUNNING (hot-swap engine)
+ *   any → IDLE (dispose)
+ */
+export enum PipelineState {
+  /** Not running, engines may or may not be loaded */
+  IDLE = 'idle',
+  /** Engine switch or initialization in progress */
+  INITIALIZING = 'initializing',
+  /** Running and ready to process audio */
+  RUNNING = 'running',
+  /** Auto-recovering from consecutive errors */
+  RECOVERING = 'recovering'
 }
 
 const MAX_CONSECUTIVE_ERRORS = 3
@@ -29,17 +50,16 @@ const RECOVERY_DELAY_MS = 1000
  * Engines are swappable at runtime via switchEngine().
  */
 export class TranslationPipeline extends EventEmitter {
+  private _state: PipelineState = PipelineState.IDLE
   private config: EngineConfig | null = null
   private sttEngine: STTEngine | null = null
   private translator: TranslatorEngine | null = null
   private e2eEngine: E2ETranslationEngine | null = null
-  private isRunning = false
   private agreement = new LocalAgreement()
   private lastTranslatedConfirmed = ''
-  private streamingLock = false
-  private switchingEngine = false // #29: prevent concurrent switches
 
-  // Promise-based streaming lock signal (#35)
+  // Streaming mutex (separate from lifecycle state)
+  private streamingLock = false
   private streamingLockResolve: (() => void) | null = null
 
   // Engine factories — registered externally
@@ -49,39 +69,80 @@ export class TranslationPipeline extends EventEmitter {
 
   // Auto-recovery state
   private consecutiveErrors = 0
-  private recovering = false
 
   // Memory monitoring
   private memoryTimer: ReturnType<typeof setInterval> | null = null
   private startedAt: number | null = null
 
-  /** Register an STT engine factory */
+  // --- State management ---
+
+  get state(): PipelineState {
+    return this._state
+  }
+
+  private setState(newState: PipelineState): void {
+    const prev = this._state
+    this._state = newState
+    this.emit('state-change', newState)
+    console.log(`[pipeline] ${prev} → ${newState}`)
+  }
+
+  /** Whether the pipeline is actively processing audio */
+  get running(): boolean {
+    return this._state === PipelineState.RUNNING || this._state === PipelineState.RECOVERING
+  }
+
+  get currentConfig(): EngineConfig | null {
+    return this.config
+  }
+
+  get sessionStartTime(): number | null {
+    return this.startedAt
+  }
+
+  /** Check if a specific transition is allowed */
+  private canTransitionTo(target: PipelineState): boolean {
+    switch (target) {
+      case PipelineState.INITIALIZING:
+        return this._state === PipelineState.IDLE || this._state === PipelineState.RUNNING
+      case PipelineState.RUNNING:
+        return this._state === PipelineState.INITIALIZING || this._state === PipelineState.RECOVERING
+      case PipelineState.RECOVERING:
+        return this._state === PipelineState.RUNNING
+      case PipelineState.IDLE:
+        return true // can always go to IDLE (dispose/stop)
+      default:
+        return false
+    }
+  }
+
+  // --- Engine registration ---
+
   registerSTT(id: string, factory: () => STTEngine): void {
     this.sttFactories.set(id, factory)
   }
 
-  /** Register a translator engine factory */
   registerTranslator(id: string, factory: () => TranslatorEngine): void {
     this.translatorFactories.set(id, factory)
   }
 
-  /** Register an E2E engine factory */
   registerE2E(id: string, factory: () => E2ETranslationEngine): void {
     this.e2eFactories.set(id, factory)
   }
 
+  // --- Lifecycle ---
+
   /** Switch to a new engine configuration. Disposes previous engines. */
   async switchEngine(config: EngineConfig): Promise<void> {
-    // #29: prevent concurrent engine switches
-    if (this.switchingEngine) {
-      throw new Error('Engine switch already in progress')
+    if (!this.canTransitionTo(PipelineState.INITIALIZING)) {
+      throw new Error(`Cannot switch engine in state: ${this._state}`)
     }
-    this.switchingEngine = true
+
+    const prevState = this._state
+    this.setState(PipelineState.INITIALIZING)
 
     try {
-      // Dispose existing engines
       await this.disposeEngines()
-
       this.config = config
 
       if (config.mode === 'cascade') {
@@ -115,21 +176,50 @@ export class TranslationPipeline extends EventEmitter {
         await this.e2eEngine.initialize()
       }
 
+      // If was RUNNING (hot-swap), go back to RUNNING; otherwise stay IDLE until start()
+      if (prevState === PipelineState.RUNNING) {
+        this.setState(PipelineState.RUNNING)
+      } else {
+        // Stay in INITIALIZING — caller will call start() to transition to RUNNING
+        // Actually, transition to IDLE so start() can be called
+        this.setState(PipelineState.IDLE)
+      }
       this.emit('engine-ready')
     } catch (err) {
-      // #34: reset config on failure to prevent broken state
       this.config = null
       await this.disposeEngines()
+      this.setState(PipelineState.IDLE)
       this.emit('error', err instanceof Error ? err : new Error(String(err)))
       throw err
-    } finally {
-      this.switchingEngine = false
     }
   }
 
-  /** Process an audio chunk through the current pipeline */
+  start(): void {
+    if (this._state !== PipelineState.IDLE) {
+      console.warn(`[pipeline] Cannot start in state: ${this._state}`)
+      return
+    }
+    this.setState(PipelineState.RUNNING)
+    this.startedAt = Date.now()
+    this.consecutiveErrors = 0
+    this.startMemoryMonitor()
+  }
+
+  stop(): void {
+    this.setState(PipelineState.IDLE)
+    this.startedAt = null
+    this.streamingLock = false
+    this.streamingLockResolve?.()
+    this.streamingLockResolve = null
+    this.stopMemoryMonitor()
+    this.agreement.reset()
+    this.lastTranslatedConfirmed = ''
+  }
+
+  // --- Audio processing ---
+
   async process(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (!this.isRunning || !this.config || this.recovering || this.switchingEngine) return null
+    if (this._state !== PipelineState.RUNNING || !this.config) return null
 
     try {
       let result: TranslationResult | null = null
@@ -169,7 +259,6 @@ export class TranslationPipeline extends EventEmitter {
 
     const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
 
-    // #41: emit error when translator is null instead of silent failure
     if (!this.translator) {
       this.emit('error', new Error('Translator engine not initialized'))
       return {
@@ -199,7 +288,6 @@ export class TranslationPipeline extends EventEmitter {
       console.error('[pipeline] Translator error, falling back to STT-only:', translatorErr)
       this.emit('error', new Error(`Translation unavailable: ${translatorErr}`))
 
-      // Return STT-only result so the user at least sees transcription
       return {
         sourceText: sttResult.text,
         translatedText: '(translation unavailable)',
@@ -211,33 +299,35 @@ export class TranslationPipeline extends EventEmitter {
   }
 
   private async attemptRecovery(): Promise<void> {
-    if (this.recovering || !this.config) return
-    this.recovering = true
+    if (!this.canTransitionTo(PipelineState.RECOVERING) || !this.config) return
+    this.setState(PipelineState.RECOVERING)
 
     console.log('[pipeline] Attempting auto-recovery after consecutive errors...')
     this.emit('engine-loading', 'Recovering from errors...')
 
     try {
       await new Promise((resolve) => setTimeout(resolve, RECOVERY_DELAY_MS))
+
+      // Temporarily go to IDLE so switchEngine can transition to INITIALIZING
+      this.setState(PipelineState.IDLE)
       await this.switchEngine(this.config)
       this.consecutiveErrors = 0
+
+      // switchEngine leaves us in IDLE, so start again
+      this.setState(PipelineState.RUNNING)
       console.log('[pipeline] Auto-recovery successful')
       this.emit('engine-ready')
     } catch (err) {
       console.error('[pipeline] Auto-recovery failed:', err)
+      this.setState(PipelineState.IDLE)
       this.emit('error', new Error('Auto-recovery failed. Please restart manually.'))
-    } finally {
-      this.recovering = false
     }
   }
 
-  /**
-   * Process a rolling audio buffer for streaming (Local Agreement).
-   * Emits interim-result with confirmed + interim text.
-   * Only translates newly confirmed text.
-   */
+  // --- Streaming ---
+
   async processStreaming(audioBuffer: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (!this.isRunning || !this.config || this.switchingEngine) return null
+    if (this._state !== PipelineState.RUNNING || !this.config) return null
     if (this.config.mode !== 'cascade' || !this.sttEngine) return null
     if (this.streamingLock) return null
 
@@ -247,13 +337,10 @@ export class TranslationPipeline extends EventEmitter {
       if (!sttResult || !sttResult.text.trim()) return null
 
       const agreement = this.agreement.update(sttResult.text)
-
       const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
 
-      // Translate only newly confirmed text
       let translatedText = ''
       if (agreement.newConfirmed && this.translator) {
-        // Translate the full confirmed text for better context
         translatedText = await this.translator.translate(
           agreement.confirmedText,
           sttResult.language,
@@ -264,7 +351,6 @@ export class TranslationPipeline extends EventEmitter {
         translatedText = this.lastTranslatedConfirmed
       }
 
-      // Emit interim result (confirmed + interim text for display)
       const interimResult: TranslationResult = {
         sourceText: agreement.confirmedText + agreement.interimText,
         translatedText,
@@ -281,24 +367,17 @@ export class TranslationPipeline extends EventEmitter {
       return null
     } finally {
       this.streamingLock = false
-      // #35: signal waiters that lock is released
       this.streamingLockResolve?.()
       this.streamingLockResolve = null
     }
   }
 
-  /**
-   * Finalize streaming for the current speech segment.
-   * Promotes all text to confirmed, translates, and emits a final result.
-   */
   async finalizeStreaming(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (!this.isRunning || !this.config) return null
+    if (!this.running || !this.config) return null
     if (this.config.mode !== 'cascade' || !this.sttEngine) return null
 
-    // #35: wait for in-flight streaming with Promise instead of busy-wait
     if (this.streamingLock) {
       await new Promise<void>((resolve) => {
-        // Queue resolve — previous resolve (if any) is called first
         const prev = this.streamingLockResolve
         this.streamingLockResolve = () => {
           prev?.()
@@ -353,35 +432,7 @@ export class TranslationPipeline extends EventEmitter {
     }
   }
 
-  start(): void {
-    this.isRunning = true
-    this.startedAt = Date.now()
-    this.consecutiveErrors = 0
-    this.startMemoryMonitor()
-  }
-
-  stop(): void {
-    this.isRunning = false
-    this.startedAt = null
-    this.streamingLock = false // #42: reset lock to prevent blocking next session
-    this.streamingLockResolve?.() // unblock any waiters
-    this.streamingLockResolve = null
-    this.stopMemoryMonitor()
-    this.agreement.reset()
-    this.lastTranslatedConfirmed = ''
-  }
-
-  get running(): boolean {
-    return this.isRunning
-  }
-
-  get currentConfig(): EngineConfig | null {
-    return this.config
-  }
-
-  get sessionStartTime(): number | null {
-    return this.startedAt
-  }
+  // --- Memory monitoring ---
 
   private startMemoryMonitor(): void {
     this.stopMemoryMonitor()
@@ -410,7 +461,8 @@ export class TranslationPipeline extends EventEmitter {
     )
   }
 
-  // #51: guarantee all engines are disposed even if one throws
+  // --- Cleanup ---
+
   private async disposeEngines(): Promise<void> {
     const engines = [this.sttEngine, this.translator, this.e2eEngine]
     this.sttEngine = null
