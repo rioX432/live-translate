@@ -103,7 +103,8 @@ function SettingsPanel(): JSX.Element {
     audio.onSpeechSegmentEnd((finalBuffer) => {
       window.api.finalizeStreaming(Array.from(finalBuffer))
     })
-  }, [audio])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks use stable refs internally
+  }, [])
 
   // Listen for status updates from main process
   useEffect(() => {
