@@ -139,7 +139,9 @@ export class ApiRotationController implements TranslatorEngine {
 
   async dispose(): Promise<void> {
     for (const provider of this.providers) {
-      await provider.engine.dispose().catch(() => {})
+      await provider.engine.dispose().catch((err) => {
+        console.warn(`[rotation] Error disposing ${provider.engine.id}:`, err)
+      })
     }
   }
 

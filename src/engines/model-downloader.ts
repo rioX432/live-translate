@@ -49,7 +49,28 @@ export async function downloadModel(
   }
 }
 
+const MAX_RETRIES = 3
+const RETRY_DELAYS = [3_000, 10_000, 30_000]
+
 async function doDownload(
+  modelPath: string,
+  onProgress?: (message: string) => void
+): Promise<string> {
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      return await doDownloadAttempt(modelPath, onProgress)
+    } catch (err) {
+      if (attempt >= MAX_RETRIES) throw err
+      const delay = RETRY_DELAYS[attempt]
+      const msg = err instanceof Error ? err.message : String(err)
+      onProgress?.(`Download failed (${msg}), retrying in ${delay / 1000}s... (${attempt + 1}/${MAX_RETRIES})`)
+      await new Promise((resolve) => setTimeout(resolve, delay))
+    }
+  }
+  throw new Error('Unreachable')
+}
+
+async function doDownloadAttempt(
   modelPath: string,
   onProgress?: (message: string) => void
 ): Promise<string> {

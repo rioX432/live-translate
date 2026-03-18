@@ -39,6 +39,7 @@ export enum PipelineState {
 
 const MAX_CONSECUTIVE_ERRORS = 3
 const RECOVERY_DELAY_MS = 1000
+const ENGINE_INIT_TIMEOUT_MS = 5 * 60_000 // 5 minutes for model download
 
 /**
  * Manages the STT → Translation pipeline.
@@ -92,6 +93,11 @@ export class TranslationPipeline extends EventEmitter {
 
   /** Whether the pipeline is actively processing audio */
   get running(): boolean {
+    return this._state === PipelineState.RUNNING
+  }
+
+  /** Whether the pipeline is in any active state (running or recovering) */
+  get active(): boolean {
     return this._state === PipelineState.RUNNING || this._state === PipelineState.RECOVERING
   }
 
@@ -131,6 +137,16 @@ export class TranslationPipeline extends EventEmitter {
 
   registerE2E(id: string, factory: () => E2ETranslationEngine): void {
     this.e2eFactories.set(id, factory)
+  }
+
+  /** Run a promise with a timeout */
+  private withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<never>((_resolve, reject) =>
+        setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+      )
+    ])
   }
 
   // --- Processing lock ---
@@ -173,11 +189,11 @@ export class TranslationPipeline extends EventEmitter {
 
         this.emit('engine-loading', 'Loading STT model...')
         this.sttEngine = sttFactory()
-        await this.sttEngine.initialize()
+        await this.withTimeout(this.sttEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'STT initialization')
 
         this.emit('engine-loading', 'Initializing translator...')
         this.translator = translatorFactory()
-        await this.translator.initialize()
+        await this.withTimeout(this.translator.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Translator initialization')
       } else if (config.mode === 'e2e') {
         const e2eId = config.e2eEngineId
         if (!e2eId) throw new Error('e2e mode requires e2eEngineId')
@@ -187,7 +203,7 @@ export class TranslationPipeline extends EventEmitter {
 
         this.emit('engine-loading', 'Loading translation model...')
         this.e2eEngine = e2eFactory()
-        await this.e2eEngine.initialize()
+        await this.withTimeout(this.e2eEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'E2E engine initialization')
       }
 
       // If was RUNNING (hot-swap), go back to RUNNING; otherwise stay IDLE until start()
@@ -220,12 +236,12 @@ export class TranslationPipeline extends EventEmitter {
   }
 
   stop(): void {
+    this.stopMemoryMonitor()
     this.setState(PipelineState.IDLE)
     this.startedAt = null
     this.streamingLock = false
     this.streamingLockResolve?.()
     this.streamingLockResolve = null
-    this.stopMemoryMonitor()
     this.agreement.reset()
     this.lastTranslatedConfirmed = ''
   }
@@ -282,13 +298,7 @@ export class TranslationPipeline extends EventEmitter {
 
     if (!this.translator) {
       this.emit('error', new Error('Translator engine not initialized'))
-      return {
-        sourceText: sttResult.text,
-        translatedText: '(translator not available)',
-        sourceLanguage: sttResult.language,
-        targetLanguage: targetLang,
-        timestamp: Date.now()
-      }
+      return null
     }
 
     try {
@@ -306,12 +316,12 @@ export class TranslationPipeline extends EventEmitter {
         timestamp: Date.now()
       }
     } catch (translatorErr) {
-      console.error('[pipeline] Translator error, falling back to STT-only:', translatorErr)
-      this.emit('error', new Error(`Translation unavailable: ${translatorErr}`))
-
+      console.error('[pipeline] Translator error:', translatorErr)
+      this.emit('error', new Error(`Translation failed: ${translatorErr instanceof Error ? translatorErr.message : translatorErr}`))
+      // Return STT-only result so source text still displays
       return {
         sourceText: sttResult.text,
-        translatedText: '(translation unavailable)',
+        translatedText: '',
         sourceLanguage: sttResult.language,
         targetLanguage: targetLang,
         timestamp: Date.now()
@@ -328,6 +338,10 @@ export class TranslationPipeline extends EventEmitter {
 
     try {
       await new Promise((resolve) => setTimeout(resolve, RECOVERY_DELAY_MS))
+
+      // Reset streaming state before re-initializing engines
+      this.agreement.reset()
+      this.lastTranslatedConfirmed = ''
 
       // Temporarily go to IDLE so switchEngine can transition to INITIALIZING
       this.setState(PipelineState.IDLE)
@@ -358,7 +372,12 @@ export class TranslationPipeline extends EventEmitter {
     this.streamingLock = true
     try {
       const sttResult = await this.sttEngine.processAudio(audioBuffer, sampleRate)
-      if (!sttResult || !sttResult.text.trim()) return null
+      if (!sttResult || !sttResult.text.trim()) {
+        // Reset agreement on silence to prevent stale state accumulation (#75)
+        this.agreement.reset()
+        this.lastTranslatedConfirmed = ''
+        return null
+      }
 
       const agreement = this.agreement.update(sttResult.text)
       const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
@@ -507,5 +526,6 @@ export class TranslationPipeline extends EventEmitter {
   async dispose(): Promise<void> {
     this.stop()
     await this.disposeEngines()
+    this.removeAllListeners()
   }
 }

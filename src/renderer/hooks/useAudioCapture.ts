@@ -66,7 +66,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
         // #48: surface permission errors to UI
         const message = err instanceof Error ? err.message : String(err)
         if (message.includes('Permission') || message.includes('NotAllowedError')) {
-          setPermissionError('Microphone access denied. Please grant permission in System Preferences.')
+          setPermissionError('Microphone access denied. Please grant permission in System Settings > Privacy & Security > Microphone.')
         } else {
           setPermissionError(`Microphone error: ${message}`)
         }

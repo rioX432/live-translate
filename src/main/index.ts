@@ -15,6 +15,17 @@ import { TranscriptLogger } from '../logger/TranscriptLogger'
 import { store } from './store'
 import type { EngineConfig, TranslationResult } from '../engines/types'
 
+/** Minimum amplitude to consider a chunk as non-silent */
+const SILENCE_THRESHOLD = 0.001
+
+/** Monthly character limits for API rotation providers */
+const QUOTA_LIMITS = {
+  microsoft: 2_000_000,
+  google: 480_000,
+  deepl: 500_000,
+  gemini: 1_000_000
+} as const
+
 let mainWindow: BrowserWindow | null = null
 let subtitleWindow: BrowserWindow | null = null
 let pipeline: TranslationPipeline | null = null
@@ -22,8 +33,8 @@ let logger: TranscriptLogger | null = null
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 480,
-    height: 640,
+    width: 520,
+    height: 720,
     resizable: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -46,8 +57,10 @@ function createMainWindow(): void {
 
 function createSubtitleWindow(): void {
   const displays = screen.getAllDisplays()
+  const savedDisplayId = store.get('selectedDisplay')
+  const savedDisplay = savedDisplayId ? displays.find((d) => d.id === savedDisplayId) : null
   const externalDisplay = displays.find((d) => d.bounds.x !== 0 || d.bounds.y !== 0)
-  const targetDisplay = externalDisplay || displays[0]
+  const targetDisplay = savedDisplay || externalDisplay || displays[0]
 
   subtitleWindow = new BrowserWindow({
     x: targetDisplay.bounds.x,
@@ -112,7 +125,8 @@ function initPipeline(): void {
   })
 
   pipeline.on('error', (err: Error) => {
-    mainWindow?.webContents.send('status-update', `Error: ${err.message}`)
+    const hint = getErrorHint(err.message)
+    mainWindow?.webContents.send('status-update', `Error: ${err.message}${hint}`)
   })
 
   pipeline.on('engine-loading', (msg: string) => {
@@ -137,7 +151,7 @@ interface PipelineStartConfig extends EngineConfig {
 
 ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => {
   if (!pipeline) return { error: 'Pipeline not initialized' }
-  if (pipeline.running) return { error: 'Pipeline already running' } // #30
+  if (pipeline.active) return { error: 'Pipeline already running' } // #30
 
   try {
     // Register online translators with provided API keys
@@ -167,25 +181,25 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
       if (config.microsoftApiKey && config.microsoftRegion) {
         providers.push({
           engine: new MicrosoftTranslator(config.microsoftApiKey, config.microsoftRegion),
-          monthlyCharLimit: 2_000_000
+          monthlyCharLimit: QUOTA_LIMITS.microsoft
         })
       }
       if (config.apiKey) {
         providers.push({
           engine: new GoogleTranslator(config.apiKey),
-          monthlyCharLimit: 480_000
+          monthlyCharLimit: QUOTA_LIMITS.google
         })
       }
       if (config.deeplApiKey) {
         providers.push({
           engine: new DeepLTranslator(config.deeplApiKey),
-          monthlyCharLimit: 500_000
+          monthlyCharLimit: QUOTA_LIMITS.deepl
         })
       }
       if (config.geminiApiKey) {
         providers.push({
           engine: new GeminiTranslator(config.geminiApiKey),
-          monthlyCharLimit: 1_000_000 // Gemini free tier is generous
+          monthlyCharLimit: QUOTA_LIMITS.gemini
         })
       }
 
@@ -212,10 +226,10 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
       : `Cascade (Whisper + ${config.translatorEngineId})`
     logger.startSession(sessionLabel)
 
-    pipeline.start()
-
-    // #54: persist session AFTER successful start (not before switchEngine)
+    // #62: persist session BEFORE start to avoid crash window
     store.set('activeSession', { config, startedAt: Date.now() })
+
+    pipeline.start()
 
     return { success: true }
   } catch (err) {
@@ -238,6 +252,27 @@ ipcMain.handle('pipeline-stop', async () => {
 ipcMain.handle('get-session-start-time', () => {
   return pipeline?.sessionStartTime ?? null
 })
+
+/** Map error patterns to actionable hints */
+function getErrorHint(message: string): string {
+  const lower = message.toLowerCase()
+  if (lower.includes('api key') || lower.includes('401') || lower.includes('403')) {
+    return ' — Check your API key in settings'
+  }
+  if (lower.includes('rate limit') || lower.includes('429') || lower.includes('quota')) {
+    return ' — API quota exceeded, try a different provider'
+  }
+  if (lower.includes('timed out') || lower.includes('timeout')) {
+    return ' — Check your internet connection'
+  }
+  if (lower.includes('network') || lower.includes('fetch')) {
+    return ' — Check your internet connection'
+  }
+  if (lower.includes('model') || lower.includes('download')) {
+    return ' — Model download issue, try restarting'
+  }
+  return ''
+}
 
 /** Convert IPC audio data to Float32Array */
 function toFloat32Array(audioData: unknown): Float32Array | null {
@@ -263,7 +298,7 @@ function toFloat32Array(audioData: unknown): Float32Array | null {
   }
   console.debug(`[audio] samples=${chunk.length}, max_amplitude=${maxAmp.toFixed(6)}`)
 
-  if (maxAmp < 0.001) {
+  if (maxAmp < SILENCE_THRESHOLD) {
     console.debug('[audio] Silent chunk, skipping')
     return null
   }
@@ -331,7 +366,11 @@ ipcMain.handle('get-displays', () => {
 // Move subtitle window to target display
 ipcMain.on('move-subtitle-to-display', (_event, displayId: number) => {
   const display = screen.getAllDisplays().find((d) => d.id === displayId)
-  if (display && subtitleWindow) {
+  if (!display) {
+    console.warn(`[display] Display ${displayId} not found, ignoring move request`)
+    return
+  }
+  if (subtitleWindow) {
     subtitleWindow.setBounds({
       x: display.bounds.x,
       y: display.bounds.y + display.bounds.height - 200,
@@ -372,7 +411,12 @@ ipcMain.handle('get-crashed-session', () => {
   if (session) {
     // Clear it so we don't keep detecting the same crash
     store.set('activeSession', null)
-    return session
+    // Validate config has required fields
+    const config = session.config
+    if (config && typeof config === 'object' && config.mode) {
+      return session
+    }
+    console.warn('[crash-recovery] Invalid session config, discarding:', config)
   }
   return null
 })
@@ -394,6 +438,12 @@ app.whenReady().then(() => {
       width: primaryDisplay.bounds.width,
       height: 200
     })
+    // #64: notify renderer to refresh display list
+    mainWindow?.webContents.send('displays-changed')
+  })
+
+  screen.on('display-added', () => {
+    mainWindow?.webContents.send('displays-changed')
   })
 })
 
