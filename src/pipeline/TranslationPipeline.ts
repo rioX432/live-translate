@@ -507,5 +507,6 @@ export class TranslationPipeline extends EventEmitter {
   async dispose(): Promise<void> {
     this.stop()
     await this.disposeEngines()
+    this.removeAllListeners()
   }
 }
