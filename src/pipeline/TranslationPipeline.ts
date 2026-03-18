@@ -225,12 +225,12 @@ export class TranslationPipeline extends EventEmitter {
   }
 
   stop(): void {
+    this.stopMemoryMonitor()
     this.setState(PipelineState.IDLE)
     this.startedAt = null
     this.streamingLock = false
     this.streamingLockResolve?.()
     this.streamingLockResolve = null
-    this.stopMemoryMonitor()
     this.agreement.reset()
     this.lastTranslatedConfirmed = ''
   }
