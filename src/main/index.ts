@@ -391,12 +391,12 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
   // #44: flush logger before disposing pipeline
   logger?.endSession()
   logger = null
   store.set('activeSession', null) // #54: clear on clean exit
-  pipeline?.dispose()
+  await pipeline?.dispose()
   app.quit()
 })
 
