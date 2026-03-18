@@ -37,6 +37,10 @@ export class TranslationPipeline extends EventEmitter {
   private agreement = new LocalAgreement()
   private lastTranslatedConfirmed = ''
   private streamingLock = false
+  private switchingEngine = false // #29: prevent concurrent switches
+
+  // Promise-based streaming lock signal (#35)
+  private streamingLockResolve: (() => void) | null = null
 
   // Engine factories — registered externally
   private sttFactories = new Map<string, () => STTEngine>()
@@ -68,12 +72,18 @@ export class TranslationPipeline extends EventEmitter {
 
   /** Switch to a new engine configuration. Disposes previous engines. */
   async switchEngine(config: EngineConfig): Promise<void> {
-    // Dispose existing engines
-    await this.disposeEngines()
-
-    this.config = config
+    // #29: prevent concurrent engine switches
+    if (this.switchingEngine) {
+      throw new Error('Engine switch already in progress')
+    }
+    this.switchingEngine = true
 
     try {
+      // Dispose existing engines
+      await this.disposeEngines()
+
+      this.config = config
+
       if (config.mode === 'cascade') {
         const sttId = config.sttEngineId
         const translatorId = config.translatorEngineId
@@ -107,14 +117,19 @@ export class TranslationPipeline extends EventEmitter {
 
       this.emit('engine-ready')
     } catch (err) {
+      // #34: reset config on failure to prevent broken state
+      this.config = null
+      await this.disposeEngines()
       this.emit('error', err instanceof Error ? err : new Error(String(err)))
       throw err
+    } finally {
+      this.switchingEngine = false
     }
   }
 
   /** Process an audio chunk through the current pipeline */
   async process(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (!this.isRunning || !this.config || this.recovering) return null
+    if (!this.isRunning || !this.config || this.recovering || this.switchingEngine) return null
 
     try {
       let result: TranslationResult | null = null
@@ -154,38 +169,45 @@ export class TranslationPipeline extends EventEmitter {
 
     const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
 
-    // Graceful degradation: if translator fails, emit STT-only result
-    if (this.translator) {
-      try {
-        const translated = await this.translator.translate(
-          sttResult.text,
-          sttResult.language,
-          targetLang
-        )
-
-        return {
-          sourceText: sttResult.text,
-          translatedText: translated,
-          sourceLanguage: sttResult.language,
-          targetLanguage: targetLang,
-          timestamp: Date.now()
-        }
-      } catch (translatorErr) {
-        console.error('[pipeline] Translator error, falling back to STT-only:', translatorErr)
-        this.emit('error', new Error(`Translation unavailable: ${translatorErr}`))
-
-        // Return STT-only result so the user at least sees transcription
-        return {
-          sourceText: sttResult.text,
-          translatedText: '(translation unavailable)',
-          sourceLanguage: sttResult.language,
-          targetLanguage: targetLang,
-          timestamp: Date.now()
-        }
+    // #41: emit error when translator is null instead of silent failure
+    if (!this.translator) {
+      this.emit('error', new Error('Translator engine not initialized'))
+      return {
+        sourceText: sttResult.text,
+        translatedText: '(translator not available)',
+        sourceLanguage: sttResult.language,
+        targetLanguage: targetLang,
+        timestamp: Date.now()
       }
     }
 
-    return null
+    try {
+      const translated = await this.translator.translate(
+        sttResult.text,
+        sttResult.language,
+        targetLang
+      )
+
+      return {
+        sourceText: sttResult.text,
+        translatedText: translated,
+        sourceLanguage: sttResult.language,
+        targetLanguage: targetLang,
+        timestamp: Date.now()
+      }
+    } catch (translatorErr) {
+      console.error('[pipeline] Translator error, falling back to STT-only:', translatorErr)
+      this.emit('error', new Error(`Translation unavailable: ${translatorErr}`))
+
+      // Return STT-only result so the user at least sees transcription
+      return {
+        sourceText: sttResult.text,
+        translatedText: '(translation unavailable)',
+        sourceLanguage: sttResult.language,
+        targetLanguage: targetLang,
+        timestamp: Date.now()
+      }
+    }
   }
 
   private async attemptRecovery(): Promise<void> {
@@ -215,7 +237,7 @@ export class TranslationPipeline extends EventEmitter {
    * Only translates newly confirmed text.
    */
   async processStreaming(audioBuffer: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (!this.isRunning || !this.config) return null
+    if (!this.isRunning || !this.config || this.switchingEngine) return null
     if (this.config.mode !== 'cascade' || !this.sttEngine) return null
     if (this.streamingLock) return null
 
@@ -259,6 +281,9 @@ export class TranslationPipeline extends EventEmitter {
       return null
     } finally {
       this.streamingLock = false
+      // #35: signal waiters that lock is released
+      this.streamingLockResolve?.()
+      this.streamingLockResolve = null
     }
   }
 
@@ -270,9 +295,11 @@ export class TranslationPipeline extends EventEmitter {
     if (!this.isRunning || !this.config) return null
     if (this.config.mode !== 'cascade' || !this.sttEngine) return null
 
-    // Wait for any in-flight streaming operation to complete
-    while (this.streamingLock) {
-      await new Promise((resolve) => setTimeout(resolve, 50))
+    // #35: wait for in-flight streaming with Promise instead of busy-wait
+    if (this.streamingLock) {
+      await new Promise<void>((resolve) => {
+        this.streamingLockResolve = resolve
+      })
     }
     this.streamingLock = true
 
@@ -316,6 +343,8 @@ export class TranslationPipeline extends EventEmitter {
       return null
     } finally {
       this.streamingLock = false
+      this.streamingLockResolve?.()
+      this.streamingLockResolve = null
     }
   }
 
@@ -329,6 +358,9 @@ export class TranslationPipeline extends EventEmitter {
   stop(): void {
     this.isRunning = false
     this.startedAt = null
+    this.streamingLock = false // #42: reset lock to prevent blocking next session
+    this.streamingLockResolve?.() // unblock any waiters
+    this.streamingLockResolve = null
     this.stopMemoryMonitor()
     this.agreement.reset()
     this.lastTranslatedConfirmed = ''
@@ -373,13 +405,22 @@ export class TranslationPipeline extends EventEmitter {
     )
   }
 
+  // #51: guarantee all engines are disposed even if one throws
   private async disposeEngines(): Promise<void> {
-    await this.sttEngine?.dispose().catch(() => {})
-    await this.translator?.dispose().catch(() => {})
-    await this.e2eEngine?.dispose().catch(() => {})
+    const engines = [this.sttEngine, this.translator, this.e2eEngine]
     this.sttEngine = null
     this.translator = null
     this.e2eEngine = null
+
+    for (const engine of engines) {
+      if (engine) {
+        try {
+          await engine.dispose()
+        } catch (err) {
+          console.warn('[pipeline] Error during engine disposal:', err)
+        }
+      }
+    }
   }
 
   async dispose(): Promise<void> {
