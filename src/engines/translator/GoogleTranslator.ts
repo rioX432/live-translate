@@ -1,6 +1,7 @@
 import type { TranslatorEngine, Language } from '../types'
 
 const GOOGLE_TRANSLATE_URL = 'https://translation.googleapis.com/language/translate/v2'
+const DEFAULT_TIMEOUT_MS = 15_000
 
 export class GoogleTranslator implements TranslatorEngine {
   readonly id = 'google-translate'
@@ -8,10 +9,12 @@ export class GoogleTranslator implements TranslatorEngine {
   readonly isOffline = false
 
   private apiKey: string
+  private timeoutMs: number
   private initialized = false
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, options?: { timeoutMs?: number }) {
     this.apiKey = apiKey
+    this.timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS
   }
 
   async initialize(): Promise<void> {
@@ -41,7 +44,7 @@ export class GoogleTranslator implements TranslatorEngine {
     })
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15_000)
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
 
     try {
       const response = await fetch(`${GOOGLE_TRANSLATE_URL}?${params}`, {

@@ -2,6 +2,7 @@ import type { TranslatorEngine, Language } from '../types'
 
 const DEEPL_FREE_URL = 'https://api-free.deepl.com/v2/translate'
 const DEEPL_PRO_URL = 'https://api.deepl.com/v2/translate'
+const DEFAULT_TIMEOUT_MS = 15_000
 
 const LANG_MAP: Record<Language, { source: string; target: string }> = {
   ja: { source: 'JA', target: 'JA' },
@@ -15,12 +16,13 @@ export class DeepLTranslator implements TranslatorEngine {
 
   private apiKey: string
   private apiUrl: string
+  private timeoutMs: number
   private initialized = false
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, options?: { timeoutMs?: number }) {
     this.apiKey = apiKey
-    // DeepL free API keys end with ':fx'
     this.apiUrl = apiKey.endsWith(':fx') ? DEEPL_FREE_URL : DEEPL_PRO_URL
+    this.timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS
   }
 
   async initialize(): Promise<void> {
@@ -42,7 +44,7 @@ export class DeepLTranslator implements TranslatorEngine {
     if (!text.trim()) return ''
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15_000)
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
 
     try {
       const response = await fetch(this.apiUrl, {

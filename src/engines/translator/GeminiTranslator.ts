@@ -2,6 +2,7 @@ import type { TranslatorEngine, Language } from '../types'
 
 const GEMINI_API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
+const DEFAULT_TIMEOUT_MS = 15_000
 
 const LANG_NAMES: Record<Language, string> = {
   ja: 'Japanese',
@@ -14,10 +15,12 @@ export class GeminiTranslator implements TranslatorEngine {
   readonly isOffline = false
 
   private apiKey: string
+  private timeoutMs: number
   private initialized = false
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, options?: { timeoutMs?: number }) {
     this.apiKey = apiKey
+    this.timeoutMs = options?.timeoutMs ?? DEFAULT_TIMEOUT_MS
   }
 
   async initialize(): Promise<void> {
@@ -41,7 +44,7 @@ export class GeminiTranslator implements TranslatorEngine {
     const prompt = `Translate the following ${LANG_NAMES[from]} text to ${LANG_NAMES[to]}. Output ONLY the translated text, nothing else.\n\n${text}`
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15_000)
+    const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
 
     try {
       const response = await fetch(GEMINI_API_URL, {
