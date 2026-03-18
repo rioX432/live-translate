@@ -374,7 +374,12 @@ ipcMain.handle('get-crashed-session', () => {
   if (session) {
     // Clear it so we don't keep detecting the same crash
     store.set('activeSession', null)
-    return session
+    // Validate config has required fields
+    const config = session.config
+    if (config && typeof config === 'object' && config.mode) {
+      return session
+    }
+    console.warn('[crash-recovery] Invalid session config, discarding:', config)
   }
   return null
 })
