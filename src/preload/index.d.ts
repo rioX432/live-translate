@@ -15,7 +15,7 @@ export interface ElectronAPI {
       bounds: { x: number; y: number; width: number; height: number }
     }>
   >
-  moveSubtitleToDisplay: (displayId: number) => void
+  moveSubtitleToDisplay: (displayId: number) => Promise<{ success?: boolean; error?: string }>
   getSettings: () => Promise<Record<string, unknown>>
   saveSettings: (settings: Record<string, unknown>) => Promise<void>
   getCrashedSession: () => Promise<{ config: Record<string, unknown>; startedAt: number } | null>

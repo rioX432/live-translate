@@ -478,8 +478,9 @@ function SettingsPanel(): JSX.Element {
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="Enter API key..."
-            style={inputStyle}
+            style={withDisabled(inputStyle, isRunning)}
             disabled={isRunning}
+            {...focusHandlers}
           />
         </Section>
       )}
@@ -490,8 +491,9 @@ function SettingsPanel(): JSX.Element {
             value={deeplApiKey}
             onChange={(e) => setDeeplApiKey(e.target.value)}
             placeholder="Enter DeepL API key..."
-            style={inputStyle}
+            style={withDisabled(inputStyle, isRunning)}
             disabled={isRunning}
+            {...focusHandlers}
           />
         </Section>
       )}
@@ -502,8 +504,9 @@ function SettingsPanel(): JSX.Element {
             value={geminiApiKey}
             onChange={(e) => setGeminiApiKey(e.target.value)}
             placeholder="Enter Gemini API key..."
-            style={inputStyle}
+            style={withDisabled(inputStyle, isRunning)}
             disabled={isRunning}
+            {...focusHandlers}
           />
         </Section>
       )}
@@ -515,6 +518,7 @@ function SettingsPanel(): JSX.Element {
           onChange={(e) => handleDisplayChange(Number(e.target.value))}
           style={selectStyle}
           aria-label="Subtitle display"
+          {...focusHandlers}
         >
           {displays.map((d) => (
             <option key={d.id} value={d.id}>

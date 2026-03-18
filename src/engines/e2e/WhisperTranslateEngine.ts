@@ -14,6 +14,7 @@ export class WhisperTranslateEngine implements E2ETranslationEngine {
   readonly isOffline = true
 
   private modelPath = ''
+  private initialized = false
   private onProgress?: (message: string) => void
 
   constructor(options?: { onProgress?: (message: string) => void }) {
@@ -21,11 +22,14 @@ export class WhisperTranslateEngine implements E2ETranslationEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.initialized) return
+
     if (!isModelDownloaded()) {
       this.modelPath = await downloadModel(this.onProgress)
     } else {
       this.modelPath = getModelPath()
     }
+    this.initialized = true
   }
 
   async processAudio(
