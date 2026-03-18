@@ -362,7 +362,12 @@ export class TranslationPipeline extends EventEmitter {
     this.streamingLock = true
     try {
       const sttResult = await this.sttEngine.processAudio(audioBuffer, sampleRate)
-      if (!sttResult || !sttResult.text.trim()) return null
+      if (!sttResult || !sttResult.text.trim()) {
+        // Reset agreement on silence to prevent stale state accumulation (#75)
+        this.agreement.reset()
+        this.lastTranslatedConfirmed = ''
+        return null
+      }
 
       const agreement = this.agreement.update(sttResult.text)
       const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
