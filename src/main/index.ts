@@ -22,8 +22,8 @@ let logger: TranscriptLogger | null = null
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 480,
-    height: 640,
+    width: 520,
+    height: 720,
     resizable: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
