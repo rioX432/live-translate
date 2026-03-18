@@ -396,6 +396,12 @@ app.whenReady().then(() => {
       width: primaryDisplay.bounds.width,
       height: 200
     })
+    // #64: notify renderer to refresh display list
+    mainWindow?.webContents.send('displays-changed')
+  })
+
+  screen.on('display-added', () => {
+    mainWindow?.webContents.send('displays-changed')
   })
 })
 
