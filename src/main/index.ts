@@ -182,6 +182,12 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
           monthlyCharLimit: 500_000
         })
       }
+      if (config.geminiApiKey) {
+        providers.push({
+          engine: new GeminiTranslator(config.geminiApiKey),
+          monthlyCharLimit: 1_000_000 // Gemini free tier is generous
+        })
+      }
 
       if (providers.length === 0) {
         return { error: 'Rotation mode requires at least one API key' }
