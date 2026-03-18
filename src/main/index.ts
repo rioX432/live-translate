@@ -117,7 +117,8 @@ function initPipeline(): void {
   })
 
   pipeline.on('error', (err: Error) => {
-    mainWindow?.webContents.send('status-update', `Error: ${err.message}`)
+    const hint = getErrorHint(err.message)
+    mainWindow?.webContents.send('status-update', `Error: ${err.message}${hint}`)
   })
 
   pipeline.on('engine-loading', (msg: string) => {
@@ -243,6 +244,27 @@ ipcMain.handle('pipeline-stop', async () => {
 ipcMain.handle('get-session-start-time', () => {
   return pipeline?.sessionStartTime ?? null
 })
+
+/** Map error patterns to actionable hints */
+function getErrorHint(message: string): string {
+  const lower = message.toLowerCase()
+  if (lower.includes('api key') || lower.includes('401') || lower.includes('403')) {
+    return ' — Check your API key in settings'
+  }
+  if (lower.includes('rate limit') || lower.includes('429') || lower.includes('quota')) {
+    return ' — API quota exceeded, try a different provider'
+  }
+  if (lower.includes('timed out') || lower.includes('timeout')) {
+    return ' — Check your internet connection'
+  }
+  if (lower.includes('network') || lower.includes('fetch')) {
+    return ' — Check your internet connection'
+  }
+  if (lower.includes('model') || lower.includes('download')) {
+    return ' — Model download issue, try restarting'
+  }
+  return ''
+}
 
 /** Convert IPC audio data to Float32Array */
 function toFloat32Array(audioData: unknown): Float32Array | null {
