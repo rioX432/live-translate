@@ -27,7 +27,8 @@ export class GeminiTranslator implements TranslatorEngine {
     try {
       await this.translate('test', 'en', 'ja')
     } catch (err) {
-      throw new Error(`Invalid Gemini API key: ${err}`)
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`Invalid Gemini API key: ${msg}`)
     }
   }
 

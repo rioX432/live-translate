@@ -298,7 +298,12 @@ export class TranslationPipeline extends EventEmitter {
     // #35: wait for in-flight streaming with Promise instead of busy-wait
     if (this.streamingLock) {
       await new Promise<void>((resolve) => {
-        this.streamingLockResolve = resolve
+        // Queue resolve — previous resolve (if any) is called first
+        const prev = this.streamingLockResolve
+        this.streamingLockResolve = () => {
+          prev?.()
+          resolve()
+        }
       })
     }
     this.streamingLock = true

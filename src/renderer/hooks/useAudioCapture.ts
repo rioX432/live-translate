@@ -164,7 +164,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
             rollingBufferFullRef.current = true
             const idx = rollingBufferIndexRef.current % maxFrames
             buf[idx] = new Float32Array(frame)
-            rollingBufferIndexRef.current = idx + 1
+            rollingBufferIndexRef.current = (idx + 1) % maxFrames
           }
         }
       },

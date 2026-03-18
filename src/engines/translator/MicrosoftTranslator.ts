@@ -27,7 +27,8 @@ export class MicrosoftTranslator implements TranslatorEngine {
     try {
       await this.translate('test', 'en', 'ja')
     } catch (err) {
-      throw new Error(`Invalid Microsoft Translator credentials: ${err}`)
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`Invalid Microsoft Translator credentials: ${msg}`)
     }
   }
 

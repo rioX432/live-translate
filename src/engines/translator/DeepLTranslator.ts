@@ -26,7 +26,8 @@ export class DeepLTranslator implements TranslatorEngine {
     try {
       await this.translate('test', 'en', 'ja')
     } catch (err) {
-      throw new Error(`Invalid DeepL API key: ${err}`)
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`Invalid DeepL API key: ${msg}`)
     }
   }
 
