@@ -593,8 +593,7 @@ const selectStyle: React.CSSProperties = {
   background: '#1e293b',
   color: '#e2e8f0',
   border: '1px solid #334155',
-  borderRadius: '6px',
-  outline: 'none'
+  borderRadius: '6px'
 }
 
 const inputStyle: React.CSSProperties = {
