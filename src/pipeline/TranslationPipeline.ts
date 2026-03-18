@@ -314,8 +314,8 @@ export class TranslationPipeline extends EventEmitter {
 
       // switchEngine leaves us in IDLE, so start again
       this.setState(PipelineState.RUNNING)
+      this.startMemoryMonitor()
       console.log('[pipeline] Auto-recovery successful')
-      this.emit('engine-ready')
     } catch (err) {
       console.error('[pipeline] Auto-recovery failed:', err)
       this.consecutiveErrors = 0 // reset to prevent re-triggering
