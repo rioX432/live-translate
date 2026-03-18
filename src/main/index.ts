@@ -333,7 +333,11 @@ ipcMain.handle('get-displays', () => {
 // Move subtitle window to target display
 ipcMain.on('move-subtitle-to-display', (_event, displayId: number) => {
   const display = screen.getAllDisplays().find((d) => d.id === displayId)
-  if (display && subtitleWindow) {
+  if (!display) {
+    console.warn(`[display] Display ${displayId} not found, ignoring move request`)
+    return
+  }
+  if (subtitleWindow) {
     subtitleWindow.setBounds({
       x: display.bounds.x,
       y: display.bounds.y + display.bounds.height - 200,
