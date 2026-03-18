@@ -208,7 +208,7 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
 
     pipeline.start()
 
-    // #54: persist session for crash recovery
+    // #54: persist session AFTER successful start (not before switchEngine)
     store.set('activeSession', { config, startedAt: Date.now() })
 
     return { success: true }

@@ -217,7 +217,6 @@ function SettingsPanel(): JSX.Element {
   const handleResume = async (): Promise<void> => {
     if (!crashedSession || isStarting) return
     setIsStarting(true)
-    setCrashedSession(null)
 
     try {
       setStatus('Resuming previous session...')
@@ -229,10 +228,14 @@ function SettingsPanel(): JSX.Element {
       }
       await audio.start()
       setIsRunning(true)
+      setCrashedSession(null) // only clear on success
       startSessionTimer()
       setStatus('Listening... (resumed)')
     } catch (err) {
       setStatus(`Resume failed: ${err}`)
+      setIsRunning(false)
+      audio.stop()
+      stopSessionTimer()
     } finally {
       setIsStarting(false)
     }

@@ -21,11 +21,10 @@ export interface PipelineEvents {
 /**
  * Pipeline lifecycle states (#52).
  * Valid transitions:
- *   IDLE → INITIALIZING → RUNNING → IDLE (normal lifecycle)
- *   RUNNING → RECOVERING → RUNNING (auto-recovery success)
- *   RUNNING → RECOVERING → IDLE (auto-recovery failure)
+ *   IDLE → INITIALIZING → IDLE → start() → RUNNING (normal lifecycle)
+ *   RUNNING → RECOVERING → IDLE → INITIALIZING → IDLE → RUNNING (auto-recovery)
  *   RUNNING → INITIALIZING → RUNNING (hot-swap engine)
- *   any → IDLE (dispose)
+ *   any → IDLE (dispose/stop)
  */
 export enum PipelineState {
   /** Not running, engines may or may not be loaded */
@@ -319,6 +318,7 @@ export class TranslationPipeline extends EventEmitter {
       this.emit('engine-ready')
     } catch (err) {
       console.error('[pipeline] Auto-recovery failed:', err)
+      this.consecutiveErrors = 0 // reset to prevent re-triggering
       this.setState(PipelineState.IDLE)
       this.emit('error', new Error('Auto-recovery failed. Please restart manually.'))
     }
