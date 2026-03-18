@@ -18,6 +18,14 @@ import type { EngineConfig, TranslationResult } from '../engines/types'
 /** Minimum amplitude to consider a chunk as non-silent */
 const SILENCE_THRESHOLD = 0.001
 
+/** Monthly character limits for API rotation providers */
+const QUOTA_LIMITS = {
+  microsoft: 2_000_000,
+  google: 480_000,
+  deepl: 500_000,
+  gemini: 1_000_000
+} as const
+
 let mainWindow: BrowserWindow | null = null
 let subtitleWindow: BrowserWindow | null = null
 let pipeline: TranslationPipeline | null = null
@@ -173,25 +181,25 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
       if (config.microsoftApiKey && config.microsoftRegion) {
         providers.push({
           engine: new MicrosoftTranslator(config.microsoftApiKey, config.microsoftRegion),
-          monthlyCharLimit: 2_000_000
+          monthlyCharLimit: QUOTA_LIMITS.microsoft
         })
       }
       if (config.apiKey) {
         providers.push({
           engine: new GoogleTranslator(config.apiKey),
-          monthlyCharLimit: 480_000
+          monthlyCharLimit: QUOTA_LIMITS.google
         })
       }
       if (config.deeplApiKey) {
         providers.push({
           engine: new DeepLTranslator(config.deeplApiKey),
-          monthlyCharLimit: 500_000
+          monthlyCharLimit: QUOTA_LIMITS.deepl
         })
       }
       if (config.geminiApiKey) {
         providers.push({
           engine: new GeminiTranslator(config.geminiApiKey),
-          monthlyCharLimit: 1_000_000 // Gemini free tier is generous
+          monthlyCharLimit: QUOTA_LIMITS.gemini
         })
       }
 
