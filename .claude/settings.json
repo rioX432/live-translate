@@ -1,10 +1,18 @@
 {
   "permissions": {
     "allow": [
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
       "Bash(npm run *)",
       "Bash(npx electron-vite *)",
       "Bash(npx electron-builder *)",
       "Bash(gh *)",
+      "Bash(git *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
       "Bash(pkill -f electron*)",
       "Bash(lsof *)"
     ]
