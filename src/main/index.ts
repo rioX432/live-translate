@@ -207,6 +207,10 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
     logger.startSession(sessionLabel)
 
     pipeline.start()
+
+    // #54: persist session AFTER successful start (not before switchEngine)
+    store.set('activeSession', { config, startedAt: Date.now() })
+
     return { success: true }
   } catch (err) {
     return { error: String(err) }
@@ -219,6 +223,8 @@ ipcMain.handle('pipeline-stop', async () => {
   logger?.endSession()
   const logPath = logger?.getLogPath()
   logger = null
+  // #54: clear session on clean stop
+  store.set('activeSession', null)
   return { logPath }
 })
 
@@ -354,6 +360,17 @@ ipcMain.handle('save-settings', (_event, settings: Record<string, unknown>) => {
   }
 })
 
+// #54: crash recovery — check if previous session ended uncleanly
+ipcMain.handle('get-crashed-session', () => {
+  const session = store.get('activeSession')
+  if (session) {
+    // Clear it so we don't keep detecting the same crash
+    store.set('activeSession', null)
+    return session
+  }
+  return null
+})
+
 // --- App Lifecycle ---
 
 app.whenReady().then(() => {
@@ -378,6 +395,7 @@ app.on('window-all-closed', () => {
   // #44: flush logger before disposing pipeline
   logger?.endSession()
   logger = null
+  store.set('activeSession', null) // #54: clear on clean exit
   pipeline?.dispose()
   app.quit()
 })

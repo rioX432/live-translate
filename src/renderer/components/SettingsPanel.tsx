@@ -54,7 +54,9 @@ function SettingsPanel(): JSX.Element {
     setSessionDuration('')
   }, [])
 
-  // Load saved settings on mount (#49)
+  const [crashedSession, setCrashedSession] = useState<{ config: Record<string, unknown>; startedAt: number } | null>(null)
+
+  // Load saved settings on mount (#49) and check for crashed session (#54)
   useEffect(() => {
     window.api.getSettings().then((s) => {
       if (s.translationEngine) setEngineMode(s.translationEngine as EngineMode)
@@ -64,6 +66,14 @@ function SettingsPanel(): JSX.Element {
       if (s.microsoftApiKey) setMicrosoftApiKey(s.microsoftApiKey as string)
       if (s.microsoftRegion) setMicrosoftRegion(s.microsoftRegion as string)
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
+    })
+
+    // #54: check for crashed session
+    window.api.getCrashedSession().then((session) => {
+      if (session) {
+        setCrashedSession(session)
+        setStatus('Previous session ended unexpectedly. Resume?')
+      }
     })
   }, [])
 
@@ -203,6 +213,39 @@ function SettingsPanel(): JSX.Element {
     setStatus(result.logPath ? `Saved: ${result.logPath}` : 'Stopped')
   }
 
+  // #54: resume crashed session
+  const handleResume = async (): Promise<void> => {
+    if (!crashedSession || isStarting) return
+    setIsStarting(true)
+
+    try {
+      setStatus('Resuming previous session...')
+      const result = await window.api.pipelineStart(crashedSession.config)
+      if (result.error) {
+        setStatus(`Resume failed: ${result.error}`)
+        setIsStarting(false)
+        return
+      }
+      await audio.start()
+      setIsRunning(true)
+      setCrashedSession(null) // only clear on success
+      startSessionTimer()
+      setStatus('Listening... (resumed)')
+    } catch (err) {
+      setStatus(`Resume failed: ${err}`)
+      setIsRunning(false)
+      audio.stop()
+      stopSessionTimer()
+    } finally {
+      setIsStarting(false)
+    }
+  }
+
+  const handleDismissResume = (): void => {
+    setCrashedSession(null)
+    setStatus('Ready')
+  }
+
   const handleDisplayChange = (displayId: number): void => {
     setSelectedDisplay(displayId)
     window.api.moveSubtitleToDisplay(displayId)
@@ -211,6 +254,58 @@ function SettingsPanel(): JSX.Element {
   return (
     <div style={containerStyle}>
       <h1 style={titleStyle}>live-translate</h1>
+
+      {/* #54: Crash recovery banner */}
+      {crashedSession && !isRunning && (
+        <div style={{
+          background: '#1e293b',
+          border: '1px solid #f59e0b',
+          borderRadius: '8px',
+          padding: '12px 16px',
+          marginBottom: '16px',
+          fontSize: '13px'
+        }}>
+          <div style={{ color: '#f59e0b', fontWeight: 600, marginBottom: '6px' }}>
+            Previous session ended unexpectedly
+          </div>
+          <div style={{ color: '#94a3b8', marginBottom: '8px' }}>
+            Resume with the same engine configuration?
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={handleResume}
+              disabled={isStarting}
+              style={{
+                padding: '6px 16px',
+                fontSize: '13px',
+                fontWeight: 600,
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                color: '#fff',
+                background: '#16a34a'
+              }}
+            >
+              Resume
+            </button>
+            <button
+              onClick={handleDismissResume}
+              style={{
+                padding: '6px 16px',
+                fontSize: '13px',
+                fontWeight: 600,
+                border: '1px solid #334155',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                color: '#94a3b8',
+                background: 'transparent'
+              }}
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Microphone Selection */}
       <Section label="Microphone">

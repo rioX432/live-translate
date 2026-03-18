@@ -5,6 +5,12 @@ export interface QuotaRecord {
   charCount: number
 }
 
+/** Persisted session state for crash recovery (#54) */
+export interface ActiveSession {
+  config: Record<string, unknown>
+  startedAt: number
+}
+
 export interface AppSettings {
   translationEngine: string
   googleApiKey: string
@@ -15,6 +21,7 @@ export interface AppSettings {
   selectedMicrophone: string
   selectedDisplay: number
   quotaTracking: Record<string, QuotaRecord>
+  activeSession: ActiveSession | null
 }
 
 export const store = new Store<AppSettings>({
@@ -27,6 +34,7 @@ export const store = new Store<AppSettings>({
     geminiApiKey: '',
     selectedMicrophone: '',
     selectedDisplay: 0,
-    quotaTracking: {}
+    quotaTracking: {},
+    activeSession: null
   }
 })

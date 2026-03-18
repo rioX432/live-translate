@@ -18,6 +18,7 @@ export interface ElectronAPI {
   moveSubtitleToDisplay: (displayId: number) => void
   getSettings: () => Promise<Record<string, unknown>>
   saveSettings: (settings: Record<string, unknown>) => Promise<void>
+  getCrashedSession: () => Promise<{ config: Record<string, unknown>; startedAt: number } | null>
 }
 
 declare global {
