@@ -212,10 +212,10 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
       : `Cascade (Whisper + ${config.translatorEngineId})`
     logger.startSession(sessionLabel)
 
-    pipeline.start()
-
-    // #54: persist session AFTER successful start (not before switchEngine)
+    // #62: persist session BEFORE start to avoid crash window
     store.set('activeSession', { config, startedAt: Date.now() })
+
+    pipeline.start()
 
     return { success: true }
   } catch (err) {
