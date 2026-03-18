@@ -16,7 +16,9 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('translation-result', handler)
   },
   onInterimResult: (callback: (data: unknown) => void) => {
-    ipcRenderer.on('interim-result', (_event, data) => callback(data))
+    const handler = (_event: Electron.IpcRendererEvent, data: unknown): void => callback(data)
+    ipcRenderer.on('interim-result', handler)
+    return () => ipcRenderer.off('interim-result', handler)
   },
 
   // Status updates from main process
@@ -32,5 +34,10 @@ contextBridge.exposeInMainWorld('api', {
   // Display management
   getDisplays: () => ipcRenderer.invoke('get-displays'),
   moveSubtitleToDisplay: (displayId: number) =>
-    ipcRenderer.send('move-subtitle-to-display', displayId)
+    ipcRenderer.send('move-subtitle-to-display', displayId),
+
+  // Settings persistence (#49)
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  saveSettings: (settings: Record<string, unknown>) =>
+    ipcRenderer.invoke('save-settings', settings)
 })

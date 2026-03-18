@@ -57,10 +57,13 @@ export class WhisperLocalEngine implements STTEngine {
   async dispose(): Promise<void> {}
 
   private detectLanguage(text: string): Language {
+    if (!text || text.length === 0) return 'en'
     const japanesePattern = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3400-\u4DBF]/g
     const matches = text.match(japanesePattern)
-    const japaneseRatio = (matches?.length || 0) / text.length
-    return japaneseRatio > 0.3 ? 'ja' : 'en'
+    const matchCount = matches?.length || 0
+    // Require both ratio > 30% AND at least 2 Japanese characters (#39)
+    const japaneseRatio = matchCount / text.length
+    return (japaneseRatio > 0.3 && matchCount >= 2) ? 'ja' : 'en'
   }
 
   private extractText(transcription: string[][] | string[]): string {

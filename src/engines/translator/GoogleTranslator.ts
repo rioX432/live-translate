@@ -21,7 +21,8 @@ export class GoogleTranslator implements TranslatorEngine {
     try {
       await this.translate('test', 'en', 'ja')
     } catch (err) {
-      throw new Error(`Invalid Google Translation API key: ${err}`)
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`Invalid Google Translation API key: ${msg}`)
     }
   }
 
@@ -36,25 +37,36 @@ export class GoogleTranslator implements TranslatorEngine {
       format: 'text'
     })
 
-    const response = await fetch(`${GOOGLE_TRANSLATE_URL}?${params}`, {
-      method: 'POST'
-    })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15_000)
 
-    if (!response.ok) {
-      if (response.status === 403) {
-        throw new Error('Google Translation API: Invalid or expired API key')
+    try {
+      const response = await fetch(`${GOOGLE_TRANSLATE_URL}?${params}`, {
+        method: 'POST',
+        signal: controller.signal
+      })
+
+      if (!response.ok) {
+        if (response.status === 403) {
+          throw new Error('Google Translation API: Invalid or expired API key')
+        }
+        if (response.status === 429) {
+          throw new Error('Google Translation API: Rate limit exceeded')
+        }
+        throw new Error(`Google Translation API error: ${response.status}`)
       }
-      if (response.status === 429) {
-        throw new Error('Google Translation API: Rate limit exceeded')
+
+      let data: { data: { translations: Array<{ translatedText: string }> } }
+      try {
+        data = (await response.json()) as typeof data
+      } catch {
+        throw new Error('Google Translation API: Invalid JSON response')
       }
-      throw new Error(`Google Translation API error: ${response.status}`)
-    }
 
-    const data = (await response.json()) as {
-      data: { translations: Array<{ translatedText: string }> }
+      return data.data.translations[0]?.translatedText || ''
+    } finally {
+      clearTimeout(timeout)
     }
-
-    return data.data.translations[0]?.translatedText || ''
   }
 
   async dispose(): Promise<void> {

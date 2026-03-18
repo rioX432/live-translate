@@ -24,17 +24,24 @@ export class OpusMTTranslator implements TranslatorEngine {
     const { pipeline, env } = await import('@huggingface/transformers')
     env.cacheDir = join(app.getPath('userData'), 'models', 'transformers')
 
-    this.onProgress?.('Loading JA→EN translation model...')
-    this.jaToEn = (await pipeline('translation', 'Xenova/opus-mt-ja-en', {
-      dtype: 'q8'
-    })) as unknown as TranslationPipeline
+    try {
+      this.onProgress?.('Loading JA→EN translation model...')
+      this.jaToEn = (await pipeline('translation', 'Xenova/opus-mt-ja-en', {
+        dtype: 'q8'
+      })) as unknown as TranslationPipeline
 
-    this.onProgress?.('Loading EN→JA translation model...')
-    this.enToJa = (await pipeline('translation', 'Xenova/opus-mt-en-jap', {
-      dtype: 'q8'
-    })) as unknown as TranslationPipeline
+      this.onProgress?.('Loading EN→JA translation model...')
+      this.enToJa = (await pipeline('translation', 'Xenova/opus-mt-en-jap', {
+        dtype: 'q8'
+      })) as unknown as TranslationPipeline
 
-    this.onProgress?.('OPUS-MT models loaded')
+      this.onProgress?.('OPUS-MT models loaded')
+    } catch (err) {
+      // Reset both on partial failure to allow retry (#32)
+      this.jaToEn = null
+      this.enToJa = null
+      throw err
+    }
   }
 
   async translate(text: string, from: Language, to: Language): Promise<string> {

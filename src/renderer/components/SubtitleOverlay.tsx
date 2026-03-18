@@ -31,7 +31,7 @@ function SubtitleOverlay(): JSX.Element {
     })
 
     // Interim (streaming) results — replace the interim line in place
-    window.api.onInterimResult((data) => {
+    const unsubscribeInterim = window.api.onInterimResult((data) => {
       const result = data as Omit<SubtitleLine, 'id' | 'opacity' | 'isInterim'>
       setLines((prev) => {
         const withoutInterim = prev.filter((l) => l.id !== INTERIM_LINE_ID)
@@ -65,6 +65,7 @@ function SubtitleOverlay(): JSX.Element {
 
     return () => {
       unsubscribeResult?.()
+      unsubscribeInterim?.()
       if (fadeTimerRef.current) clearInterval(fadeTimerRef.current)
     }
   }, [])

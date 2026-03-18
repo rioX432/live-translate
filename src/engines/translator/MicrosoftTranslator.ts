@@ -27,7 +27,8 @@ export class MicrosoftTranslator implements TranslatorEngine {
     try {
       await this.translate('test', 'en', 'ja')
     } catch (err) {
-      throw new Error(`Invalid Microsoft Translator credentials: ${err}`)
+      const msg = err instanceof Error ? err.message : String(err)
+      throw new Error(`Invalid Microsoft Translator credentials: ${msg}`)
     }
   }
 
@@ -40,31 +41,42 @@ export class MicrosoftTranslator implements TranslatorEngine {
       to
     })
 
-    const response = await fetch(`${MS_TRANSLATE_URL}?${params}`, {
-      method: 'POST',
-      headers: {
-        'Ocp-Apim-Subscription-Key': this.apiKey,
-        'Ocp-Apim-Subscription-Region': this.region,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify([{ text }])
-    })
+    const controller = new AbortController()
+    const timeout = setTimeout(() => controller.abort(), 15_000)
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        throw new Error('Microsoft Translator: Invalid API key or region')
+    try {
+      const response = await fetch(`${MS_TRANSLATE_URL}?${params}`, {
+        method: 'POST',
+        headers: {
+          'Ocp-Apim-Subscription-Key': this.apiKey,
+          'Ocp-Apim-Subscription-Region': this.region,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify([{ text }]),
+        signal: controller.signal
+      })
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new Error('Microsoft Translator: Invalid API key or region')
+        }
+        if (response.status === 429) {
+          throw new Error('Microsoft Translator: Rate limit exceeded')
+        }
+        throw new Error(`Microsoft Translator error: ${response.status}`)
       }
-      if (response.status === 429) {
-        throw new Error('Microsoft Translator: Rate limit exceeded')
+
+      let data: Array<{ translations: Array<{ text: string; to: string }> }>
+      try {
+        data = (await response.json()) as typeof data
+      } catch {
+        throw new Error('Microsoft Translator: Invalid JSON response')
       }
-      throw new Error(`Microsoft Translator error: ${response.status}`)
+
+      return data[0]?.translations[0]?.text || ''
+    } finally {
+      clearTimeout(timeout)
     }
-
-    const data = (await response.json()) as Array<{
-      translations: Array<{ text: string; to: string }>
-    }>
-
-    return data[0]?.translations[0]?.text || ''
   }
 
   async dispose(): Promise<void> {

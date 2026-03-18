@@ -137,6 +137,7 @@ interface PipelineStartConfig extends EngineConfig {
 
 ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => {
   if (!pipeline) return { error: 'Pipeline not initialized' }
+  if (pipeline.running) return { error: 'Pipeline already running' } // #30
 
   try {
     // Register online translators with provided API keys
@@ -269,6 +270,9 @@ ipcMain.handle('process-audio', async (_event, audioData: unknown) => {
     return await pipeline.process(chunk, 16000)
   } catch (err) {
     console.error('[audio] Pipeline error:', err)
+    // #43: propagate error to renderer
+    const message = err instanceof Error ? err.message : String(err)
+    mainWindow?.webContents.send('status-update', `Processing error: ${message}`)
     return null
   }
 })
@@ -330,15 +334,51 @@ ipcMain.on('translation-result', (_event, data) => {
   subtitleWindow?.webContents.send('translation-result', data)
 })
 
+// Settings persistence via electron-store (#49)
+ipcMain.handle('get-settings', () => {
+  return {
+    translationEngine: store.get('translationEngine'),
+    googleApiKey: store.get('googleApiKey'),
+    deeplApiKey: store.get('deeplApiKey'),
+    geminiApiKey: store.get('geminiApiKey'),
+    microsoftApiKey: store.get('microsoftApiKey'),
+    microsoftRegion: store.get('microsoftRegion'),
+    selectedMicrophone: store.get('selectedMicrophone'),
+    selectedDisplay: store.get('selectedDisplay')
+  }
+})
+
+ipcMain.handle('save-settings', (_event, settings: Record<string, unknown>) => {
+  for (const [key, value] of Object.entries(settings)) {
+    store.set(key as keyof import('./store').AppSettings, value as never)
+  }
+})
+
 // --- App Lifecycle ---
 
 app.whenReady().then(() => {
   initPipeline()
   createMainWindow()
   createSubtitleWindow()
+
+  // #46: reposition subtitle window when external display is disconnected
+  screen.on('display-removed', () => {
+    if (!subtitleWindow) return
+    const primaryDisplay = screen.getPrimaryDisplay()
+    subtitleWindow.setBounds({
+      x: primaryDisplay.bounds.x,
+      y: primaryDisplay.bounds.y + primaryDisplay.bounds.height - 200,
+      width: primaryDisplay.bounds.width,
+      height: 200
+    })
+  })
 })
 
 app.on('window-all-closed', () => {
+  // #44: flush logger before disposing pipeline
+  logger?.endSession()
+  logger = null
   pipeline?.dispose()
   app.quit()
 })
+
