@@ -1,4 +1,5 @@
 import type { TranslatorEngine, Language } from '../types'
+import { NETWORK_TIMEOUT_MS } from '../constants'
 
 const MS_TRANSLATE_URL = 'https://api.cognitive.microsofttranslator.com/translate'
 const API_VERSION = '3.0'
@@ -10,6 +11,7 @@ export class MicrosoftTranslator implements TranslatorEngine {
 
   private apiKey: string
   private region: string
+  private initialized = false
 
   constructor(apiKey: string, region: string) {
     this.apiKey = apiKey
@@ -17,6 +19,8 @@ export class MicrosoftTranslator implements TranslatorEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.initialized) return
+
     if (!this.apiKey) {
       throw new Error('Microsoft Translator API key is required')
     }
@@ -30,6 +34,7 @@ export class MicrosoftTranslator implements TranslatorEngine {
       const msg = err instanceof Error ? err.message : String(err)
       throw new Error(`Invalid Microsoft Translator credentials: ${msg}`)
     }
+    this.initialized = true
   }
 
   async translate(text: string, from: Language, to: Language): Promise<string> {
@@ -42,7 +47,7 @@ export class MicrosoftTranslator implements TranslatorEngine {
     })
 
     const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), 15_000)
+    const timeout = setTimeout(() => controller.abort(), NETWORK_TIMEOUT_MS)
 
     try {
       const response = await fetch(`${MS_TRANSLATE_URL}?${params}`, {

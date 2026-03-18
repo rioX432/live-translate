@@ -48,6 +48,12 @@ export class WhisperTranslateEngine implements E2ETranslationEngine {
       const sourceText = this.extractText(transcribeResult.transcription)
       if (!sourceText.trim()) return null
 
+      // Validate that source is actually Japanese (JA→EN only)
+      if (!this.isJapanese(sourceText)) {
+        console.warn('[WhisperTranslate] Non-Japanese input detected, skipping (JA→EN only)')
+        return null
+      }
+
       // Second: translate (Whisper outputs English)
       const translateResult = await transcribe({
         model: this.modelPath,
@@ -77,6 +83,15 @@ export class WhisperTranslateEngine implements E2ETranslationEngine {
 
   async dispose(): Promise<void> {
     // No cleanup needed
+  }
+
+  private isJapanese(text: string): boolean {
+    if (!text || text.length === 0) return false
+    const japanesePattern = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3400-\u4DBF]/g
+    const matches = text.match(japanesePattern)
+    const matchCount = matches?.length || 0
+    const japaneseRatio = matchCount / text.length
+    return japaneseRatio > 0.3 && matchCount >= 2
   }
 
   private extractText(transcription: string[][] | string[]): string {

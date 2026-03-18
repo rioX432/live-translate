@@ -9,6 +9,8 @@ export class WhisperLocalEngine implements STTEngine {
   readonly isOffline = true
 
   private modelPath = ''
+  private initialized = false
+  private initError: Error | null = null
   private onProgress?: (message: string) => void
 
   constructor(options?: { onProgress?: (message: string) => void }) {
@@ -16,15 +18,24 @@ export class WhisperLocalEngine implements STTEngine {
   }
 
   async initialize(): Promise<void> {
-    if (!isModelDownloaded()) {
-      this.modelPath = await downloadModel(this.onProgress)
-    } else {
-      this.modelPath = getModelPath()
+    if (this.initialized) return
+    if (this.initError) throw this.initError
+
+    try {
+      if (!isModelDownloaded()) {
+        this.modelPath = await downloadModel(this.onProgress)
+      } else {
+        this.modelPath = getModelPath()
+      }
+      this.initialized = true
+    } catch (err) {
+      this.initError = err instanceof Error ? err : new Error(String(err))
+      throw this.initError
     }
   }
 
   async processAudio(audioChunk: Float32Array, _sampleRate: number): Promise<STTResult | null> {
-    if (!this.modelPath) return null
+    if (!this.initialized || !this.modelPath) return null
 
     try {
       const result = await transcribe({

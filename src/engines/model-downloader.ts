@@ -49,52 +49,70 @@ export async function downloadModel(
   }
 }
 
+const MAX_RETRIES = 3
+
 async function doDownload(
   modelPath: string,
   onProgress?: (message: string) => void
 ): Promise<string> {
   onProgress?.('Downloading Whisper model (~540MB)...')
 
-  const response = await fetch(MODEL_URL, { redirect: 'follow' })
-  if (!response.ok) {
-    throw new Error(`Failed to download model: ${response.status} ${response.statusText}`)
-  }
+  let lastError: Error | null = null
 
-  const total = Number(response.headers.get('content-length')) || 0
-  const reader = response.body?.getReader()
-  if (!reader) throw new Error('No response body')
-
-  const chunks: Uint8Array[] = []
-  let downloaded = 0
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      chunks.push(value)
-      downloaded += value.length
-      if (total > 0) {
-        const pct = Math.round((downloaded / total) * 100)
-        const mb = (downloaded / 1024 / 1024).toFixed(1)
-        const totalMb = (total / 1024 / 1024).toFixed(0)
-        onProgress?.(`Downloading model... ${pct}% (${mb}/${totalMb} MB)`)
-      }
-    }
-
-    const buffer = Buffer.concat(chunks)
-    await writeFile(modelPath, buffer)
-    onProgress?.('Model download complete')
-
-    return modelPath
-  } catch (err) {
-    // Clean up partial file on failure (#26)
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      if (existsSync(modelPath)) {
-        unlinkSync(modelPath)
+      const response = await fetch(MODEL_URL, { redirect: 'follow' })
+      if (!response.ok) {
+        throw new Error(`Failed to download model: ${response.status} ${response.statusText}`)
       }
-    } catch {
-      // Ignore cleanup errors
+
+      const total = Number(response.headers.get('content-length')) || 0
+      const reader = response.body?.getReader()
+      if (!reader) throw new Error('No response body')
+
+      const chunks: Uint8Array[] = []
+      let downloaded = 0
+
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          chunks.push(value)
+          downloaded += value.length
+          if (total > 0) {
+            const pct = Math.round((downloaded / total) * 100)
+            const mb = (downloaded / 1024 / 1024).toFixed(1)
+            const totalMb = (total / 1024 / 1024).toFixed(0)
+            onProgress?.(`Downloading model... ${pct}% (${mb}/${totalMb} MB)`)
+          }
+        }
+
+        const buffer = Buffer.concat(chunks)
+        await writeFile(modelPath, buffer)
+        onProgress?.('Model download complete')
+
+        return modelPath
+      } catch (err) {
+        // Clean up partial file on failure (#26)
+        try {
+          if (existsSync(modelPath)) {
+            unlinkSync(modelPath)
+          }
+        } catch {
+          // Ignore cleanup errors
+        }
+        throw err
+      }
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+
+      if (attempt < MAX_RETRIES) {
+        const delay = Math.pow(2, attempt) * 1000
+        onProgress?.(`Download failed, retrying in ${delay / 1000}s... (attempt ${attempt + 1}/${MAX_RETRIES})`)
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
     }
-    throw err
   }
+
+  throw lastError || new Error('Failed to download model after retries')
 }

@@ -10,19 +10,36 @@ export function filterWhisperHallucination(text: string): string | null {
 
   // Filter common Whisper hallucination phrases
   const hallucinationPhrases = [
+    // English
     'thank you',
+    'thank you for watching',
     'thanks for watching',
+    'thanks',
     'subscribe',
     'like and subscribe',
     'see you next time',
+    'see you in the next',
+    'see you later',
     'bye bye',
+    'bye',
     'goodbye',
     'the end',
     'you',
+    'okay',
+    'alright',
+    // Japanese
     'ご視聴ありがとうございました',
+    'ご視聴ありがとうございます',
+    'ありがとうございました',
     'おやすみなさい',
     'チャンネル登録',
-    'ではまた'
+    'チャンネル登録お願いします',
+    'ではまた',
+    'では',
+    'また明日',
+    'バイバイ',
+    'さようなら',
+    'お疲れ様でした'
   ]
 
   const lower = trimmed.toLowerCase()

@@ -48,7 +48,10 @@ export class OpusMTTranslator implements TranslatorEngine {
     if (!text.trim()) return ''
 
     const pipe = from === 'ja' ? this.jaToEn : this.enToJa
-    if (!pipe) throw new Error(`OPUS-MT pipeline not initialized for ${from}→${to}`)
+    if (!pipe) {
+      console.error(`[opus-mt] Pipeline not initialized for ${from}→${to}`)
+      return ''
+    }
 
     const result = await pipe(text)
     return result[0]?.translation_text || ''

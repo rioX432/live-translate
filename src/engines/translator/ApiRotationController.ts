@@ -100,19 +100,20 @@ export class ApiRotationController implements TranslatorEngine {
         errors.push(`${providerId}: ${message}`)
         console.error(`[rotation] ${providerId} failed:`, message)
 
-        // Mark as exhausted on quota errors
-        if (message.includes('Quota exceeded') || message.includes('456')) {
+        if (this.isPermanentError(message)) {
+          // Permanent error: disable immediately
+          console.warn(`[rotation] ${providerId}: disabled due to permanent error`)
           record.charCount = provider.monthlyCharLimit
           this.quota[providerId] = record
           this.persistence.save(this.quota)
-        }
-
-        // #40: track consecutive failures for transient errors
-        const currentFailures = (this.failureCount.get(providerId) ?? 0) + 1
-        this.failureCount.set(providerId, currentFailures)
-        if (currentFailures >= ApiRotationController.MAX_CONSECUTIVE_FAILURES) {
-          console.warn(`[rotation] ${providerId}: disabled after ${currentFailures} consecutive failures`)
-          this.onStatusUpdate?.(`${provider.engine.name} temporarily disabled after repeated failures`)
+        } else {
+          // Transient error: track consecutive failures (#40)
+          const currentFailures = (this.failureCount.get(providerId) ?? 0) + 1
+          this.failureCount.set(providerId, currentFailures)
+          if (currentFailures >= ApiRotationController.MAX_CONSECUTIVE_FAILURES) {
+            console.warn(`[rotation] ${providerId}: disabled after ${currentFailures} consecutive failures`)
+            this.onStatusUpdate?.(`${provider.engine.name} temporarily disabled after repeated failures`)
+          }
         }
 
         // Continue to next provider
@@ -126,8 +127,21 @@ export class ApiRotationController implements TranslatorEngine {
 
   async dispose(): Promise<void> {
     for (const provider of this.providers) {
-      await provider.engine.dispose().catch(() => {})
+      try {
+        await provider.engine.dispose()
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err)
+        console.warn(`[rotation] Failed to dispose ${provider.engine.id}: ${message}`)
+      }
     }
+  }
+
+  private isPermanentError(message: string): boolean {
+    const permanentPatterns = [
+      '401', '403', 'Invalid', 'expired',
+      'Quota exceeded', '456'
+    ]
+    return permanentPatterns.some((p) => message.includes(p))
   }
 
   /** Get quota usage summary for UI display */
