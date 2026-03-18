@@ -39,5 +39,8 @@ contextBridge.exposeInMainWorld('api', {
   // Settings persistence (#49)
   getSettings: () => ipcRenderer.invoke('get-settings'),
   saveSettings: (settings: Record<string, unknown>) =>
-    ipcRenderer.invoke('save-settings', settings)
+    ipcRenderer.invoke('save-settings', settings),
+
+  // Crash recovery (#54)
+  getCrashedSession: () => ipcRenderer.invoke('get-crashed-session')
 })
