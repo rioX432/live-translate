@@ -23,6 +23,8 @@ function SettingsPanel(): JSX.Element {
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const sessionStartRef = useRef<number | null>(null)
 
+  const [isStarting, setIsStarting] = useState(false) // #31: double-click guard
+
   const audio = useAudioCapture()
 
   const formatDuration = useCallback((ms: number): string => {
@@ -52,11 +54,26 @@ function SettingsPanel(): JSX.Element {
     setSessionDuration('')
   }, [])
 
+  // Load saved settings on mount (#49)
+  useEffect(() => {
+    window.api.getSettings().then((s) => {
+      if (s.translationEngine) setEngineMode(s.translationEngine as EngineMode)
+      if (s.googleApiKey) setApiKey(s.googleApiKey as string)
+      if (s.deeplApiKey) setDeeplApiKey(s.deeplApiKey as string)
+      if (s.geminiApiKey) setGeminiApiKey(s.geminiApiKey as string)
+      if (s.microsoftApiKey) setMicrosoftApiKey(s.microsoftApiKey as string)
+      if (s.microsoftRegion) setMicrosoftRegion(s.microsoftRegion as string)
+      if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
+    })
+  }, [])
+
   // Load displays
   useEffect(() => {
     window.api.getDisplays().then((d) => {
       setDisplays(d)
-      if (d.length > 1) setSelectedDisplay(d[1].id) // Default to external display
+      // #45: safely default to external display if available
+      const external = d.find((disp: DisplayInfo) => disp.label.includes('External'))
+      setSelectedDisplay(external?.id ?? d[0]?.id ?? 0)
     })
   }, [])
 
@@ -96,8 +113,23 @@ function SettingsPanel(): JSX.Element {
   }, [])
 
   const handleStart = async (): Promise<void> => {
+    if (isStarting) return // #31: prevent double-click
+    setIsStarting(true)
+
     try {
       setStatus('Starting pipeline...')
+
+      // Persist settings (#49)
+      window.api.saveSettings({
+        translationEngine: engineMode,
+        googleApiKey: apiKey,
+        deeplApiKey,
+        geminiApiKey,
+        microsoftApiKey,
+        microsoftRegion,
+        selectedMicrophone: audio.selectedDevice,
+        selectedDisplay
+      })
 
       // Build engine config
       let config: Record<string, unknown>
@@ -147,6 +179,7 @@ function SettingsPanel(): JSX.Element {
       const result = await window.api.pipelineStart(config)
       if (result.error) {
         setStatus(`Error: ${result.error}`)
+        setIsStarting(false) // #36: reset on error
         return
       }
 
@@ -156,6 +189,9 @@ function SettingsPanel(): JSX.Element {
       setStatus('Listening...')
     } catch (err) {
       setStatus(`Error: ${err}`)
+      setIsRunning(false) // #36: reset on error
+    } finally {
+      setIsStarting(false)
     }
   }
 
@@ -382,16 +418,16 @@ function SettingsPanel(): JSX.Element {
         onClick={isRunning ? handleStop : handleStart}
         style={{
           ...buttonStyle,
-          background: isRunning ? '#dc2626' : '#16a34a'
+          background: isRunning ? '#dc2626' : isStarting ? '#6b7280' : '#16a34a'
         }}
-        disabled={!isRunning && (
+        disabled={isStarting || (!isRunning && (
           (engineMode === 'online' && !apiKey) ||
           (engineMode === 'online-deepl' && !deeplApiKey) ||
           (engineMode === 'online-gemini' && !geminiApiKey) ||
           (engineMode === 'rotation' && !microsoftApiKey && !apiKey && !deeplApiKey)
-        )}
+        ))}
       >
-        {isRunning ? '⏹ Stop' : '▶ Start'}
+        {isStarting ? 'Starting...' : isRunning ? '⏹ Stop' : '▶ Start'}
       </button>
 
       {/* Status */}

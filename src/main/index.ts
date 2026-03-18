@@ -334,6 +334,26 @@ ipcMain.on('translation-result', (_event, data) => {
   subtitleWindow?.webContents.send('translation-result', data)
 })
 
+// Settings persistence via electron-store (#49)
+ipcMain.handle('get-settings', () => {
+  return {
+    translationEngine: store.get('translationEngine'),
+    googleApiKey: store.get('googleApiKey'),
+    deeplApiKey: store.get('deeplApiKey'),
+    geminiApiKey: store.get('geminiApiKey'),
+    microsoftApiKey: store.get('microsoftApiKey'),
+    microsoftRegion: store.get('microsoftRegion'),
+    selectedMicrophone: store.get('selectedMicrophone'),
+    selectedDisplay: store.get('selectedDisplay')
+  }
+})
+
+ipcMain.handle('save-settings', (_event, settings: Record<string, unknown>) => {
+  for (const [key, value] of Object.entries(settings)) {
+    store.set(key as keyof import('./store').AppSettings, value as never)
+  }
+})
+
 // --- App Lifecycle ---
 
 app.whenReady().then(() => {
