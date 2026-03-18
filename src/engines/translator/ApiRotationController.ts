@@ -33,7 +33,10 @@ export class ApiRotationController implements TranslatorEngine {
   private quota: QuotaStore = {}
   private onStatusUpdate?: (message: string) => void
   private failureCount = new Map<string, number>() // #40: track transient failures
+  private failureDisabledAt = new Map<string, number>() // #94: cooldown tracking
   private static readonly MAX_CONSECUTIVE_FAILURES = 5
+  private static readonly FAILURE_COOLDOWN_MS = 5 * 60_000 // 5 minutes
+  private initialized = false
 
   constructor(
     providers: ProviderConfig[],
@@ -47,10 +50,12 @@ export class ApiRotationController implements TranslatorEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.initialized) return
     // Initialize all provider engines
     for (const provider of this.providers) {
       await provider.engine.initialize()
     }
+    this.initialized = true
   }
 
   async translate(text: string, from: Language, to: Language): Promise<string> {
@@ -69,10 +74,17 @@ export class ApiRotationController implements TranslatorEngine {
         continue
       }
 
-      // #40: skip if too many consecutive transient failures
+      // #40: skip if too many consecutive transient failures (with cooldown #94)
       const failures = this.failureCount.get(providerId) ?? 0
       if (failures >= ApiRotationController.MAX_CONSECUTIVE_FAILURES) {
-        continue
+        const disabledAt = this.failureDisabledAt.get(providerId) ?? 0
+        if (Date.now() - disabledAt < ApiRotationController.FAILURE_COOLDOWN_MS) {
+          continue
+        }
+        // Cooldown elapsed — reset and retry
+        this.failureCount.set(providerId, 0)
+        this.failureDisabledAt.delete(providerId)
+        console.log(`[rotation] ${providerId}: cooldown elapsed, re-enabling`)
       }
 
       // Warn if approaching limit (90%)
@@ -111,7 +123,8 @@ export class ApiRotationController implements TranslatorEngine {
         const currentFailures = (this.failureCount.get(providerId) ?? 0) + 1
         this.failureCount.set(providerId, currentFailures)
         if (currentFailures >= ApiRotationController.MAX_CONSECUTIVE_FAILURES) {
-          console.warn(`[rotation] ${providerId}: disabled after ${currentFailures} consecutive failures`)
+          this.failureDisabledAt.set(providerId, Date.now())
+          console.warn(`[rotation] ${providerId}: disabled after ${currentFailures} consecutive failures (cooldown 5min)`)
           this.onStatusUpdate?.(`${provider.engine.name} temporarily disabled after repeated failures`)
         }
 

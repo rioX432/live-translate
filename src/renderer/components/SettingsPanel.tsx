@@ -103,7 +103,8 @@ function SettingsPanel(): JSX.Element {
     audio.onSpeechSegmentEnd((finalBuffer) => {
       window.api.finalizeStreaming(Array.from(finalBuffer))
     })
-  }, [audio])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks use stable refs internally
+  }, [])
 
   // Listen for status updates from main process
   useEffect(() => {
@@ -150,6 +151,7 @@ function SettingsPanel(): JSX.Element {
           translatorEngineId: 'rotation-controller',
           ...(apiKey && { apiKey }),
           ...(deeplApiKey && { deeplApiKey }),
+          ...(geminiApiKey && { geminiApiKey }),
           ...(microsoftApiKey && microsoftRegion && { microsoftApiKey, microsoftRegion })
         }
       } else if (engineMode === 'online') {
@@ -352,8 +354,8 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Auto Rotation — 3M chars/month free</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>Azure → Google → DeepL, auto-fallback on quota</div>
+            <div style={{ fontWeight: 500 }}>Auto Rotation — up to 4M+ chars/month free</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>Azure → Google → DeepL → Gemini, auto-fallback on quota</div>
           </div>
         </label>
         <label style={radioLabelStyle}>
@@ -459,6 +461,14 @@ function SettingsPanel(): JSX.Element {
               style={inputStyle}
               disabled={isRunning}
             />
+            <input
+              type="password"
+              value={geminiApiKey}
+              onChange={(e) => setGeminiApiKey(e.target.value)}
+              placeholder="Gemini API key"
+              style={inputStyle}
+              disabled={isRunning}
+            />
           </div>
         </Section>
       )}
@@ -527,7 +537,7 @@ function SettingsPanel(): JSX.Element {
           (engineMode === 'online' && !apiKey) ||
           (engineMode === 'online-deepl' && !deeplApiKey) ||
           (engineMode === 'online-gemini' && !geminiApiKey) ||
-          (engineMode === 'rotation' && !microsoftApiKey && !apiKey && !deeplApiKey)
+          (engineMode === 'rotation' && !microsoftApiKey && !apiKey && !deeplApiKey && !geminiApiKey)
         ))}
       >
         {isStarting ? 'Starting...' : isRunning ? '⏹ Stop' : '▶ Start'}
@@ -592,8 +602,7 @@ const selectStyle: React.CSSProperties = {
   background: '#1e293b',
   color: '#e2e8f0',
   border: '1px solid #334155',
-  borderRadius: '6px',
-  outline: 'none'
+  borderRadius: '6px'
 }
 
 const inputStyle: React.CSSProperties = {

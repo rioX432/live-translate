@@ -71,9 +71,13 @@ export class LocalAgreement {
   }
 }
 
+/** CJK character range check (Japanese/Chinese characters have no space word boundaries) */
+const CJK_PATTERN = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3400-\u4DBF]/
+
 /**
  * Compute the longest common prefix of two strings.
  * Breaks at word boundaries to avoid partial-word confirmation.
+ * For CJK text, uses character-level agreement since there are no spaces.
  */
 function longestCommonPrefix(a: string, b: string): string {
   const minLen = Math.min(a.length, b.length)
@@ -87,8 +91,14 @@ function longestCommonPrefix(a: string, b: string): string {
     return a.slice(0, i)
   }
 
-  // Snap to last word boundary to avoid confirming partial words
   const raw = a.slice(0, i)
+
+  // For CJK text, use character-level agreement (no space-based word boundaries)
+  if (CJK_PATTERN.test(raw)) {
+    return raw
+  }
+
+  // Snap to last word boundary to avoid confirming partial words
   const lastSpace = raw.lastIndexOf(' ')
   if (lastSpace > 0) {
     return raw.slice(0, lastSpace + 1)

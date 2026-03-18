@@ -1,6 +1,7 @@
 import type { TranslatorEngine, Language } from '../types'
 
-const DEEPL_API_URL = 'https://api-free.deepl.com/v2/translate'
+const DEEPL_FREE_URL = 'https://api-free.deepl.com/v2/translate'
+const DEEPL_PRO_URL = 'https://api.deepl.com/v2/translate'
 
 const LANG_MAP: Record<Language, { source: string; target: string }> = {
   ja: { source: 'JA', target: 'JA' },
@@ -13,12 +14,17 @@ export class DeepLTranslator implements TranslatorEngine {
   readonly isOffline = false
 
   private apiKey: string
+  private apiUrl: string
+  private initialized = false
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
+    // DeepL free API keys end with ':fx'
+    this.apiUrl = apiKey.endsWith(':fx') ? DEEPL_FREE_URL : DEEPL_PRO_URL
   }
 
   async initialize(): Promise<void> {
+    if (this.initialized) return
     if (!this.apiKey) {
       throw new Error('DeepL API key is required')
     }
@@ -29,6 +35,7 @@ export class DeepLTranslator implements TranslatorEngine {
       const msg = err instanceof Error ? err.message : String(err)
       throw new Error(`Invalid DeepL API key: ${msg}`)
     }
+    this.initialized = true
   }
 
   async translate(text: string, from: Language, to: Language): Promise<string> {
@@ -38,7 +45,7 @@ export class DeepLTranslator implements TranslatorEngine {
     const timeout = setTimeout(() => controller.abort(), 15_000)
 
     try {
-      const response = await fetch(DEEPL_API_URL, {
+      const response = await fetch(this.apiUrl, {
         method: 'POST',
         headers: {
           Authorization: `DeepL-Auth-Key ${this.apiKey}`,

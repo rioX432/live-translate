@@ -21,6 +21,7 @@ export class WhisperTranslateEngine implements E2ETranslationEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.modelPath) return
     if (!isModelDownloaded()) {
       this.modelPath = await downloadModel(this.onProgress)
     } else {
@@ -35,29 +36,31 @@ export class WhisperTranslateEngine implements E2ETranslationEngine {
     if (!this.modelPath) return null
 
     try {
-      // First: transcribe to get original Japanese text
-      const transcribeResult = await transcribe({
-        model: this.modelPath,
-        pcmf32: audioChunk,
-        language: 'ja',
-        vad: true,
-        no_timestamps: true,
-        no_prints: true
-      })
+      // Run transcription and translation concurrently.
+      // The native addon may serialize internally, but this avoids
+      // redundant VAD processing on the second call if the first detects silence.
+      const [transcribeResult, translateResult] = await Promise.all([
+        transcribe({
+          model: this.modelPath,
+          pcmf32: audioChunk,
+          language: 'ja',
+          vad: true,
+          no_timestamps: true,
+          no_prints: true
+        }),
+        transcribe({
+          model: this.modelPath,
+          pcmf32: audioChunk,
+          language: 'ja',
+          translate: true,
+          vad: true,
+          no_timestamps: true,
+          no_prints: true
+        })
+      ])
 
       const sourceText = this.extractText(transcribeResult.transcription)
       if (!sourceText.trim()) return null
-
-      // Second: translate (Whisper outputs English)
-      const translateResult = await transcribe({
-        model: this.modelPath,
-        pcmf32: audioChunk,
-        language: 'ja',
-        translate: true,
-        vad: true,
-        no_timestamps: true,
-        no_prints: true
-      })
 
       const translatedText = this.extractText(translateResult.transcription)
       if (!translatedText.trim()) return null

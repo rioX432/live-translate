@@ -127,6 +127,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
           audio: {
             deviceId: deviceId ? { exact: deviceId } : undefined,
             channelCount: 1,
+            sampleRate: { ideal: 16000 },
             echoCancellation: true,
             noiseSuppression: true
           }

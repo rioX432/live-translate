@@ -4,6 +4,16 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>live-translate</title>
+    <style>
+      select:focus-visible, input:focus-visible, button:focus-visible {
+        outline: 2px solid #60a5fa;
+        outline-offset: 2px;
+      }
+      select:disabled, input:disabled, button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+    </style>
   </head>
   <body style="margin: 0; padding: 0; background: rgba(0,0,0,0);">
     <div id="root"></div>

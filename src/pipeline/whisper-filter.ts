@@ -20,9 +20,18 @@ export function filterWhisperHallucination(text: string): string | null {
     'the end',
     'you',
     'ご視聴ありがとうございました',
+    'ご覧いただきありがとうございました',
     'おやすみなさい',
     'チャンネル登録',
-    'ではまた'
+    'ではまた',
+    'それでは',
+    'よろしくお願いします',
+    'お疲れ様でした',
+    'お疲れ様です',
+    'ありがとうございます',
+    'ありがとうございました',
+    'お願いします',
+    'お元気で'
   ]
 
   const lower = trimmed.toLowerCase()

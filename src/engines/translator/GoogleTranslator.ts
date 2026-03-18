@@ -8,12 +8,14 @@ export class GoogleTranslator implements TranslatorEngine {
   readonly isOffline = false
 
   private apiKey: string
+  private initialized = false
 
   constructor(apiKey: string) {
     this.apiKey = apiKey
   }
 
   async initialize(): Promise<void> {
+    if (this.initialized) return
     if (!this.apiKey) {
       throw new Error('Google Cloud Translation API key is required')
     }
@@ -24,6 +26,7 @@ export class GoogleTranslator implements TranslatorEngine {
       const msg = err instanceof Error ? err.message : String(err)
       throw new Error(`Invalid Google Translation API key: ${msg}`)
     }
+    this.initialized = true
   }
 
   async translate(text: string, from: Language, to: Language): Promise<string> {

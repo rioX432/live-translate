@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import { join } from 'path'
-import { existsSync, mkdirSync, appendFileSync, writeFileSync } from 'fs'
+import { existsSync, mkdirSync, writeFileSync } from 'fs'
+import { appendFile } from 'fs/promises'
 import type { TranslationResult } from '../engines/types'
 
 export class TranscriptLogger {
@@ -43,7 +44,9 @@ export class TranscriptLogger {
       ''
     ].join('\n')
 
-    appendFileSync(this.logPath, entry, 'utf-8')
+    appendFile(this.logPath, entry, 'utf-8').catch((err) => {
+      console.error('[logger] Failed to write log entry:', err)
+    })
   }
 
   /** Write session footer */
@@ -57,7 +60,8 @@ export class TranscriptLogger {
       ''
     ].join('\n')
 
-    appendFileSync(this.logPath, footer, 'utf-8')
+    // endSession is called at shutdown — use sync to ensure footer is written
+    writeFileSync(this.logPath, footer, { encoding: 'utf-8', flag: 'a' })
   }
 
   /** Get the log file path */

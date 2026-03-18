@@ -182,6 +182,12 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
           monthlyCharLimit: 500_000
         })
       }
+      if (config.geminiApiKey) {
+        providers.push({
+          engine: new GeminiTranslator(config.geminiApiKey),
+          monthlyCharLimit: 1_000_000 // Gemini free tier is generous
+        })
+      }
 
       if (providers.length === 0) {
         return { error: 'Rotation mode requires at least one API key' }
@@ -255,10 +261,10 @@ function toFloat32Array(audioData: unknown): Float32Array | null {
     const abs = Math.abs(chunk[i])
     if (abs > maxAmp) maxAmp = abs
   }
-  console.log(`[audio] samples=${chunk.length}, max_amplitude=${maxAmp.toFixed(6)}`)
+  console.debug(`[audio] samples=${chunk.length}, max_amplitude=${maxAmp.toFixed(6)}`)
 
   if (maxAmp < 0.001) {
-    console.log('[audio] Silent chunk, skipping')
+    console.debug('[audio] Silent chunk, skipping')
     return null
   }
 
@@ -391,12 +397,12 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', async () => {
   // #44: flush logger before disposing pipeline
   logger?.endSession()
   logger = null
   store.set('activeSession', null) // #54: clear on clean exit
-  pipeline?.dispose()
+  await pipeline?.dispose()
   app.quit()
 })
 
