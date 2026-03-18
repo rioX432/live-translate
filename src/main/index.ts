@@ -255,10 +255,10 @@ function toFloat32Array(audioData: unknown): Float32Array | null {
     const abs = Math.abs(chunk[i])
     if (abs > maxAmp) maxAmp = abs
   }
-  console.log(`[audio] samples=${chunk.length}, max_amplitude=${maxAmp.toFixed(6)}`)
+  console.debug(`[audio] samples=${chunk.length}, max_amplitude=${maxAmp.toFixed(6)}`)
 
   if (maxAmp < 0.001) {
-    console.log('[audio] Silent chunk, skipping')
+    console.debug('[audio] Silent chunk, skipping')
     return null
   }
 
