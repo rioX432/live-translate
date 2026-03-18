@@ -329,6 +329,10 @@ export class TranslationPipeline extends EventEmitter {
     try {
       await new Promise((resolve) => setTimeout(resolve, RECOVERY_DELAY_MS))
 
+      // Reset streaming state before re-initializing engines
+      this.agreement.reset()
+      this.lastTranslatedConfirmed = ''
+
       // Temporarily go to IDLE so switchEngine can transition to INITIALIZING
       this.setState(PipelineState.IDLE)
       await this.switchEngine(this.config)
