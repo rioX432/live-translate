@@ -12,8 +12,11 @@ import { ApiRotationController } from '../engines/translator/ApiRotationControll
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { WhisperTranslateEngine } from '../engines/e2e/WhisperTranslateEngine'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
-import { store } from './store'
+import { store, validateSessionConfig } from './store'
 import type { EngineConfig, TranslationResult } from '../engines/types'
+
+// Audio silence detection threshold (0-1.0 normalized amplitude)
+const SILENCE_THRESHOLD = 0.001
 
 let mainWindow: BrowserWindow | null = null
 let subtitleWindow: BrowserWindow | null = null
@@ -112,7 +115,8 @@ function initPipeline(): void {
   })
 
   pipeline.on('error', (err: Error) => {
-    mainWindow?.webContents.send('status-update', `Error: ${err.message}`)
+    mainWindow?.webContents.send('status-update', categorizeError(err))
+    console.error('[pipeline]', err)
   })
 
   pipeline.on('engine-loading', (msg: string) => {
@@ -122,6 +126,26 @@ function initPipeline(): void {
   pipeline.on('engine-ready', () => {
     mainWindow?.webContents.send('status-update', 'Engine ready')
   })
+}
+
+function categorizeError(err: Error): string {
+  const msg = err.message.toLowerCase()
+  if (msg.includes('timeout') || msg.includes('timed out')) {
+    return 'Operation timed out. Check your network connection and try again.'
+  }
+  if (msg.includes('invalid') && (msg.includes('api') || msg.includes('key'))) {
+    return 'API authentication failed. Check your API keys in settings.'
+  }
+  if (msg.includes('rate limit') || msg.includes('quota')) {
+    return 'API quota exceeded. Try a different translation engine.'
+  }
+  if (msg.includes('econnrefused') || msg.includes('enotfound') || msg.includes('network')) {
+    return 'Network error. Check your internet connection.'
+  }
+  if (msg.includes('model') || msg.includes('download')) {
+    return 'Model loading failed. Check disk space and internet, then restart.'
+  }
+  return `Error: ${err.message}`
 }
 
 // --- IPC Handlers ---
@@ -163,23 +187,24 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
         mainWindow?.webContents.send('status-update', msg)
       }
 
-      // Order: Azure (2M) → Google (480K safe cap) → DeepL (500K)
+      // Order: Azure → Google → DeepL (limits configurable via store)
+      const quotaLimits = store.get('quotaLimits')
       if (config.microsoftApiKey && config.microsoftRegion) {
         providers.push({
           engine: new MicrosoftTranslator(config.microsoftApiKey, config.microsoftRegion),
-          monthlyCharLimit: 2_000_000
+          monthlyCharLimit: quotaLimits.azure
         })
       }
       if (config.apiKey) {
         providers.push({
           engine: new GoogleTranslator(config.apiKey),
-          monthlyCharLimit: 480_000
+          monthlyCharLimit: quotaLimits.google
         })
       }
       if (config.deeplApiKey) {
         providers.push({
           engine: new DeepLTranslator(config.deeplApiKey),
-          monthlyCharLimit: 500_000
+          monthlyCharLimit: quotaLimits.deepl
         })
       }
 
@@ -199,6 +224,9 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
 
     await pipeline.switchEngine(config)
 
+    // #54/#62: persist session BEFORE start so crash recovery always has data
+    store.set('activeSession', { config, startedAt: Date.now() })
+
     // Start logger
     logger = new TranscriptLogger()
     const sessionLabel = config.mode === 'e2e'
@@ -207,9 +235,6 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
     logger.startSession(sessionLabel)
 
     pipeline.start()
-
-    // #54: persist session AFTER successful start (not before switchEngine)
-    store.set('activeSession', { config, startedAt: Date.now() })
 
     return { success: true }
   } catch (err) {
@@ -257,7 +282,7 @@ function toFloat32Array(audioData: unknown): Float32Array | null {
   }
   console.log(`[audio] samples=${chunk.length}, max_amplitude=${maxAmp.toFixed(6)}`)
 
-  if (maxAmp < 0.001) {
+  if (maxAmp < SILENCE_THRESHOLD) {
     console.log('[audio] Silent chunk, skipping')
     return null
   }
@@ -363,11 +388,12 @@ ipcMain.handle('save-settings', (_event, settings: Record<string, unknown>) => {
 // #54: crash recovery — check if previous session ended uncleanly
 ipcMain.handle('get-crashed-session', () => {
   const session = store.get('activeSession')
-  if (session) {
-    // Clear it so we don't keep detecting the same crash
+  if (session && validateSessionConfig(session)) {
     store.set('activeSession', null)
     return session
   }
+  // Clear invalid session
+  if (session) store.set('activeSession', null)
   return null
 })
 
