@@ -12,6 +12,7 @@ import { ApiRotationController } from '../engines/translator/ApiRotationControll
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { WhisperTranslateEngine } from '../engines/e2e/WhisperTranslateEngine'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
+import { detectGpu } from '../engines/gpu-detector'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
 import { store } from './store'
 import type { EngineConfig, TranslationResult } from '../engines/types'
@@ -446,6 +447,11 @@ ipcMain.handle('get-crashed-session', () => {
     console.warn('[crash-recovery] Invalid session config, discarding:', config)
   }
   return null
+})
+
+// #132: GPU detection for engine auto-selection
+ipcMain.handle('detect-gpu', async () => {
+  return detectGpu()
 })
 
 // #116: Get session usage logs for feedback collection

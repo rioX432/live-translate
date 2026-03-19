@@ -44,7 +44,7 @@ export interface AppSettings {
 
 export const store = new Store<AppSettings>({
   defaults: {
-    translationEngine: 'rotation',
+    translationEngine: 'auto',
     googleApiKey: '',
     microsoftApiKey: '',
     microsoftRegion: '',
