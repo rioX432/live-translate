@@ -54,8 +54,8 @@ async function handleTranslate(
     const fromLang = LANG_NAMES[from] ?? from
     const toLang = LANG_NAMES[to] ?? to
 
-    // TranslateGemma prompt format (plain mode)
-    const prompt = `Translate the following text from ${fromLang} to ${toLang}.\n\n${text}`
+    // TranslateGemma optimized prompt format
+    const prompt = `Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
 
     const response = await session.prompt(prompt, {
       temperature: 0.1,
