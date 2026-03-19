@@ -54,6 +54,10 @@ export class SLMTranslator implements TranslatorEngine {
     // Wait for init before registering the general message handler
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
+        this.worker?.removeListener('message', initHandler)
+        // Kill orphaned worker on timeout
+        try { this.worker?.kill() } catch { /* ignore */ }
+        this.worker = null
         reject(new Error('TranslateGemma initialization timed out'))
       }, 5 * 60_000)
 

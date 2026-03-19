@@ -28,13 +28,7 @@ export class GeminiTranslator implements TranslatorEngine {
     if (!this.apiKey) {
       throw new Error('Gemini API key is required')
     }
-    // Validate API key with a test request
-    try {
-      await this.translate('test', 'en', 'ja')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(`Invalid Gemini API key: ${msg}`)
-    }
+    // API key validation deferred to first real translation to avoid wasting tokens
     this.initialized = true
   }
 
@@ -91,6 +85,6 @@ export class GeminiTranslator implements TranslatorEngine {
   }
 
   async dispose(): Promise<void> {
-    // No cleanup needed
+    console.log('[gemini] Disposing resources')
   }
 }

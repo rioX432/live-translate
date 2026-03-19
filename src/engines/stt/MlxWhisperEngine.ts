@@ -17,6 +17,7 @@ export class MlxWhisperEngine implements STTEngine {
   private pendingRequests = new Map<number, (data: any) => void>()
   private nextRequestId = 0
   private buffer = ''
+  private stderrRateLimit = { count: 0, lastReset: Date.now() }
 
   constructor(options?: {
     model?: string
@@ -69,7 +70,14 @@ export class MlxWhisperEngine implements STTEngine {
     })
 
     this.process.stderr!.on('data', (data: Buffer) => {
-      console.warn('[mlx-whisper] stderr:', data.toString().trim())
+      const now = Date.now()
+      if (now - this.stderrRateLimit.lastReset > 5000) {
+        this.stderrRateLimit = { count: 0, lastReset: now }
+      }
+      if (this.stderrRateLimit.count < 10) {
+        this.stderrRateLimit.count++
+        console.warn('[mlx-whisper] stderr:', data.toString().trim())
+      }
     })
 
     this.process.on('exit', (code) => {
@@ -124,6 +132,7 @@ export class MlxWhisperEngine implements STTEngine {
   }
 
   async dispose(): Promise<void> {
+    console.log('[mlx-whisper] Disposing resources')
     if (this.process) {
       try {
         this.sendCommand({ action: 'dispose' }).catch(() => {})
@@ -134,6 +143,11 @@ export class MlxWhisperEngine implements STTEngine {
       } catch { /* ignore */ }
       this.process = null
     }
+    // Reject any pending requests
+    for (const [reqId, resolve] of this.pendingRequests) {
+      resolve({ error: 'Engine disposed' })
+    }
+    this.pendingRequests.clear()
   }
 
   private sendCommand(cmd: Record<string, unknown>): Promise<any> {
@@ -143,7 +157,7 @@ export class MlxWhisperEngine implements STTEngine {
         return
       }
 
-      const reqId = this.nextRequestId++
+      const reqId = this.nextRequestId++ % 0xFFFFFF
 
       const timeout = setTimeout(() => {
         this.pendingRequests.delete(reqId)
@@ -155,7 +169,15 @@ export class MlxWhisperEngine implements STTEngine {
         resolve(data)
       })
 
-      this.process.stdin.write(JSON.stringify({ ...cmd, _reqId: reqId }) + '\n')
+      const written = this.process.stdin.write(JSON.stringify({ ...cmd, _reqId: reqId }) + '\n')
+      if (!written) {
+        this.process.stdin.once('drain', () => { /* backpressure resolved */ })
+      }
+      this.process.stdin.once('error', (err) => {
+        this.pendingRequests.delete(reqId)
+        clearTimeout(timeout)
+        reject(new Error(`stdin write error: ${err.message}`))
+      })
     })
   }
 }

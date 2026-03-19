@@ -76,6 +76,6 @@ export class GoogleTranslator implements TranslatorEngine {
   }
 
   async dispose(): Promise<void> {
-    // No cleanup needed
+    console.log('[google-translate] Disposing resources')
   }
 }

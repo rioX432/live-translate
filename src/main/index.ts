@@ -122,7 +122,7 @@ function initPipeline(): void {
   // Auto-register discovered plugins (#145)
   for (const plugin of discoverPlugins()) {
     const { manifest } = plugin
-    const factory = async () => loadPluginEngine(plugin)
+    const factory = () => loadPluginEngine(plugin)
     if (manifest.engineType === 'stt') {
       pipeline.registerSTT(manifest.engineId, factory as any)
     } else if (manifest.engineType === 'translator') {
@@ -194,39 +194,40 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
     }
 
     // Build rotation controller when rotation mode is selected
+    let rotationProviders: ProviderConfig[] | null = null
     if (config.translatorEngineId === 'rotation-controller') {
-      const providers: ProviderConfig[] = []
+      rotationProviders = []
       const statusFn = (msg: string): void => {
         mainWindow?.webContents.send('status-update', msg)
       }
 
       // Order: Azure (2M) → Google (480K safe cap) → DeepL (500K)
       if (config.microsoftApiKey && config.microsoftRegion) {
-        providers.push({
+        rotationProviders.push({
           engine: new MicrosoftTranslator(config.microsoftApiKey, config.microsoftRegion),
           monthlyCharLimit: QUOTA_LIMITS.microsoft
         })
       }
       if (config.apiKey) {
-        providers.push({
+        rotationProviders.push({
           engine: new GoogleTranslator(config.apiKey),
           monthlyCharLimit: QUOTA_LIMITS.google
         })
       }
       if (config.deeplApiKey) {
-        providers.push({
+        rotationProviders.push({
           engine: new DeepLTranslator(config.deeplApiKey),
           monthlyCharLimit: QUOTA_LIMITS.deepl
         })
       }
       if (config.geminiApiKey) {
-        providers.push({
+        rotationProviders.push({
           engine: new GeminiTranslator(config.geminiApiKey),
           monthlyCharLimit: QUOTA_LIMITS.gemini
         })
       }
 
-      if (providers.length === 0) {
+      if (rotationProviders.length === 0) {
         return { error: 'Rotation mode requires at least one API key' }
       }
 
@@ -236,11 +237,21 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
       }
 
       pipeline.registerTranslator('rotation-controller', () =>
-        new ApiRotationController(providers, persistence, statusFn)
+        new ApiRotationController(rotationProviders!, persistence, statusFn)
       )
     }
 
-    await pipeline.switchEngine(config)
+    try {
+      await pipeline.switchEngine(config)
+    } catch (err) {
+      // Dispose leaked rotation provider instances on switchEngine failure
+      if (rotationProviders) {
+        for (const p of rotationProviders) {
+          p.engine.dispose().catch(() => {})
+        }
+      }
+      throw err
+    }
 
     // Start logger
     logger = new TranscriptLogger()
@@ -329,16 +340,14 @@ function toFloat32Array(audioData: unknown): Float32Array | null {
     return null
   }
 
-  // Debug: log audio stats (scan all samples)
+  // Scan for max amplitude (used for silence detection)
   let maxAmp = 0
   for (let i = 0; i < chunk.length; i++) {
     const abs = Math.abs(chunk[i])
     if (abs > maxAmp) maxAmp = abs
   }
-  console.debug(`[audio] samples=${chunk.length}, max_amplitude=${maxAmp.toFixed(6)}`)
 
   if (maxAmp < SILENCE_THRESHOLD) {
-    console.debug('[audio] Silent chunk, skipping')
     return null
   }
 
@@ -578,11 +587,16 @@ app.on('before-quit', (event) => {
 
   // Async cleanup before quit
   ;(async () => {
-    logger?.endSession()
-    logger = null
-    store.set('activeSession', null)
-    await pipeline?.dispose()
-    app.quit()
+    try {
+      logger?.endSession()
+      logger = null
+      store.set('activeSession', null)
+      await pipeline?.dispose()
+    } catch (err) {
+      console.error('[quit] Cleanup error:', err)
+    } finally {
+      app.quit()
+    }
   })()
 })
 

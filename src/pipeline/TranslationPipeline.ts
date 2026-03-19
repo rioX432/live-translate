@@ -191,11 +191,11 @@ export class TranslationPipeline extends EventEmitter {
         if (!translatorFactory) throw new Error(`Translator engine not found: ${translatorId}`)
 
         this.emit('engine-loading', 'Loading STT model...')
-        this.sttEngine = sttFactory()
+        this.sttEngine = await Promise.resolve(sttFactory())
         await this.withTimeout(this.sttEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'STT initialization')
 
         this.emit('engine-loading', 'Initializing translator...')
-        this.translator = translatorFactory()
+        this.translator = await Promise.resolve(translatorFactory())
         await this.withTimeout(this.translator.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Translator initialization')
       } else if (config.mode === 'e2e') {
         const e2eId = config.e2eEngineId
@@ -205,7 +205,7 @@ export class TranslationPipeline extends EventEmitter {
         if (!e2eFactory) throw new Error(`E2E engine not found: ${e2eId}`)
 
         this.emit('engine-loading', 'Loading translation model...')
-        this.e2eEngine = e2eFactory()
+        this.e2eEngine = await Promise.resolve(e2eFactory())
         await this.withTimeout(this.e2eEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'E2E engine initialization')
       }
 
@@ -299,7 +299,7 @@ export class TranslationPipeline extends EventEmitter {
     const sttResult = await this.sttEngine.processAudio(audioChunk, sampleRate)
     if (!sttResult || !sttResult.isFinal || !sttResult.text.trim()) return null
 
-    const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
+    const targetLang = this.resolveTargetLanguage(sttResult.language)
 
     if (!this.translator) {
       this.emit('error', new Error('Translator engine not initialized'))
@@ -380,6 +380,7 @@ export class TranslationPipeline extends EventEmitter {
     // the rolling buffer re-sends accumulated audio on the next interval (#103)
     if (this.streamingLock) return null
 
+    this.processingCount++
     this.streamingLock = true
     try {
       const sttResult = await this.sttEngine.processAudio(audioBuffer, sampleRate)
@@ -391,7 +392,7 @@ export class TranslationPipeline extends EventEmitter {
       }
 
       const agreement = this.agreement.update(sttResult.text)
-      const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
+      const targetLang = this.resolveTargetLanguage(sttResult.language)
 
       let translatedText = ''
       if (agreement.newConfirmed && this.translator) {
@@ -422,6 +423,11 @@ export class TranslationPipeline extends EventEmitter {
       return null
     } finally {
       this.streamingLock = false
+      this.processingCount--
+      if (this.processingCount === 0) {
+        for (const resolve of this.processingDoneResolvers) resolve()
+        this.processingDoneResolvers = []
+      }
       for (const r of this.streamingLockResolvers) r()
       this.streamingLockResolvers = []
     }
@@ -436,6 +442,7 @@ export class TranslationPipeline extends EventEmitter {
         this.streamingLockResolvers.push(resolve)
       })
     }
+    this.processingCount++
     this.streamingLock = true
 
     try {
@@ -447,7 +454,7 @@ export class TranslationPipeline extends EventEmitter {
       }
 
       const agreement = this.agreement.finalize(sttResult.text)
-      const targetLang: Language = sttResult.language === 'ja' ? 'en' : 'ja'
+      const targetLang = this.resolveTargetLanguage(sttResult.language)
 
       let translatedText = ''
       if (this.translator && agreement.confirmedText.trim()) {
@@ -480,9 +487,20 @@ export class TranslationPipeline extends EventEmitter {
       return null
     } finally {
       this.streamingLock = false
+      this.processingCount--
+      if (this.processingCount === 0) {
+        for (const resolve of this.processingDoneResolvers) resolve()
+        this.processingDoneResolvers = []
+      }
       for (const r of this.streamingLockResolvers) r()
       this.streamingLockResolvers = []
     }
+  }
+
+  /** Resolve the target language for a given source language */
+  private resolveTargetLanguage(sourceLang: Language): Language {
+    // Currently only ja↔en is supported
+    return sourceLang === 'ja' ? 'en' : 'ja'
   }
 
   // --- Memory monitoring ---

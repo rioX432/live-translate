@@ -88,6 +88,6 @@ export class DeepLTranslator implements TranslatorEngine {
   }
 
   async dispose(): Promise<void> {
-    // No cleanup needed
+    console.log('[deepl] Disposing resources')
   }
 }

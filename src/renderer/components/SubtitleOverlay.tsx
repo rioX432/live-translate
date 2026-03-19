@@ -21,8 +21,8 @@ interface SubtitleConfig {
 
 const DEFAULT_CONFIG: SubtitleConfig = {
   fontSize: 30,
-  sourceTextColor: '#f0f0f0',
-  translatedTextColor: '#93c5fd',
+  sourceTextColor: '#ffffff',
+  translatedTextColor: '#7dd3fc',
   backgroundOpacity: 78,
   position: 'bottom'
 }

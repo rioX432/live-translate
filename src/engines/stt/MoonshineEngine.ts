@@ -7,7 +7,7 @@ const MOONSHINE_MODEL = 'onnx-community/moonshine-base-ONNX'
 const MODELS_SUBDIR = 'moonshine'
 
 // Japanese detection heuristic (aligned with WhisperLocalEngine)
-const JA_REGEX = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/g
+const JA_REGEX = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3400-\u4DBF]/g
 
 export class MoonshineEngine implements STTEngine {
   readonly id = 'moonshine'
@@ -68,6 +68,7 @@ export class MoonshineEngine implements STTEngine {
   }
 
   async dispose(): Promise<void> {
+    console.log('[moonshine] Disposing resources')
     this.pipeline = null
   }
 }

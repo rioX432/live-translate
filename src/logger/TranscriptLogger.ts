@@ -7,6 +7,7 @@ import type { TranslationResult } from '../engines/types'
 export class TranscriptLogger {
   private logPath: string
   private sessionStartTime: Date
+  private writeQueue: Promise<void> = Promise.resolve()
 
   constructor() {
     const logsDir = join(app.getPath('documents'), 'live-translate', 'logs')
@@ -35,7 +36,7 @@ export class TranscriptLogger {
     writeFileSync(this.logPath, header, 'utf-8')
   }
 
-  /** Append a translation result to the log */
+  /** Append a translation result to the log (sequential writes for ordering) */
   log(result: TranslationResult): void {
     const time = new Date(result.timestamp).toLocaleTimeString('ja-JP')
     const entry = [
@@ -44,9 +45,11 @@ export class TranscriptLogger {
       ''
     ].join('\n')
 
-    appendFile(this.logPath, entry, 'utf-8').catch((err) => {
-      console.error('[logger] Failed to write log entry:', err)
-    })
+    this.writeQueue = this.writeQueue
+      .then(() => appendFile(this.logPath, entry, 'utf-8'))
+      .catch((err) => {
+        console.error('[logger] Failed to write log entry:', err)
+      })
   }
 
   /** Write session footer */
