@@ -1,7 +1,7 @@
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, unlinkSync, statSync, createWriteStream } from 'fs'
-import { readFile, writeFile } from 'fs/promises'
+import { writeFile } from 'fs/promises'
 import { createHash } from 'crypto'
 
 export const MODEL_FILENAME = 'ggml-kotoba-whisper-v2.0-q5_0.bin'
@@ -170,11 +170,17 @@ async function doDownloadWithResume(
         throw err
       }
 
-      // SHA256 verification
+      // SHA256 verification (streaming to avoid loading multi-GB files into memory)
       if (expectedSha256) {
         onProgress?.('Verifying file integrity...')
-        const fileBuffer = await readFile(partialPath)
-        const hash = createHash('sha256').update(fileBuffer).digest('hex')
+        const { createReadStream } = await import('fs')
+        const hash = await new Promise<string>((resolve, reject) => {
+          const hasher = createHash('sha256')
+          const stream = createReadStream(partialPath)
+          stream.on('data', (chunk: Buffer) => hasher.update(chunk))
+          stream.on('end', () => resolve(hasher.digest('hex')))
+          stream.on('error', reject)
+        })
         if (hash !== expectedSha256) {
           unlinkSync(partialPath)
           throw new Error(`SHA256 mismatch: expected ${expectedSha256}, got ${hash}`)
@@ -201,6 +207,9 @@ async function doDownloadWithResume(
   throw new Error('Unreachable')
 }
 
+const MAX_RETRIES = 3
+const RETRY_DELAYS = [3_000, 10_000, 30_000]
+
 export async function downloadModel(
   onProgress?: (message: string) => void
 ): Promise<string> {
@@ -216,152 +225,10 @@ export async function downloadModel(
     return downloadInProgress
   }
 
-  downloadInProgress = doDownload(modelPath, onProgress)
+  downloadInProgress = doDownloadWithResume(modelPath, MODEL_URL, 'Whisper model (~540MB)', onProgress)
   try {
     return await downloadInProgress
   } finally {
     downloadInProgress = null
-  }
-}
-
-const MAX_RETRIES = 3
-const RETRY_DELAYS = [3_000, 10_000, 30_000]
-
-async function doDownload(
-  modelPath: string,
-  onProgress?: (message: string) => void
-): Promise<string> {
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      return await doDownloadAttempt(modelPath, onProgress)
-    } catch (err) {
-      if (attempt >= MAX_RETRIES) throw err
-      const delay = RETRY_DELAYS[attempt]
-      const msg = err instanceof Error ? err.message : String(err)
-      onProgress?.(`Download failed (${msg}), retrying in ${delay / 1000}s... (${attempt + 1}/${MAX_RETRIES})`)
-      await new Promise((resolve) => setTimeout(resolve, delay))
-    }
-  }
-  throw new Error('Unreachable')
-}
-
-async function doDownloadGeneric(
-  modelPath: string,
-  url: string,
-  label: string,
-  onProgress?: (message: string) => void
-): Promise<string> {
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      return await doDownloadAttemptGeneric(modelPath, url, label, onProgress)
-    } catch (err) {
-      if (attempt >= MAX_RETRIES) throw err
-      const delay = RETRY_DELAYS[attempt]
-      const msg = err instanceof Error ? err.message : String(err)
-      onProgress?.(`Download failed (${msg}), retrying in ${delay / 1000}s... (${attempt + 1}/${MAX_RETRIES})`)
-      await new Promise((resolve) => setTimeout(resolve, delay))
-    }
-  }
-  throw new Error('Unreachable')
-}
-
-async function doDownloadAttemptGeneric(
-  modelPath: string,
-  url: string,
-  label: string,
-  onProgress?: (message: string) => void
-): Promise<string> {
-  onProgress?.(`Downloading ${label}...`)
-
-  const response = await fetch(url, { redirect: 'follow' })
-  if (!response.ok) {
-    throw new Error(`Failed to download ${label}: ${response.status} ${response.statusText}`)
-  }
-
-  const total = Number(response.headers.get('content-length')) || 0
-  const reader = response.body?.getReader()
-  if (!reader) throw new Error('No response body')
-
-  const chunks: Uint8Array[] = []
-  let downloaded = 0
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      chunks.push(value)
-      downloaded += value.length
-      if (total > 0) {
-        const pct = Math.round((downloaded / total) * 100)
-        const mb = (downloaded / 1024 / 1024).toFixed(1)
-        const totalMb = (total / 1024 / 1024).toFixed(0)
-        onProgress?.(`Downloading ${label}... ${pct}% (${mb}/${totalMb} MB)`)
-      }
-    }
-
-    const buffer = Buffer.concat(chunks)
-    await writeFile(modelPath, buffer)
-    onProgress?.(`${label} download complete`)
-
-    return modelPath
-  } catch (err) {
-    try {
-      if (existsSync(modelPath)) {
-        unlinkSync(modelPath)
-      }
-    } catch {
-      // Ignore cleanup errors
-    }
-    throw err
-  }
-}
-
-async function doDownloadAttempt(
-  modelPath: string,
-  onProgress?: (message: string) => void
-): Promise<string> {
-  onProgress?.('Downloading Whisper model (~540MB)...')
-
-  const response = await fetch(MODEL_URL, { redirect: 'follow' })
-  if (!response.ok) {
-    throw new Error(`Failed to download model: ${response.status} ${response.statusText}`)
-  }
-
-  const total = Number(response.headers.get('content-length')) || 0
-  const reader = response.body?.getReader()
-  if (!reader) throw new Error('No response body')
-
-  const chunks: Uint8Array[] = []
-  let downloaded = 0
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      chunks.push(value)
-      downloaded += value.length
-      if (total > 0) {
-        const pct = Math.round((downloaded / total) * 100)
-        const mb = (downloaded / 1024 / 1024).toFixed(1)
-        const totalMb = (total / 1024 / 1024).toFixed(0)
-        onProgress?.(`Downloading model... ${pct}% (${mb}/${totalMb} MB)`)
-      }
-    }
-
-    const buffer = Buffer.concat(chunks)
-    await writeFile(modelPath, buffer)
-    onProgress?.('Model download complete')
-
-    return modelPath
-  } catch (err) {
-    // Clean up partial file on failure (#26)
-    try {
-      if (existsSync(modelPath)) {
-        unlinkSync(modelPath)
-      }
-    } catch {
-      // Ignore cleanup errors
-    }
-    throw err
   }
 }

@@ -36,6 +36,9 @@ function SettingsPanel(): JSX.Element {
   const [subtitleBgOpacity, setSubtitleBgOpacity] = useState(78)
   const [subtitlePosition, setSubtitlePosition] = useState<'top' | 'bottom'>('bottom')
 
+  // Session history (#144)
+  const [sessions, setSessions] = useState<Array<{ id: string; startedAt: number; engineMode: string; entryCount: number }>>([])
+
   // Meeting summary (#124)
   const [lastTranscriptPath, setLastTranscriptPath] = useState<string | null>(null)
   const [summaryText, setSummaryText] = useState<string | null>(null)
@@ -101,6 +104,11 @@ function SettingsPanel(): JSX.Element {
       }
     })
   }, [])
+
+  // Load session history (#144)
+  useEffect(() => {
+    window.api.listSessions().then(setSessions).catch(() => {})
+  }, [isRunning])
 
   // Detect GPU (#132)
   useEffect(() => {
@@ -843,6 +851,49 @@ function SettingsPanel(): JSX.Element {
             </div>
           )}
         </div>
+      )}
+
+      {/* Session History (#144) */}
+      {sessions.length > 0 && (
+        <Section label="Session History">
+          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+            {sessions.slice(0, 10).map((s) => (
+              <div key={s.id} style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                padding: '6px 0',
+                borderBottom: '1px solid #1e293b',
+                fontSize: '12px'
+              }}>
+                <div>
+                  <div style={{ color: '#e2e8f0' }}>{new Date(s.startedAt).toLocaleString()}</div>
+                  <div style={{ color: '#64748b' }}>{s.engineMode} — {s.entryCount} entries</div>
+                </div>
+                <button
+                  onClick={async () => {
+                    const result = await window.api.exportSession(s.id, 'text')
+                    if (result.content) {
+                      navigator.clipboard.writeText(result.content)
+                      setStatus('Session exported to clipboard')
+                    }
+                  }}
+                  style={{
+                    padding: '4px 8px',
+                    fontSize: '11px',
+                    background: '#334155',
+                    color: '#94a3b8',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Export
+                </button>
+              </div>
+            ))}
+          </div>
+        </Section>
       )}
     </div>
   )

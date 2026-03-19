@@ -15,7 +15,7 @@ import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotati
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { detectGpu } from '../engines/gpu-detector'
 import { isGGUFDownloaded, GGUF_VARIANTS } from '../engines/model-downloader'
-import { listPlugins } from '../engines/plugin-loader'
+import { listPlugins, discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
 import * as SessionManager from '../logger/SessionManager'
 import { store } from './store'
@@ -119,6 +119,19 @@ function initPipeline(): void {
   pipeline.registerTranslator('slm-translate', () => new SLMTranslator({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
+  // Auto-register discovered plugins (#145)
+  for (const plugin of discoverPlugins()) {
+    const { manifest } = plugin
+    const factory = async () => loadPluginEngine(plugin)
+    if (manifest.engineType === 'stt') {
+      pipeline.registerSTT(manifest.engineId, factory as any)
+    } else if (manifest.engineType === 'translator') {
+      pipeline.registerTranslator(manifest.engineId, factory as any)
+    } else if (manifest.engineType === 'e2e') {
+      pipeline.registerE2E(manifest.engineId, factory as any)
+    }
+    console.log(`[plugin] Registered ${manifest.engineType} plugin: ${manifest.name} (${manifest.engineId})`)
+  }
   // GoogleTranslator needs API key — registered dynamically when user provides one
 
   // Forward results to subtitle window and logger
@@ -458,8 +471,15 @@ ipcMain.handle('get-crashed-session', () => {
 // #124: Generate meeting summary from transcript
 ipcMain.handle('generate-summary', async (_event, transcriptPath: string) => {
   try {
+    // #150: Validate path is within expected logs directory
+    const { resolve } = await import('path')
     const { readFileSync } = await import('fs')
-    const transcript = readFileSync(transcriptPath, 'utf-8')
+    const logsDir = join(app.getPath('documents'), 'live-translate')
+    const resolved = resolve(transcriptPath)
+    if (!resolved.startsWith(logsDir)) {
+      return { error: 'Invalid transcript path' }
+    }
+    const transcript = readFileSync(resolved, 'utf-8')
 
     if (!transcript.trim()) {
       return { error: 'Transcript is empty' }
@@ -550,12 +570,23 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('window-all-closed', async () => {
-  // #44: flush logger before disposing pipeline
-  logger?.endSession()
-  logger = null
-  store.set('activeSession', null) // #54: clear on clean exit
-  await pipeline?.dispose()
+let isQuitting = false
+app.on('before-quit', (event) => {
+  if (isQuitting) return
+  isQuitting = true
+  event.preventDefault()
+
+  // Async cleanup before quit
+  ;(async () => {
+    logger?.endSession()
+    logger = null
+    store.set('activeSession', null)
+    await pipeline?.dispose()
+    app.quit()
+  })()
+})
+
+app.on('window-all-closed', () => {
   app.quit()
 })
 

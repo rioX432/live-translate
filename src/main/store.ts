@@ -44,6 +44,7 @@ export interface AppSettings {
 }
 
 export const store = new Store<AppSettings>({
+  encryptionKey: 'live-translate-v1',
   defaults: {
     translationEngine: 'auto',
     googleApiKey: '',
