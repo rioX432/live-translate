@@ -7,6 +7,9 @@ Bidirectional JA↔EN translation with transparent subtitles overlaid on any dis
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey)](https://github.com/rioX432/live-translate)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
+<!-- TODO: Add demo GIF here -->
+<!-- ![Demo](docs/demo.gif) -->
+
 ```
 ┌────────────────────────────────────────┐
 │            Your Slides                 │
@@ -49,6 +52,13 @@ npm run build        # Build for production
 npm run package:dmg  # Build macOS DMG installer
 npm run test         # Run unit tests
 ```
+
+### Installing the DMG
+
+1. Open `dist/Live Translate-x.x.x-arm64.dmg`
+2. Drag the app to Applications
+3. First launch: right-click the app > Open (bypasses Gatekeeper since the app is not code-signed)
+4. Grant microphone permission when prompted
 
 ## Requirements
 

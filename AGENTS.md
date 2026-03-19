@@ -16,6 +16,10 @@ npm run package    # Package as macOS .app
 
 # After cloning
 npm install        # Install deps (postinstall fixes whisper-node-addon)
+                   # node-llama-cpp compiles native bindings (requires Xcode CLT)
+
+# Testing
+npm test           # Run unit tests (Vitest)
 ```
 
 ## Architecture
