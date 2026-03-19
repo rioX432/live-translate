@@ -27,6 +27,9 @@ function SettingsPanel(): JSX.Element {
   const [isStarting, setIsStarting] = useState(false) // #31: double-click guard
 
   // Subtitle customization (#118)
+  // STT engine selection (#119)
+  const [sttEngine, setSttEngine] = useState<'whisper-local' | 'mlx-whisper'>('whisper-local')
+
   const [subtitleFontSize, setSubtitleFontSize] = useState(30)
   const [subtitleSourceColor, setSubtitleSourceColor] = useState('#f0f0f0')
   const [subtitleTranslatedColor, setSubtitleTranslatedColor] = useState('#93c5fd')
@@ -74,6 +77,7 @@ function SettingsPanel(): JSX.Element {
       if (s.microsoftApiKey) setMicrosoftApiKey(s.microsoftApiKey as string)
       if (s.microsoftRegion) setMicrosoftRegion(s.microsoftRegion as string)
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
+      if (s.sttEngine) setSttEngine(s.sttEngine as 'whisper-local' | 'mlx-whisper')
       if (s.subtitleSettings) {
         const sub = s.subtitleSettings as Record<string, unknown>
         if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
@@ -160,7 +164,8 @@ function SettingsPanel(): JSX.Element {
         microsoftApiKey,
         microsoftRegion,
         selectedMicrophone: audio.selectedDevice,
-        selectedDisplay
+        selectedDisplay,
+        sttEngine
       })
 
       // Resolve auto mode to concrete engine
@@ -181,7 +186,7 @@ function SettingsPanel(): JSX.Element {
       if (resolvedMode === 'rotation') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'rotation-controller',
           ...(apiKey && { apiKey }),
           ...(deeplApiKey && { deeplApiKey }),
@@ -191,34 +196,34 @@ function SettingsPanel(): JSX.Element {
       } else if (resolvedMode === 'online') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'google-translate',
           apiKey
         }
       } else if (resolvedMode === 'online-deepl') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'deepl-translate',
           deeplApiKey
         }
       } else if (resolvedMode === 'online-gemini') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'gemini-translate',
           geminiApiKey
         }
       } else if (resolvedMode === 'offline-opus') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'opus-mt'
         }
       } else if (resolvedMode === 'offline-slm') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'slm-translate'
         }
       } else {
@@ -393,6 +398,20 @@ function SettingsPanel(): JSX.Element {
             {audio.permissionError}
           </div>
         )}
+      </Section>
+
+      {/* STT Engine (#119) */}
+      <Section label="Speech Recognition">
+        <select
+          value={sttEngine}
+          onChange={(e) => setSttEngine(e.target.value as 'whisper-local' | 'mlx-whisper')}
+          style={selectStyle}
+          disabled={isRunning}
+          aria-label="STT engine"
+        >
+          <option value="whisper-local">Whisper (whisper.cpp)</option>
+          <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
+        </select>
       </Section>
 
       {/* Engine Selection */}

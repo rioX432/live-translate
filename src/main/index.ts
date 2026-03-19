@@ -3,6 +3,7 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
+import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
 import { GoogleTranslator } from '../engines/translator/GoogleTranslator'
 import { DeepLTranslator } from '../engines/translator/DeepLTranslator'
 import { GeminiTranslator } from '../engines/translator/GeminiTranslator'
@@ -99,6 +100,9 @@ function initPipeline(): void {
 
   // Register STT engines
   pipeline.registerSTT('whisper-local', () => new WhisperLocalEngine({
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+  }))
+  pipeline.registerSTT('mlx-whisper', () => new MlxWhisperEngine({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
 
@@ -415,6 +419,7 @@ ipcMain.handle('get-settings', () => {
     geminiApiKey: store.get('geminiApiKey'),
     microsoftApiKey: store.get('microsoftApiKey'),
     microsoftRegion: store.get('microsoftRegion'),
+    sttEngine: store.get('sttEngine'),
     selectedMicrophone: store.get('selectedMicrophone'),
     selectedDisplay: store.get('selectedDisplay'),
     subtitleSettings: store.get('subtitleSettings')

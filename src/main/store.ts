@@ -35,6 +35,7 @@ export interface AppSettings {
   deeplApiKey: string
   geminiApiKey: string
   selectedMicrophone: string
+  sttEngine: string
   selectedDisplay: number
   quotaTracking: Record<string, QuotaRecord>
   activeSession: ActiveSession | null
@@ -50,6 +51,7 @@ export const store = new Store<AppSettings>({
     microsoftRegion: '',
     deeplApiKey: '',
     geminiApiKey: '',
+    sttEngine: 'whisper-local',
     selectedMicrophone: '',
     selectedDisplay: 0,
     quotaTracking: {},
