@@ -14,6 +14,7 @@ import { ApiRotationController } from '../engines/translator/ApiRotationControll
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { detectGpu } from '../engines/gpu-detector'
+import { isGGUFDownloaded, GGUF_VARIANTS } from '../engines/model-downloader'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
 import { store } from './store'
 import type { EngineConfig, TranslationResult } from '../engines/types'
@@ -477,6 +478,17 @@ ipcMain.handle('generate-summary', async (_event, transcriptPath: string) => {
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) }
   }
+})
+
+// #133: GGUF model status
+ipcMain.handle('get-gguf-variants', () => {
+  return Object.entries(GGUF_VARIANTS).map(([key, v]) => ({
+    key,
+    label: v.label,
+    filename: v.filename,
+    sizeMB: v.sizeMB,
+    downloaded: isGGUFDownloaded(v.filename)
+  }))
 })
 
 // #132: GPU detection for engine auto-selection
