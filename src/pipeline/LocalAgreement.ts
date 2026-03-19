@@ -93,8 +93,10 @@ function longestCommonPrefix(a: string, b: string): string {
 
   const raw = a.slice(0, i)
 
-  // For CJK text, use character-level agreement (no space-based word boundaries)
-  if (CJK_PATTERN.test(raw)) {
+  // For CJK-dominant text, use character-level agreement (no space-based word boundaries)
+  const cjkMatches = raw.match(new RegExp(CJK_PATTERN.source, 'g'))
+  const cjkRatio = cjkMatches ? cjkMatches.length / raw.length : 0
+  if (cjkRatio > 0.3) {
     return raw
   }
 

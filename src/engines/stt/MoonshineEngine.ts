@@ -6,8 +6,8 @@ import { getModelsDir } from '../model-downloader'
 const MOONSHINE_MODEL = 'onnx-community/moonshine-base-ONNX'
 const MODELS_SUBDIR = 'moonshine'
 
-// Simple Japanese detection heuristic (same as WhisperLocalEngine)
-const JA_REGEX = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/
+// Japanese detection heuristic (aligned with WhisperLocalEngine)
+const JA_REGEX = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF]/g
 
 export class MoonshineEngine implements STTEngine {
   readonly id = 'moonshine'
@@ -49,8 +49,11 @@ export class MoonshineEngine implements STTEngine {
       const text = (result?.text ?? '').trim()
       if (!text) return null
 
-      // Detect language from text content
-      const language: Language = JA_REGEX.test(text) ? 'ja' : 'en'
+      // Detect language using ratio-based heuristic (aligned with WhisperLocalEngine)
+      const matches = text.match(JA_REGEX)
+      const matchCount = matches?.length || 0
+      const japaneseRatio = text.length > 0 ? matchCount / text.length : 0
+      const language: Language = (japaneseRatio > 0.3 && matchCount >= 2) ? 'ja' : 'en'
 
       return {
         text,

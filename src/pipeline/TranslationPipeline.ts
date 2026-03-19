@@ -64,7 +64,7 @@ export class TranslationPipeline extends EventEmitter {
 
   // Streaming mutex (separate from lifecycle state)
   private streamingLock = false
-  private streamingLockResolve: (() => void) | null = null
+  private streamingLockResolvers: Array<() => void> = []
 
   // Engine factories — registered externally
   private sttFactories = new Map<string, () => STTEngine>()
@@ -243,8 +243,8 @@ export class TranslationPipeline extends EventEmitter {
     this.setState(PipelineState.IDLE)
     this.startedAt = null
     this.streamingLock = false
-    this.streamingLockResolve?.()
-    this.streamingLockResolve = null
+    for (const r of this.streamingLockResolvers) r()
+    this.streamingLockResolvers = []
     this.agreement.reset()
     this.contextBuffer.reset()
     this.speakerTracker.reset()
@@ -422,8 +422,8 @@ export class TranslationPipeline extends EventEmitter {
       return null
     } finally {
       this.streamingLock = false
-      this.streamingLockResolve?.()
-      this.streamingLockResolve = null
+      for (const r of this.streamingLockResolvers) r()
+      this.streamingLockResolvers = []
     }
   }
 
@@ -433,11 +433,7 @@ export class TranslationPipeline extends EventEmitter {
 
     if (this.streamingLock) {
       await new Promise<void>((resolve) => {
-        const prev = this.streamingLockResolve
-        this.streamingLockResolve = () => {
-          prev?.()
-          resolve()
-        }
+        this.streamingLockResolvers.push(resolve)
       })
     }
     this.streamingLock = true
@@ -484,8 +480,8 @@ export class TranslationPipeline extends EventEmitter {
       return null
     } finally {
       this.streamingLock = false
-      this.streamingLockResolve?.()
-      this.streamingLockResolve = null
+      for (const r of this.streamingLockResolvers) r()
+      this.streamingLockResolvers = []
     }
   }
 
