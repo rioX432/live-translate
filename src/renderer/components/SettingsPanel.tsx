@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
 
-type EngineMode = 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-e2e' | 'offline-opus'
+type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-e2e' | 'offline-opus' | 'offline-slm'
 
 interface DisplayInfo {
   id: number
@@ -9,7 +9,8 @@ interface DisplayInfo {
 }
 
 function SettingsPanel(): JSX.Element {
-  const [engineMode, setEngineMode] = useState<EngineMode>('rotation')
+  const [engineMode, setEngineMode] = useState<EngineMode>('auto')
+  const [gpuInfo, setGpuInfo] = useState<{ hasGpu: boolean; gpuNames: string[] } | null>(null)
   const [apiKey, setApiKey] = useState('')
   const [deeplApiKey, setDeeplApiKey] = useState('')
   const [geminiApiKey, setGeminiApiKey] = useState('')
@@ -92,6 +93,11 @@ function SettingsPanel(): JSX.Element {
     })
   }, [])
 
+  // Detect GPU (#132)
+  useEffect(() => {
+    window.api.detectGpu().then(setGpuInfo).catch(() => setGpuInfo({ hasGpu: false, gpuNames: [] }))
+  }, [])
+
   // Load displays
   useEffect(() => {
     window.api.getDisplays().then((d) => {
@@ -157,9 +163,22 @@ function SettingsPanel(): JSX.Element {
         selectedDisplay
       })
 
+      // Resolve auto mode to concrete engine
+      let resolvedMode = engineMode
+      if (engineMode === 'auto') {
+        const hasKeys = !!(apiKey || deeplApiKey || geminiApiKey || (microsoftApiKey && microsoftRegion))
+        if (hasKeys) {
+          resolvedMode = 'rotation'
+        } else if (gpuInfo?.hasGpu) {
+          resolvedMode = 'offline-slm'
+        } else {
+          resolvedMode = 'offline-opus'
+        }
+      }
+
       // Build engine config
       let config: Record<string, unknown>
-      if (engineMode === 'rotation') {
+      if (resolvedMode === 'rotation') {
         config = {
           mode: 'cascade' as const,
           sttEngineId: 'whisper-local',
@@ -169,32 +188,38 @@ function SettingsPanel(): JSX.Element {
           ...(geminiApiKey && { geminiApiKey }),
           ...(microsoftApiKey && microsoftRegion && { microsoftApiKey, microsoftRegion })
         }
-      } else if (engineMode === 'online') {
+      } else if (resolvedMode === 'online') {
         config = {
           mode: 'cascade' as const,
           sttEngineId: 'whisper-local',
           translatorEngineId: 'google-translate',
           apiKey
         }
-      } else if (engineMode === 'online-deepl') {
+      } else if (resolvedMode === 'online-deepl') {
         config = {
           mode: 'cascade' as const,
           sttEngineId: 'whisper-local',
           translatorEngineId: 'deepl-translate',
           deeplApiKey
         }
-      } else if (engineMode === 'online-gemini') {
+      } else if (resolvedMode === 'online-gemini') {
         config = {
           mode: 'cascade' as const,
           sttEngineId: 'whisper-local',
           translatorEngineId: 'gemini-translate',
           geminiApiKey
         }
-      } else if (engineMode === 'offline-opus') {
+      } else if (resolvedMode === 'offline-opus') {
         config = {
           mode: 'cascade' as const,
           sttEngineId: 'whisper-local',
           translatorEngineId: 'opus-mt'
+        }
+      } else if (resolvedMode === 'offline-slm') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: 'whisper-local',
+          translatorEngineId: 'slm-translate'
         }
       } else {
         config = {
@@ -372,7 +397,27 @@ function SettingsPanel(): JSX.Element {
 
       {/* Engine Selection */}
       <Section label="Translation Engine" role="radiogroup">
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'auto'}
+            onChange={() => setEngineMode('auto')}
+            disabled={isRunning}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Auto (Recommended)</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>
+              {gpuInfo
+                ? gpuInfo.hasGpu
+                  ? `GPU detected: ${gpuInfo.gpuNames.join(', ')}`
+                  : 'No GPU detected — will use OPUS-MT or API rotation'
+                : 'Detecting hardware...'}
+            </div>
+          </div>
+        </label>
+
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '10px', marginBottom: '4px' }}>
           API Translation
         </div>
         <label style={radioLabelStyle}>
@@ -455,6 +500,24 @@ function SettingsPanel(): JSX.Element {
           <div>
             <div style={{ fontWeight: 500 }}>Whisper Translate</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA→EN only, no internet required</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline-slm'}
+            onChange={() => setEngineMode('offline-slm')}
+            disabled={isRunning}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>TranslateGemma 4B</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, GPU-accelerated, ~2.6GB model download</div>
+            {engineMode === 'offline-slm' && gpuInfo && !gpuInfo.hasGpu && (
+              <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
+                No GPU detected — translation may be slow on CPU-only systems
+              </div>
+            )}
           </div>
         </label>
       </Section>

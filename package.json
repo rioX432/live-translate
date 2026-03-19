@@ -16,7 +16,8 @@
     "@huggingface/transformers": "^3.8.0",
     "@kutalia/whisper-node-addon": "^1.1.0",
     "@ricky0123/vad-web": "^0.0.30",
-    "electron-store": "^10.0.0"
+    "electron-store": "^10.0.0",
+    "node-llama-cpp": "^3.0.0"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",

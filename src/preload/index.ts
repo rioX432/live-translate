@@ -44,6 +44,9 @@ contextBridge.exposeInMainWorld('api', {
   // Crash recovery (#54)
   getCrashedSession: () => ipcRenderer.invoke('get-crashed-session'),
 
+  // GPU detection (#132)
+  detectGpu: () => ipcRenderer.invoke('detect-gpu'),
+
   // Subtitle settings (#118)
   saveSubtitleSettings: (settings: Record<string, unknown>) =>
     ipcRenderer.invoke('save-subtitle-settings', settings),

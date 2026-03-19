@@ -11,6 +11,8 @@ import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { ApiRotationController } from '../engines/translator/ApiRotationController'
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { WhisperTranslateEngine } from '../engines/e2e/WhisperTranslateEngine'
+import { SLMTranslator } from '../engines/translator/SLMTranslator'
+import { detectGpu } from '../engines/gpu-detector'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
 import { store } from './store'
 import type { EngineConfig, TranslationResult } from '../engines/types'
@@ -102,6 +104,9 @@ function initPipeline(): void {
 
   // Register translator engines
   pipeline.registerTranslator('opus-mt', () => new OpusMTTranslator({
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+  }))
+  pipeline.registerTranslator('slm-translate', () => new SLMTranslator({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
   // GoogleTranslator needs API key — registered dynamically when user provides one
@@ -442,6 +447,11 @@ ipcMain.handle('get-crashed-session', () => {
     console.warn('[crash-recovery] Invalid session config, discarding:', config)
   }
   return null
+})
+
+// #132: GPU detection for engine auto-selection
+ipcMain.handle('detect-gpu', async () => {
+  return detectGpu()
 })
 
 // #116: Get session usage logs for feedback collection
