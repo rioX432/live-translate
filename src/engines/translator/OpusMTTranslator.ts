@@ -20,6 +20,9 @@ export class OpusMTTranslator implements TranslatorEngine {
 
   async initialize(): Promise<void> {
     if (this.jaToEn && this.enToJa) return
+    // Reset both to ensure clean retry after partial failure
+    this.jaToEn = null
+    this.enToJa = null
 
     const { pipeline, env } = await import('@huggingface/transformers')
     env.cacheDir = join(app.getPath('userData'), 'models', 'transformers')

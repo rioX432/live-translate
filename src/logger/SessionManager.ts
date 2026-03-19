@@ -53,7 +53,7 @@ function sessionFilePath(id: string): string {
 
 /** Create a new session and return its ID */
 export function createSession(engineMode: string): string {
-  const id = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)
+  const id = new Date().toISOString().replace(/[:.]/g, '-').replace('Z', '')
   const data: SessionData = {
     metadata: {
       id,
