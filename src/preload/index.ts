@@ -44,6 +44,10 @@ contextBridge.exposeInMainWorld('api', {
   // Crash recovery (#54)
   getCrashedSession: () => ipcRenderer.invoke('get-crashed-session'),
 
+  // Meeting summary (#124)
+  generateSummary: (transcriptPath: string) =>
+    ipcRenderer.invoke('generate-summary', transcriptPath),
+
   // GPU detection (#132)
   detectGpu: () => ipcRenderer.invoke('detect-gpu'),
 

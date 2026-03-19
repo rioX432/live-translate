@@ -19,6 +19,7 @@ export interface ElectronAPI {
   getSettings: () => Promise<Record<string, unknown>>
   saveSettings: (settings: Record<string, unknown>) => Promise<void>
   getCrashedSession: () => Promise<{ config: Record<string, unknown>; startedAt: number } | null>
+  generateSummary: (transcriptPath: string) => Promise<{ summary?: string; error?: string }>
   detectGpu: () => Promise<{ hasGpu: boolean; gpuNames: string[] }>
   saveSubtitleSettings: (settings: Record<string, unknown>) => Promise<void>
   onSubtitleSettingsChanged: (callback: (settings: unknown) => void) => (() => void)

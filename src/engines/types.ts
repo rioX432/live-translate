@@ -11,6 +11,8 @@ export interface STTResult {
   isFinal: boolean
   /** Unix timestamp in ms */
   timestamp: number
+  /** Speaker identifier (if diarization is enabled) */
+  speakerId?: string
 }
 
 /** Translation pipeline result */
@@ -27,6 +29,8 @@ export interface TranslationResult {
   timestamp: number
   /** Whether this is an interim (unconfirmed) result from streaming mode */
   isInterim?: boolean
+  /** Speaker identifier (if diarization is enabled) */
+  speakerId?: string
 }
 
 /**

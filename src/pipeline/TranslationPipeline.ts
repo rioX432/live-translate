@@ -9,6 +9,7 @@ import type {
 } from '../engines/types'
 import { LocalAgreement } from './LocalAgreement'
 import { ContextBuffer } from './ContextBuffer'
+import { SpeakerTracker } from './SpeakerTracker'
 
 export interface PipelineEvents {
   result: (result: TranslationResult) => void
@@ -58,6 +59,7 @@ export class TranslationPipeline extends EventEmitter {
   private e2eEngine: E2ETranslationEngine | null = null
   private agreement = new LocalAgreement()
   private contextBuffer = new ContextBuffer()
+  private speakerTracker = new SpeakerTracker()
   private lastTranslatedConfirmed = ''
 
   // Streaming mutex (separate from lifecycle state)
@@ -246,6 +248,7 @@ export class TranslationPipeline extends EventEmitter {
     this.streamingLockResolve = null
     this.agreement.reset()
     this.contextBuffer.reset()
+    this.speakerTracker.reset()
     this.lastTranslatedConfirmed = ''
   }
 
@@ -313,13 +316,15 @@ export class TranslationPipeline extends EventEmitter {
       )
 
       this.contextBuffer.add(sttResult.text, translated)
+      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
 
       return {
         sourceText: sttResult.text,
         translatedText: translated,
         sourceLanguage: sttResult.language,
         targetLanguage: targetLang,
-        timestamp: Date.now()
+        timestamp: Date.now(),
+        speakerId
       }
     } catch (translatorErr) {
       console.error('[pipeline] Translator error:', translatorErr)

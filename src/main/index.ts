@@ -3,6 +3,8 @@ import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
+import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
+import { MoonshineEngine } from '../engines/stt/MoonshineEngine'
 import { GoogleTranslator } from '../engines/translator/GoogleTranslator'
 import { DeepLTranslator } from '../engines/translator/DeepLTranslator'
 import { GeminiTranslator } from '../engines/translator/GeminiTranslator'
@@ -99,6 +101,12 @@ function initPipeline(): void {
 
   // Register STT engines
   pipeline.registerSTT('whisper-local', () => new WhisperLocalEngine({
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+  }))
+  pipeline.registerSTT('mlx-whisper', () => new MlxWhisperEngine({
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+  }))
+  pipeline.registerSTT('moonshine', () => new MoonshineEngine({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
 
@@ -415,6 +423,7 @@ ipcMain.handle('get-settings', () => {
     geminiApiKey: store.get('geminiApiKey'),
     microsoftApiKey: store.get('microsoftApiKey'),
     microsoftRegion: store.get('microsoftRegion'),
+    sttEngine: store.get('sttEngine'),
     selectedMicrophone: store.get('selectedMicrophone'),
     selectedDisplay: store.get('selectedDisplay'),
     subtitleSettings: store.get('subtitleSettings')
@@ -447,6 +456,33 @@ ipcMain.handle('get-crashed-session', () => {
     console.warn('[crash-recovery] Invalid session config, discarding:', config)
   }
   return null
+})
+
+// #124: Generate meeting summary from transcript
+ipcMain.handle('generate-summary', async (_event, transcriptPath: string) => {
+  try {
+    const { readFileSync } = await import('fs')
+    const transcript = readFileSync(transcriptPath, 'utf-8')
+
+    if (!transcript.trim()) {
+      return { error: 'Transcript is empty' }
+    }
+
+    // Use SLM translator for summarization
+    const slm = new SLMTranslator({
+      onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+    })
+
+    try {
+      await slm.initialize()
+      const summary = await slm.summarize(transcript)
+      return { summary }
+    } finally {
+      await slm.dispose()
+    }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) }
+  }
 })
 
 // #132: GPU detection for engine auto-selection

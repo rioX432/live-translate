@@ -27,11 +27,19 @@ function SettingsPanel(): JSX.Element {
   const [isStarting, setIsStarting] = useState(false) // #31: double-click guard
 
   // Subtitle customization (#118)
+  // STT engine selection (#119)
+  const [sttEngine, setSttEngine] = useState<'whisper-local' | 'mlx-whisper' | 'moonshine'>('whisper-local')
+
   const [subtitleFontSize, setSubtitleFontSize] = useState(30)
   const [subtitleSourceColor, setSubtitleSourceColor] = useState('#f0f0f0')
   const [subtitleTranslatedColor, setSubtitleTranslatedColor] = useState('#93c5fd')
   const [subtitleBgOpacity, setSubtitleBgOpacity] = useState(78)
   const [subtitlePosition, setSubtitlePosition] = useState<'top' | 'bottom'>('bottom')
+
+  // Meeting summary (#124)
+  const [lastTranscriptPath, setLastTranscriptPath] = useState<string | null>(null)
+  const [summaryText, setSummaryText] = useState<string | null>(null)
+  const [isSummarizing, setIsSummarizing] = useState(false)
 
   const audio = useAudioCapture()
 
@@ -74,6 +82,7 @@ function SettingsPanel(): JSX.Element {
       if (s.microsoftApiKey) setMicrosoftApiKey(s.microsoftApiKey as string)
       if (s.microsoftRegion) setMicrosoftRegion(s.microsoftRegion as string)
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
+      if (s.sttEngine) setSttEngine(s.sttEngine as 'whisper-local' | 'mlx-whisper' | 'moonshine')
       if (s.subtitleSettings) {
         const sub = s.subtitleSettings as Record<string, unknown>
         if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
@@ -160,7 +169,8 @@ function SettingsPanel(): JSX.Element {
         microsoftApiKey,
         microsoftRegion,
         selectedMicrophone: audio.selectedDevice,
-        selectedDisplay
+        selectedDisplay,
+        sttEngine
       })
 
       // Resolve auto mode to concrete engine
@@ -181,7 +191,7 @@ function SettingsPanel(): JSX.Element {
       if (resolvedMode === 'rotation') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'rotation-controller',
           ...(apiKey && { apiKey }),
           ...(deeplApiKey && { deeplApiKey }),
@@ -191,34 +201,34 @@ function SettingsPanel(): JSX.Element {
       } else if (resolvedMode === 'online') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'google-translate',
           apiKey
         }
       } else if (resolvedMode === 'online-deepl') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'deepl-translate',
           deeplApiKey
         }
       } else if (resolvedMode === 'online-gemini') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'gemini-translate',
           geminiApiKey
         }
       } else if (resolvedMode === 'offline-opus') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'opus-mt'
         }
       } else if (resolvedMode === 'offline-slm') {
         config = {
           mode: 'cascade' as const,
-          sttEngineId: 'whisper-local',
+          sttEngineId: sttEngine,
           translatorEngineId: 'slm-translate'
         }
       } else {
@@ -253,6 +263,11 @@ function SettingsPanel(): JSX.Element {
     const result = await window.api.pipelineStop()
     setIsRunning(false)
     setStatus(result.logPath ? `Saved: ${result.logPath}` : 'Stopped')
+
+    // Offer summary generation if transcript exists
+    if (result.logPath) {
+      setLastTranscriptPath(result.logPath)
+    }
   }
 
   // #54: resume crashed session
@@ -393,6 +408,21 @@ function SettingsPanel(): JSX.Element {
             {audio.permissionError}
           </div>
         )}
+      </Section>
+
+      {/* STT Engine (#119) */}
+      <Section label="Speech Recognition">
+        <select
+          value={sttEngine}
+          onChange={(e) => setSttEngine(e.target.value as 'whisper-local' | 'mlx-whisper' | 'moonshine')}
+          style={selectStyle}
+          disabled={isRunning}
+          aria-label="STT engine"
+        >
+          <option value="whisper-local">Whisper (whisper.cpp)</option>
+          <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
+          <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
+        </select>
       </Section>
 
       {/* Engine Selection */}
@@ -743,6 +773,79 @@ function SettingsPanel(): JSX.Element {
           </span>
         )}
       </div>
+
+      {/* Meeting Summary (#124) */}
+      {lastTranscriptPath && !isRunning && (
+        <div style={{
+          marginTop: '12px',
+          background: '#1e293b',
+          border: '1px solid #334155',
+          borderRadius: '8px',
+          padding: '12px 16px'
+        }}>
+          {!summaryText && !isSummarizing && (
+            <button
+              onClick={async () => {
+                setIsSummarizing(true)
+                setStatus('Generating meeting summary...')
+                const result = await window.api.generateSummary(lastTranscriptPath)
+                setIsSummarizing(false)
+                if (result.summary) {
+                  setSummaryText(result.summary)
+                  setStatus('Summary generated')
+                } else {
+                  setStatus(`Summary failed: ${result.error}`)
+                }
+              }}
+              style={{
+                ...buttonStyle,
+                background: '#6366f1',
+                fontSize: '13px',
+                padding: '8px',
+                marginTop: 0
+              }}
+            >
+              Generate Meeting Summary
+            </button>
+          )}
+          {isSummarizing && (
+            <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center' }}>
+              Generating summary...
+            </div>
+          )}
+          {summaryText && (
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', marginBottom: '8px' }}>
+                MEETING SUMMARY
+              </div>
+              <pre style={{
+                fontSize: '12px',
+                color: '#e2e8f0',
+                whiteSpace: 'pre-wrap',
+                lineHeight: 1.5,
+                margin: 0
+              }}>
+                {summaryText}
+              </pre>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(summaryText)
+                  setStatus('Summary copied to clipboard')
+                }}
+                style={{
+                  ...buttonStyle,
+                  background: '#334155',
+                  fontSize: '12px',
+                  padding: '6px',
+                  marginTop: '8px'
+                }}
+              >
+                Copy to Clipboard
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
