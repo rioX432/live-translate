@@ -4,6 +4,7 @@ import { is } from '@electron-toolkit/utils'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
+import { MoonshineEngine } from '../engines/stt/MoonshineEngine'
 import { GoogleTranslator } from '../engines/translator/GoogleTranslator'
 import { DeepLTranslator } from '../engines/translator/DeepLTranslator'
 import { GeminiTranslator } from '../engines/translator/GeminiTranslator'
@@ -103,6 +104,9 @@ function initPipeline(): void {
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
   pipeline.registerSTT('mlx-whisper', () => new MlxWhisperEngine({
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+  }))
+  pipeline.registerSTT('moonshine', () => new MoonshineEngine({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
 

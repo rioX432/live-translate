@@ -28,7 +28,7 @@ function SettingsPanel(): JSX.Element {
 
   // Subtitle customization (#118)
   // STT engine selection (#119)
-  const [sttEngine, setSttEngine] = useState<'whisper-local' | 'mlx-whisper'>('whisper-local')
+  const [sttEngine, setSttEngine] = useState<'whisper-local' | 'mlx-whisper' | 'moonshine'>('whisper-local')
 
   const [subtitleFontSize, setSubtitleFontSize] = useState(30)
   const [subtitleSourceColor, setSubtitleSourceColor] = useState('#f0f0f0')
@@ -77,7 +77,7 @@ function SettingsPanel(): JSX.Element {
       if (s.microsoftApiKey) setMicrosoftApiKey(s.microsoftApiKey as string)
       if (s.microsoftRegion) setMicrosoftRegion(s.microsoftRegion as string)
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
-      if (s.sttEngine) setSttEngine(s.sttEngine as 'whisper-local' | 'mlx-whisper')
+      if (s.sttEngine) setSttEngine(s.sttEngine as 'whisper-local' | 'mlx-whisper' | 'moonshine')
       if (s.subtitleSettings) {
         const sub = s.subtitleSettings as Record<string, unknown>
         if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
@@ -404,13 +404,14 @@ function SettingsPanel(): JSX.Element {
       <Section label="Speech Recognition">
         <select
           value={sttEngine}
-          onChange={(e) => setSttEngine(e.target.value as 'whisper-local' | 'mlx-whisper')}
+          onChange={(e) => setSttEngine(e.target.value as 'whisper-local' | 'mlx-whisper' | 'moonshine')}
           style={selectStyle}
           disabled={isRunning}
           aria-label="STT engine"
         >
           <option value="whisper-local">Whisper (whisper.cpp)</option>
           <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
+          <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
         </select>
       </Section>
 
