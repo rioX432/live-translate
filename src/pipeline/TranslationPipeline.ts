@@ -241,7 +241,7 @@ export class TranslationPipeline extends EventEmitter {
     this.startMemoryMonitor()
   }
 
-  stop(): void {
+  async stop(): Promise<void> {
     this.stopMemoryMonitor()
     this.setState(PipelineState.IDLE)
     this.startedAt = null
@@ -252,6 +252,8 @@ export class TranslationPipeline extends EventEmitter {
     this.contextBuffer.reset()
     this.speakerTracker.reset()
     this.lastTranslatedConfirmed = ''
+    // Dispose engines to free memory (#211)
+    await this.disposeEngines()
   }
 
   // --- Audio processing ---
