@@ -19,6 +19,14 @@ export interface SubtitleSettings {
   position: 'top' | 'bottom'
 }
 
+export interface SessionLog {
+  startedAt: number
+  endedAt: number
+  engineMode: string
+  durationMs: number
+  errorCount: number
+}
+
 export interface AppSettings {
   translationEngine: string
   googleApiKey: string
@@ -31,6 +39,7 @@ export interface AppSettings {
   quotaTracking: Record<string, QuotaRecord>
   activeSession: ActiveSession | null
   subtitleSettings: SubtitleSettings
+  sessionLogs: SessionLog[]
 }
 
 export const store = new Store<AppSettings>({
@@ -51,6 +60,7 @@ export const store = new Store<AppSettings>({
       translatedTextColor: '#93c5fd',
       backgroundOpacity: 78,
       position: 'bottom'
-    }
+    },
+    sessionLogs: []
   }
 })

@@ -239,6 +239,22 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
 
 // Stop pipeline
 ipcMain.handle('pipeline-stop', async () => {
+  // #116: log session usage
+  const activeSession = store.get('activeSession')
+  if (activeSession) {
+    const now = Date.now()
+    const logs = store.get('sessionLogs') || []
+    logs.push({
+      startedAt: activeSession.startedAt,
+      endedAt: now,
+      engineMode: String(activeSession.config?.translatorEngineId || activeSession.config?.e2eEngineId || 'unknown'),
+      durationMs: now - activeSession.startedAt,
+      errorCount: 0
+    })
+    // Keep last 100 session logs
+    store.set('sessionLogs', logs.slice(-100))
+  }
+
   pipeline?.stop()
   logger?.endSession()
   const logPath = logger?.getLogPath()
@@ -426,6 +442,11 @@ ipcMain.handle('get-crashed-session', () => {
     console.warn('[crash-recovery] Invalid session config, discarding:', config)
   }
   return null
+})
+
+// #116: Get session usage logs for feedback collection
+ipcMain.handle('get-session-logs', () => {
+  return store.get('sessionLogs') || []
 })
 
 // --- App Lifecycle ---
