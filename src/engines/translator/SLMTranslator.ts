@@ -62,6 +62,9 @@ export class SLMTranslator implements TranslatorEngine {
       }, 5 * 60_000)
 
       const initHandler = (msg: any): void => {
+        // Guard: ignore messages if worker was killed during timeout (#205)
+        if (!this.worker) return
+
         if (msg.type === 'ready') {
           clearTimeout(timeout)
           this.worker?.removeListener('message', initHandler)
@@ -78,7 +81,13 @@ export class SLMTranslator implements TranslatorEngine {
       this.worker!.postMessage({ type: 'init', modelPath })
     })
 
-    // Register the general message handler after init completes
+    // Guard: worker may have been killed during init timeout (#205)
+    if (!this.worker) {
+      throw new Error('Worker was killed during initialization')
+    }
+
+    // Clear any leftover listeners before registering to prevent duplicates (#206)
+    this.worker.removeAllListeners('message')
     this.worker.on('message', (msg: any) => {
       if (msg.type === 'result' && msg.id) {
         const req = this.pending.get(msg.id)
