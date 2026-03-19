@@ -789,7 +789,7 @@ function SettingsPanel(): JSX.Element {
       </button>
 
       {/* Status */}
-      <div style={statusStyle}>
+      <div style={statusStyle} aria-live="polite">
         <span style={{ color: isRunning ? '#22c55e' : '#64748b' }}>
           {isRunning ? '●' : '○'}
         </span>{' '}
