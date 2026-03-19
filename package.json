@@ -8,7 +8,8 @@
     "dev": "electron-vite dev",
     "build": "electron-vite build",
     "preview": "electron-vite preview",
-    "package": "electron-builder"
+    "package": "electron-builder",
+    "package:dmg": "electron-vite build && electron-builder --mac dmg"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^3.0.0",

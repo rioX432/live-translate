@@ -8,11 +8,27 @@ files:
   - '!electron.vite.config.*'
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
+  - '!benchmark/*'
+asarUnpack:
+  - 'node_modules/@kutalia/whisper-node-addon/**'
 mac:
   target:
+    - target: dmg
+      arch:
+        - arm64
     - target: dir
       arch:
         - arm64
+  identity: null
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     NSMicrophoneUsageDescription: "live-translate needs microphone access for real-time speech recognition and translation."
+dmg:
+  contents:
+    - x: 130
+      y: 220
+    - x: 410
+      y: 220
+      type: link
+      path: /Applications
+afterPack: scripts/after-pack.js
