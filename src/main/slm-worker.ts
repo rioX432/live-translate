@@ -5,6 +5,7 @@
  * IPC protocol:
  *   Main → Worker: { type: 'init', modelPath: string }
  *   Main → Worker: { type: 'translate', id: string, text: string, from: string, to: string }
+ *   Main → Worker: { type: 'summarize', id: string, transcript: string }
  *   Main → Worker: { type: 'dispose' }
  *   Worker → Main: { type: 'ready' }
  *   Worker → Main: { type: 'result', id: string, text: string }
@@ -78,6 +79,53 @@ async function handleTranslate(
   }
 }
 
+async function handleSummarize(id: string, transcript: string): Promise<void> {
+  if (!context) {
+    process.parentPort!.postMessage({
+      type: 'error',
+      id,
+      message: 'Model not initialized'
+    })
+    return
+  }
+
+  try {
+    const { LlamaChatSession } = await import('node-llama-cpp')
+    const session = new LlamaChatSession({
+      contextSequence: context.getSequence()
+    })
+
+    const prompt = `Summarize the following meeting transcript. Extract:
+1. Key decisions made
+2. Action items (who does what)
+3. Main discussion topics
+
+Be concise and use bullet points.
+
+Transcript:
+${transcript}`
+
+    const response = await session.prompt(prompt, {
+      temperature: 0.3,
+      maxTokens: 1024
+    })
+
+    session.dispose?.()
+
+    process.parentPort!.postMessage({
+      type: 'result',
+      id,
+      text: response.trim()
+    })
+  } catch (err) {
+    process.parentPort!.postMessage({
+      type: 'error',
+      id,
+      message: err instanceof Error ? err.message : String(err)
+    })
+  }
+}
+
 async function handleDispose(): Promise<void> {
   if (context) {
     await context.dispose?.()
@@ -101,6 +149,9 @@ process.parentPort!.on('message', async (e: { data: any }) => {
         break
       case 'translate':
         await handleTranslate(msg.id, msg.text, msg.from, msg.to)
+        break
+      case 'summarize':
+        await handleSummarize(msg.id, msg.transcript)
         break
       case 'dispose':
         await handleDispose()

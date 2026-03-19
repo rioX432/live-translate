@@ -121,6 +121,25 @@ export class SLMTranslator implements TranslatorEngine {
     })
   }
 
+  async summarize(transcript: string): Promise<string> {
+    if (!this.worker) {
+      throw new Error('[slm-translator] Not initialized')
+    }
+
+    const id = String(this.nextId++)
+    const SUMMARIZE_TIMEOUT_MS = 120_000 // 2 minutes for summarization
+
+    return new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new Error('Summarization timed out'))
+      }, SUMMARIZE_TIMEOUT_MS)
+
+      this.pending.set(id, { resolve, reject, timer })
+      this.worker!.postMessage({ type: 'summarize', id, transcript })
+    })
+  }
+
   async dispose(): Promise<void> {
     if (this.worker) {
       try {

@@ -458,6 +458,33 @@ ipcMain.handle('get-crashed-session', () => {
   return null
 })
 
+// #124: Generate meeting summary from transcript
+ipcMain.handle('generate-summary', async (_event, transcriptPath: string) => {
+  try {
+    const { readFileSync } = await import('fs')
+    const transcript = readFileSync(transcriptPath, 'utf-8')
+
+    if (!transcript.trim()) {
+      return { error: 'Transcript is empty' }
+    }
+
+    // Use SLM translator for summarization
+    const slm = new SLMTranslator({
+      onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+    })
+
+    try {
+      await slm.initialize()
+      const summary = await slm.summarize(transcript)
+      return { summary }
+    } finally {
+      await slm.dispose()
+    }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) }
+  }
+})
+
 // #132: GPU detection for engine auto-selection
 ipcMain.handle('detect-gpu', async () => {
   return detectGpu()

@@ -36,6 +36,11 @@ function SettingsPanel(): JSX.Element {
   const [subtitleBgOpacity, setSubtitleBgOpacity] = useState(78)
   const [subtitlePosition, setSubtitlePosition] = useState<'top' | 'bottom'>('bottom')
 
+  // Meeting summary (#124)
+  const [lastTranscriptPath, setLastTranscriptPath] = useState<string | null>(null)
+  const [summaryText, setSummaryText] = useState<string | null>(null)
+  const [isSummarizing, setIsSummarizing] = useState(false)
+
   const audio = useAudioCapture()
 
   const formatDuration = useCallback((ms: number): string => {
@@ -258,6 +263,11 @@ function SettingsPanel(): JSX.Element {
     const result = await window.api.pipelineStop()
     setIsRunning(false)
     setStatus(result.logPath ? `Saved: ${result.logPath}` : 'Stopped')
+
+    // Offer summary generation if transcript exists
+    if (result.logPath) {
+      setLastTranscriptPath(result.logPath)
+    }
   }
 
   // #54: resume crashed session
@@ -763,6 +773,79 @@ function SettingsPanel(): JSX.Element {
           </span>
         )}
       </div>
+
+      {/* Meeting Summary (#124) */}
+      {lastTranscriptPath && !isRunning && (
+        <div style={{
+          marginTop: '12px',
+          background: '#1e293b',
+          border: '1px solid #334155',
+          borderRadius: '8px',
+          padding: '12px 16px'
+        }}>
+          {!summaryText && !isSummarizing && (
+            <button
+              onClick={async () => {
+                setIsSummarizing(true)
+                setStatus('Generating meeting summary...')
+                const result = await window.api.generateSummary(lastTranscriptPath)
+                setIsSummarizing(false)
+                if (result.summary) {
+                  setSummaryText(result.summary)
+                  setStatus('Summary generated')
+                } else {
+                  setStatus(`Summary failed: ${result.error}`)
+                }
+              }}
+              style={{
+                ...buttonStyle,
+                background: '#6366f1',
+                fontSize: '13px',
+                padding: '8px',
+                marginTop: 0
+              }}
+            >
+              Generate Meeting Summary
+            </button>
+          )}
+          {isSummarizing && (
+            <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center' }}>
+              Generating summary...
+            </div>
+          )}
+          {summaryText && (
+            <div>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', marginBottom: '8px' }}>
+                MEETING SUMMARY
+              </div>
+              <pre style={{
+                fontSize: '12px',
+                color: '#e2e8f0',
+                whiteSpace: 'pre-wrap',
+                lineHeight: 1.5,
+                margin: 0
+              }}>
+                {summaryText}
+              </pre>
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(summaryText)
+                  setStatus('Summary copied to clipboard')
+                }}
+                style={{
+                  ...buttonStyle,
+                  background: '#334155',
+                  fontSize: '12px',
+                  padding: '6px',
+                  marginTop: '8px'
+                }}
+              >
+                Copy to Clipboard
+              </button>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
