@@ -8,6 +8,7 @@ interface SubtitleLine {
   timestamp: number
   opacity: number
   isInterim?: boolean
+  speakerId?: string
 }
 
 interface SubtitleConfig {
@@ -151,6 +152,11 @@ function SubtitleOverlay(): JSX.Element {
               fontStyle: line.isInterim ? 'italic' : 'normal'
             }}
           >
+            {line.speakerId && (
+              <span style={{ fontSize: '0.7em', opacity: 0.7, marginRight: '8px' }}>
+                [{line.speakerId}]
+              </span>
+            )}
             {line.sourceText}
           </div>
           {line.translatedText && (
