@@ -9,7 +9,7 @@ interface DisplayInfo {
 }
 
 function SettingsPanel(): JSX.Element {
-  const [engineMode, setEngineMode] = useState<EngineMode>('online')
+  const [engineMode, setEngineMode] = useState<EngineMode>('rotation')
   const [apiKey, setApiKey] = useState('')
   const [deeplApiKey, setDeeplApiKey] = useState('')
   const [geminiApiKey, setGeminiApiKey] = useState('')
@@ -24,6 +24,13 @@ function SettingsPanel(): JSX.Element {
   const sessionStartRef = useRef<number | null>(null)
 
   const [isStarting, setIsStarting] = useState(false) // #31: double-click guard
+
+  // Subtitle customization (#118)
+  const [subtitleFontSize, setSubtitleFontSize] = useState(30)
+  const [subtitleSourceColor, setSubtitleSourceColor] = useState('#f0f0f0')
+  const [subtitleTranslatedColor, setSubtitleTranslatedColor] = useState('#93c5fd')
+  const [subtitleBgOpacity, setSubtitleBgOpacity] = useState(78)
+  const [subtitlePosition, setSubtitlePosition] = useState<'top' | 'bottom'>('bottom')
 
   const audio = useAudioCapture()
 
@@ -66,6 +73,14 @@ function SettingsPanel(): JSX.Element {
       if (s.microsoftApiKey) setMicrosoftApiKey(s.microsoftApiKey as string)
       if (s.microsoftRegion) setMicrosoftRegion(s.microsoftRegion as string)
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
+      if (s.subtitleSettings) {
+        const sub = s.subtitleSettings as Record<string, unknown>
+        if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
+        if (sub.sourceTextColor) setSubtitleSourceColor(sub.sourceTextColor as string)
+        if (sub.translatedTextColor) setSubtitleTranslatedColor(sub.translatedTextColor as string)
+        if (sub.backgroundOpacity !== undefined) setSubtitleBgOpacity(sub.backgroundOpacity as number)
+        if (sub.position) setSubtitlePosition(sub.position as 'top' | 'bottom')
+      }
     })
 
     // #54: check for crashed session
@@ -248,6 +263,18 @@ function SettingsPanel(): JSX.Element {
     setStatus('Ready')
   }
 
+  const pushSubtitleSettings = (overrides: Record<string, unknown> = {}): void => {
+    const settings = {
+      fontSize: subtitleFontSize,
+      sourceTextColor: subtitleSourceColor,
+      translatedTextColor: subtitleTranslatedColor,
+      backgroundOpacity: subtitleBgOpacity,
+      position: subtitlePosition,
+      ...overrides
+    }
+    window.api.saveSubtitleSettings(settings)
+  }
+
   const handleDisplayChange = (displayId: number): void => {
     setSelectedDisplay(displayId)
     window.api.moveSubtitleToDisplay(displayId)
@@ -345,6 +372,9 @@ function SettingsPanel(): JSX.Element {
 
       {/* Engine Selection */}
       <Section label="Translation Engine" role="radiogroup">
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+          API Translation
+        </div>
         <label style={radioLabelStyle}>
           <input
             type="radio"
@@ -354,7 +384,7 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Auto Rotation — up to 4M+ chars/month free</div>
+            <div style={{ fontWeight: 500 }}>Auto Rotation (Recommended) — up to 4M+ chars/month free</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>Azure → Google → DeepL → Gemini, auto-fallback on quota</div>
           </div>
         </label>
@@ -367,7 +397,7 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Online — Whisper + Google Translation</div>
+            <div style={{ fontWeight: 500 }}>Google Translation</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, high quality, requires internet</div>
           </div>
         </label>
@@ -380,7 +410,7 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Online — Whisper + DeepL</div>
+            <div style={{ fontWeight: 500 }}>DeepL</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, high quality, 500K chars/month free</div>
           </div>
         </label>
@@ -393,10 +423,14 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Online — Whisper + Gemini 2.5 Flash</div>
+            <div style={{ fontWeight: 500 }}>Gemini 2.5 Flash</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, LLM-based, generous free tier</div>
           </div>
         </label>
+
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '10px', marginBottom: '4px' }}>
+          Offline
+        </div>
         <label style={radioLabelStyle}>
           <input
             type="radio"
@@ -406,7 +440,7 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Offline — Whisper + OPUS-MT</div>
+            <div style={{ fontWeight: 500 }}>OPUS-MT</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, no internet, ~100MB model download</div>
           </div>
         </label>
@@ -419,7 +453,7 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Offline — Whisper Translate</div>
+            <div style={{ fontWeight: 500 }}>Whisper Translate</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA→EN only, no internet required</div>
           </div>
         </label>
@@ -428,6 +462,20 @@ function SettingsPanel(): JSX.Element {
       {/* API Keys */}
       {engineMode === 'rotation' && (
         <Section label="API Keys (provide at least one)">
+          {!microsoftApiKey && !apiKey && !deeplApiKey && !geminiApiKey && (
+            <div style={{
+              background: '#1e293b',
+              border: '1px solid #3b82f6',
+              borderRadius: '6px',
+              padding: '10px 12px',
+              marginBottom: '8px',
+              fontSize: '12px',
+              color: '#93c5fd',
+              lineHeight: 1.5
+            }}>
+              Add API keys from any combination of providers below. Each provider offers a free tier — combined, you get 4M+ characters/month at no cost.
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <input
               type="password"
@@ -508,6 +556,83 @@ function SettingsPanel(): JSX.Element {
           />
         </Section>
       )}
+
+      {/* Subtitle Appearance (#118) */}
+      <Section label="Subtitle Appearance">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div>
+            <div style={sliderLabelStyle}>Font Size: {subtitleFontSize}px</div>
+            <input
+              type="range"
+              min={20}
+              max={48}
+              value={subtitleFontSize}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                setSubtitleFontSize(v)
+                pushSubtitleSettings({ fontSize: v })
+              }}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ flex: 1 }}>
+              <div style={sliderLabelStyle}>Source Text</div>
+              <input
+                type="color"
+                value={subtitleSourceColor}
+                onChange={(e) => {
+                  setSubtitleSourceColor(e.target.value)
+                  pushSubtitleSettings({ sourceTextColor: e.target.value })
+                }}
+                style={colorInputStyle}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={sliderLabelStyle}>Translated Text</div>
+              <input
+                type="color"
+                value={subtitleTranslatedColor}
+                onChange={(e) => {
+                  setSubtitleTranslatedColor(e.target.value)
+                  pushSubtitleSettings({ translatedTextColor: e.target.value })
+                }}
+                style={colorInputStyle}
+              />
+            </div>
+          </div>
+          <div>
+            <div style={sliderLabelStyle}>Background Opacity: {subtitleBgOpacity}%</div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={subtitleBgOpacity}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                setSubtitleBgOpacity(v)
+                pushSubtitleSettings({ backgroundOpacity: v })
+              }}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div>
+            <div style={sliderLabelStyle}>Position</div>
+            <select
+              value={subtitlePosition}
+              onChange={(e) => {
+                const v = e.target.value as 'top' | 'bottom'
+                setSubtitlePosition(v)
+                pushSubtitleSettings({ position: v })
+              }}
+              style={selectStyle}
+            >
+              <option value="bottom">Bottom</option>
+              <option value="top">Top</option>
+            </select>
+          </div>
+        </div>
+      </Section>
 
       {/* Display Selection */}
       <Section label="Subtitle Display">
@@ -630,6 +755,22 @@ const buttonStyle: React.CSSProperties = {
   cursor: 'pointer',
   color: '#fff',
   marginTop: '8px'
+}
+
+const sliderLabelStyle: React.CSSProperties = {
+  fontSize: '12px',
+  color: '#94a3b8',
+  marginBottom: '4px'
+}
+
+const colorInputStyle: React.CSSProperties = {
+  width: '100%',
+  height: '32px',
+  padding: '2px',
+  background: '#1e293b',
+  border: '1px solid #334155',
+  borderRadius: '6px',
+  cursor: 'pointer'
 }
 
 const statusStyle: React.CSSProperties = {

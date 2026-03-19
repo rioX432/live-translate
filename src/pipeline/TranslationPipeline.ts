@@ -8,6 +8,7 @@ import type {
   Language
 } from '../engines/types'
 import { LocalAgreement } from './LocalAgreement'
+import { ContextBuffer } from './ContextBuffer'
 
 export interface PipelineEvents {
   result: (result: TranslationResult) => void
@@ -56,6 +57,7 @@ export class TranslationPipeline extends EventEmitter {
   private translator: TranslatorEngine | null = null
   private e2eEngine: E2ETranslationEngine | null = null
   private agreement = new LocalAgreement()
+  private contextBuffer = new ContextBuffer()
   private lastTranslatedConfirmed = ''
 
   // Streaming mutex (separate from lifecycle state)
@@ -243,6 +245,7 @@ export class TranslationPipeline extends EventEmitter {
     this.streamingLockResolve?.()
     this.streamingLockResolve = null
     this.agreement.reset()
+    this.contextBuffer.reset()
     this.lastTranslatedConfirmed = ''
   }
 
@@ -305,8 +308,11 @@ export class TranslationPipeline extends EventEmitter {
       const translated = await this.translator.translate(
         sttResult.text,
         sttResult.language,
-        targetLang
+        targetLang,
+        this.contextBuffer.getContext()
       )
+
+      this.contextBuffer.add(sttResult.text, translated)
 
       return {
         sourceText: sttResult.text,
@@ -341,6 +347,7 @@ export class TranslationPipeline extends EventEmitter {
 
       // Reset streaming state before re-initializing engines
       this.agreement.reset()
+      this.contextBuffer.reset()
       this.lastTranslatedConfirmed = ''
 
       // Temporarily go to IDLE so switchEngine can transition to INITIALIZING
@@ -387,7 +394,8 @@ export class TranslationPipeline extends EventEmitter {
         translatedText = await this.translator.translate(
           agreement.confirmedText,
           sttResult.language,
-          targetLang
+          targetLang,
+          this.contextBuffer.getContext()
         )
         this.lastTranslatedConfirmed = translatedText
       } else {
@@ -446,8 +454,10 @@ export class TranslationPipeline extends EventEmitter {
         translatedText = await this.translator.translate(
           agreement.confirmedText,
           sttResult.language,
-          targetLang
+          targetLang,
+          this.contextBuffer.getContext()
         )
+        this.contextBuffer.add(agreement.confirmedText, translatedText)
       }
 
       this.lastTranslatedConfirmed = ''

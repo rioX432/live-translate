@@ -42,5 +42,14 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('save-settings', settings),
 
   // Crash recovery (#54)
-  getCrashedSession: () => ipcRenderer.invoke('get-crashed-session')
+  getCrashedSession: () => ipcRenderer.invoke('get-crashed-session'),
+
+  // Subtitle settings (#118)
+  saveSubtitleSettings: (settings: Record<string, unknown>) =>
+    ipcRenderer.invoke('save-subtitle-settings', settings),
+  onSubtitleSettingsChanged: (callback: (settings: unknown) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, settings: unknown): void => callback(settings)
+    ipcRenderer.on('subtitle-settings-changed', handler)
+    return () => ipcRenderer.off('subtitle-settings-changed', handler)
+  }
 })

@@ -10,6 +10,22 @@ interface SubtitleLine {
   isInterim?: boolean
 }
 
+interface SubtitleConfig {
+  fontSize: number
+  sourceTextColor: string
+  translatedTextColor: string
+  backgroundOpacity: number
+  position: 'top' | 'bottom'
+}
+
+const DEFAULT_CONFIG: SubtitleConfig = {
+  fontSize: 30,
+  sourceTextColor: '#f0f0f0',
+  translatedTextColor: '#93c5fd',
+  backgroundOpacity: 78,
+  position: 'bottom'
+}
+
 const MAX_LINES = 3
 const FADE_DURATION_MS = 8000
 const INTERIM_LINE_ID = -1
@@ -17,7 +33,22 @@ let nextLineId = 1
 
 function SubtitleOverlay(): JSX.Element {
   const [lines, setLines] = useState<SubtitleLine[]>([])
+  const [config, setConfig] = useState<SubtitleConfig>(DEFAULT_CONFIG)
   const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  // Load initial settings and listen for changes
+  useEffect(() => {
+    window.api.getSettings().then((s) => {
+      if (s.subtitleSettings) {
+        setConfig(s.subtitleSettings as SubtitleConfig)
+      }
+    })
+
+    const unsubscribe = window.api.onSubtitleSettingsChanged((settings) => {
+      setConfig(settings as SubtitleConfig)
+    })
+    return () => unsubscribe?.()
+  }, [])
 
   useEffect(() => {
     // Final (confirmed) results — add as permanent line
@@ -71,6 +102,8 @@ function SubtitleOverlay(): JSX.Element {
     }
   }, [])
 
+  const translatedFontSize = Math.max(config.fontSize - 2, 16)
+
   return (
     <div
       style={{
@@ -78,7 +111,7 @@ function SubtitleOverlay(): JSX.Element {
         height: '100%',
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'flex-end',
+        justifyContent: config.position === 'top' ? 'flex-start' : 'flex-end',
         padding: '16px 48px',
         fontFamily:
           '"Hiragino Sans", "Hiragino Kaku Gothic ProN", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
@@ -89,7 +122,9 @@ function SubtitleOverlay(): JSX.Element {
         <div
           key={line.id}
           style={{
-            background: line.isInterim ? 'rgba(0, 0, 0, 0.65)' : 'rgba(0, 0, 0, 0.78)',
+            background: line.isInterim
+              ? `rgba(0, 0, 0, ${Math.max(0, config.backgroundOpacity - 13) / 100})`
+              : `rgba(0, 0, 0, ${config.backgroundOpacity / 100})`,
             borderRadius: '10px',
             padding: '10px 20px',
             marginBottom: '6px',
@@ -108,8 +143,8 @@ function SubtitleOverlay(): JSX.Element {
         >
           <div
             style={{
-              color: line.isInterim ? '#cbd5e1' : '#f0f0f0',
-              fontSize: '30px',
+              color: line.isInterim ? '#cbd5e1' : config.sourceTextColor,
+              fontSize: `${config.fontSize}px`,
               fontWeight: 600,
               lineHeight: 1.4,
               textShadow: '0 1px 3px rgba(0,0,0,0.5)',
@@ -121,12 +156,8 @@ function SubtitleOverlay(): JSX.Element {
           {line.translatedText && (
             <div
               style={{
-                color: line.isInterim
-                  ? '#94a3b8'
-                  : line.sourceLanguage === 'ja'
-                    ? '#93c5fd'
-                    : '#86efac',
-                fontSize: '28px',
+                color: line.isInterim ? '#94a3b8' : config.translatedTextColor,
+                fontSize: `${translatedFontSize}px`,
                 fontWeight: 600,
                 lineHeight: 1.4,
                 marginTop: '2px',
