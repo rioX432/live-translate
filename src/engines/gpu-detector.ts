@@ -23,7 +23,8 @@ export async function detectGpu(): Promise<GpuInfo> {
     }
   } catch (err) {
     console.warn('[gpu-detector] Failed to detect GPU:', err)
-    cachedResult = { hasGpu: false, gpuNames: [] }
+    // Don't cache errors — allow retry on next call
+    return { hasGpu: false, gpuNames: [] }
   }
 
   return cachedResult

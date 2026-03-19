@@ -51,16 +51,22 @@ def transcribe(audio_path, sample_rate=16000):
     except Exception as e:
         output({"error": str(e)})
 
+_current_req_id = None
+
 def output(data):
+    if _current_req_id is not None:
+        data["_reqId"] = _current_req_id
     print(json.dumps(data), flush=True)
 
 def main():
+    global _current_req_id
     for line in sys.stdin:
         line = line.strip()
         if not line:
             continue
         try:
             msg = json.loads(line)
+            _current_req_id = msg.get("_reqId")
             action = msg.get("action")
 
             if action == "init":
@@ -73,9 +79,12 @@ def main():
             else:
                 output({"error": f"Unknown action: {action}"})
         except json.JSONDecodeError:
+            _current_req_id = None
             output({"error": "Invalid JSON"})
         except Exception as e:
             output({"error": str(e)})
+        finally:
+            _current_req_id = None
 
 if __name__ == "__main__":
     main()

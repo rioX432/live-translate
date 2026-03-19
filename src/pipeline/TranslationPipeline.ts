@@ -143,14 +143,13 @@ export class TranslationPipeline extends EventEmitter {
     this.e2eFactories.set(id, factory)
   }
 
-  /** Run a promise with a timeout */
+  /** Run a promise with a timeout (cleans up timer on resolution) */
   private withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<never>((_resolve, reject) =>
-        setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
-      )
-    ])
+    let timer: ReturnType<typeof setTimeout>
+    const timeoutPromise = new Promise<never>((_resolve, reject) => {
+      timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+    })
+    return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
   }
 
   // --- Processing lock ---

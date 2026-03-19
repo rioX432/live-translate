@@ -67,37 +67,45 @@ export function createSession(engineMode: string): string {
   return id
 }
 
-/** Append a translation result to the session */
+/** Append a translation result to the session (append-only for performance) */
 export async function appendEntry(sessionId: string, result: TranslationResult): Promise<void> {
-  const path = sessionFilePath(sessionId)
-  if (!existsSync(path)) return
+  const entriesPath = sessionFilePath(sessionId).replace('.json', '.entries.jsonl')
+
+  const entry: SessionEntry = {
+    timestamp: result.timestamp,
+    sourceText: result.sourceText,
+    translatedText: result.translatedText,
+    sourceLanguage: result.sourceLanguage,
+    targetLanguage: result.targetLanguage,
+    speakerId: result.speakerId
+  }
 
   try {
-    const data: SessionData = JSON.parse(readFileSync(path, 'utf-8'))
-    data.entries.push({
-      timestamp: result.timestamp,
-      sourceText: result.sourceText,
-      translatedText: result.translatedText,
-      sourceLanguage: result.sourceLanguage,
-      targetLanguage: result.targetLanguage,
-      speakerId: result.speakerId
-    })
-    data.metadata.entryCount = data.entries.length
-    writeFileSync(path, JSON.stringify(data, null, 2))
+    await appendFile(entriesPath, JSON.stringify(entry) + '\n', 'utf-8')
   } catch (err) {
     console.error('[session-manager] Failed to append entry:', err)
   }
 }
 
-/** End a session and record final metadata */
+/** End a session — merge JSONL entries into the JSON file */
 export function endSession(sessionId: string): void {
   const path = sessionFilePath(sessionId)
+  const entriesPath = path.replace('.json', '.entries.jsonl')
   if (!existsSync(path)) return
 
   try {
     const data: SessionData = JSON.parse(readFileSync(path, 'utf-8'))
     data.metadata.endedAt = Date.now()
     data.metadata.durationMs = Date.now() - data.metadata.startedAt
+
+    // Merge JSONL entries
+    if (existsSync(entriesPath)) {
+      const lines = readFileSync(entriesPath, 'utf-8').split('\n').filter((l) => l.trim())
+      data.entries = lines.map((l) => JSON.parse(l) as SessionEntry)
+      data.metadata.entryCount = data.entries.length
+      unlinkSync(entriesPath)
+    }
+
     writeFileSync(path, JSON.stringify(data, null, 2))
   } catch (err) {
     console.error('[session-manager] Failed to end session:', err)

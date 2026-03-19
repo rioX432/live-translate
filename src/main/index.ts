@@ -557,12 +557,23 @@ app.whenReady().then(() => {
   })
 })
 
-app.on('window-all-closed', async () => {
-  // #44: flush logger before disposing pipeline
-  logger?.endSession()
-  logger = null
-  store.set('activeSession', null) // #54: clear on clean exit
-  await pipeline?.dispose()
+let isQuitting = false
+app.on('before-quit', (event) => {
+  if (isQuitting) return
+  isQuitting = true
+  event.preventDefault()
+
+  // Async cleanup before quit
+  ;(async () => {
+    logger?.endSession()
+    logger = null
+    store.set('activeSession', null)
+    await pipeline?.dispose()
+    app.quit()
+  })()
+})
+
+app.on('window-all-closed', () => {
   app.quit()
 })
 

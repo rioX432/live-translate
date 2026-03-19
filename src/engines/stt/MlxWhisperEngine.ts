@@ -14,7 +14,8 @@ export class MlxWhisperEngine implements STTEngine {
   private process: ChildProcess | null = null
   private model: string
   private onProgress?: (message: string) => void
-  private pendingResolve: ((data: any) => void) | null = null
+  private pendingRequests = new Map<number, (data: any) => void>()
+  private nextRequestId = 0
   private buffer = ''
 
   constructor(options?: {
@@ -46,9 +47,10 @@ export class MlxWhisperEngine implements STTEngine {
         if (!line.trim()) continue
         try {
           const msg = JSON.parse(line)
-          if (this.pendingResolve) {
-            this.pendingResolve(msg)
-            this.pendingResolve = null
+          const reqId = msg._reqId as number | undefined
+          if (reqId !== undefined && this.pendingRequests.has(reqId)) {
+            this.pendingRequests.get(reqId)!(msg)
+            this.pendingRequests.delete(reqId)
           }
         } catch {
           console.warn('[mlx-whisper] Invalid JSON from bridge:', line)
@@ -126,17 +128,19 @@ export class MlxWhisperEngine implements STTEngine {
         return
       }
 
+      const reqId = this.nextRequestId++
+
       const timeout = setTimeout(() => {
-        this.pendingResolve = null
+        this.pendingRequests.delete(reqId)
         reject(new Error('Bridge command timed out'))
       }, TRANSCRIBE_TIMEOUT_MS)
 
-      this.pendingResolve = (data) => {
+      this.pendingRequests.set(reqId, (data) => {
         clearTimeout(timeout)
         resolve(data)
-      }
+      })
 
-      this.process.stdin.write(JSON.stringify(cmd) + '\n')
+      this.process.stdin.write(JSON.stringify({ ...cmd, _reqId: reqId }) + '\n')
     })
   }
 }

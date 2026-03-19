@@ -41,12 +41,41 @@ export class SLMTranslator implements TranslatorEngine {
 
     this.worker = utilityProcess.fork(workerPath)
 
-    // Set up message handling
-    this.worker.on('message', (msg: any) => {
-      if (msg.type === 'ready') {
-        this.onProgress?.('TranslateGemma model loaded')
-        return
+    this.worker.on('exit', (code) => {
+      console.log(`[slm-translator] Worker exited with code ${code}`)
+      this.worker = null
+      for (const [id, req] of this.pending) {
+        clearTimeout(req.timer)
+        req.reject(new Error('Worker process exited'))
+        this.pending.delete(id)
       }
+    })
+
+    // Wait for init before registering the general message handler
+    await new Promise<void>((resolve, reject) => {
+      const timeout = setTimeout(() => {
+        reject(new Error('TranslateGemma initialization timed out'))
+      }, 5 * 60_000)
+
+      const initHandler = (msg: any): void => {
+        if (msg.type === 'ready') {
+          clearTimeout(timeout)
+          this.worker?.removeListener('message', initHandler)
+          this.onProgress?.('TranslateGemma model loaded')
+          resolve()
+        } else if (msg.type === 'error') {
+          clearTimeout(timeout)
+          this.worker?.removeListener('message', initHandler)
+          reject(new Error(msg.message))
+        }
+      }
+
+      this.worker!.on('message', initHandler)
+      this.worker!.postMessage({ type: 'init', modelPath })
+    })
+
+    // Register the general message handler after init completes
+    this.worker.on('message', (msg: any) => {
       if (msg.type === 'result' && msg.id) {
         const req = this.pending.get(msg.id)
         if (req) {
@@ -68,37 +97,6 @@ export class SLMTranslator implements TranslatorEngine {
       if (msg.type === 'error') {
         console.error('[slm-translator] Worker error:', msg.message)
       }
-    })
-
-    this.worker.on('exit', (code) => {
-      console.log(`[slm-translator] Worker exited with code ${code}`)
-      this.worker = null
-      // Reject all pending requests
-      for (const [id, req] of this.pending) {
-        clearTimeout(req.timer)
-        req.reject(new Error('Worker process exited'))
-        this.pending.delete(id)
-      }
-    })
-
-    // Send init command and wait for ready
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        reject(new Error('TranslateGemma initialization timed out'))
-      }, 5 * 60_000) // 5 minutes for model loading
-
-      const readyHandler = (msg: any): void => {
-        if (msg.type === 'ready') {
-          clearTimeout(timeout)
-          resolve()
-        } else if (msg.type === 'error') {
-          clearTimeout(timeout)
-          reject(new Error(msg.message))
-        }
-      }
-
-      this.worker!.on('message', readyHandler)
-      this.worker!.postMessage({ type: 'init', modelPath })
     })
   }
 
