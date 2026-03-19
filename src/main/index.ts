@@ -15,6 +15,7 @@ import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotati
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { detectGpu } from '../engines/gpu-detector'
 import { isGGUFDownloaded, GGUF_VARIANTS } from '../engines/model-downloader'
+import { listPlugins } from '../engines/plugin-loader'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
 import * as SessionManager from '../logger/SessionManager'
 import { store } from './store'
@@ -509,6 +510,9 @@ ipcMain.handle('get-gguf-variants', () => {
     downloaded: isGGUFDownloaded(v.filename)
   }))
 })
+
+// #127: List installed engine plugins
+ipcMain.handle('list-plugins', () => listPlugins())
 
 // #132: GPU detection for engine auto-selection
 ipcMain.handle('detect-gpu', async () => {
