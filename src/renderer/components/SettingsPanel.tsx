@@ -409,6 +409,16 @@ function SettingsPanel(): JSX.Element {
             {audio.permissionError}
           </div>
         )}
+        {audio.hasVirtualAudioDevice && (
+          <div style={{ marginTop: '6px', fontSize: '11px', color: '#22c55e' }}>
+            Virtual audio device detected — select it above to capture Zoom/Teams audio
+          </div>
+        )}
+        {!audio.hasVirtualAudioDevice && (
+          <div style={{ marginTop: '6px', fontSize: '11px', color: '#64748b' }}>
+            To capture Zoom/Teams audio, install BlackHole (free) and select it as the input device
+          </div>
+        )}
       </Section>
 
       {/* STT Engine (#119) */}

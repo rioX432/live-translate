@@ -13,6 +13,7 @@ export interface UseAudioCaptureReturn {
   isCapturing: boolean
   volume: number // 0-1 for level meter
   permissionError: string | null // #48: mic permission error
+  hasVirtualAudioDevice: boolean // #125: BlackHole/Soundflower detected
   start: () => Promise<void>
   stop: () => void
   /** Callback for VAD-detected complete speech segments (legacy mode) */
@@ -32,6 +33,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
   const [isCapturing, setIsCapturing] = useState(false)
   const [volume, setVolume] = useState(0)
   const [permissionError, setPermissionError] = useState<string | null>(null) // #48
+  const [hasVirtualAudioDevice, setHasVirtualAudioDevice] = useState(false) // #125
 
   const vadRef = useRef<MicVAD | null>(null)
   const chunkCallbackRef = useRef<((chunk: Float32Array) => void) | null>(null)
@@ -58,6 +60,12 @@ export function useAudioCapture(): UseAudioCaptureReturn {
           .filter((d) => d.kind === 'audioinput')
           .map((d) => ({ deviceId: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 6)}` }))
         setDevices(audioInputs)
+        // #125: Detect virtual audio devices (BlackHole, Soundflower, Loopback)
+        const virtualKeywords = ['blackhole', 'soundflower', 'loopback', 'virtual']
+        const hasVirtual = audioInputs.some((d) =>
+          virtualKeywords.some((kw) => d.label.toLowerCase().includes(kw))
+        )
+        setHasVirtualAudioDevice(hasVirtual)
         if (audioInputs.length > 0 && !selectedDevice) {
           setSelectedDevice(audioInputs[0].deviceId)
         }
@@ -240,6 +248,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
     isCapturing,
     volume,
     permissionError,
+    hasVirtualAudioDevice,
     start,
     stop,
     onAudioChunk,
