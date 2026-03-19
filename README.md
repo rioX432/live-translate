@@ -7,6 +7,9 @@ Bidirectional JA↔EN translation with transparent subtitles overlaid on any dis
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey)](https://github.com/rioX432/live-translate)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
+<!-- TODO: Add demo GIF here -->
+<!-- ![Demo](docs/demo.gif) -->
+
 ```
 ┌────────────────────────────────────────┐
 │            Your Slides                 │
