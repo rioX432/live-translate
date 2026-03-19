@@ -95,13 +95,19 @@ export class MlxWhisperEngine implements STTEngine {
       this.process = null
     })
 
-    // Send init command
+    // Send init command — kill process on failure to prevent orphaned subprocesses (#210)
     try {
       const result = await this.sendCommand({ action: 'init', model: this.model })
       if (result.error) {
         throw new Error(`mlx-whisper init failed: ${result.error}`)
       }
       this.onProgress?.('mlx-whisper ready')
+    } catch (err) {
+      if (this.process) {
+        try { this.process.kill() } catch { /* ignore */ }
+        this.process = null
+      }
+      throw err
     } finally {
       clearTimeout(initTimeout)
     }
@@ -157,11 +163,12 @@ export class MlxWhisperEngine implements STTEngine {
       } catch { /* ignore */ }
       this.process = null
     }
-    // Reject any pending requests
-    for (const [reqId, resolve] of this.pendingRequests) {
+    // Snapshot pending requests to avoid concurrent modification from stdout handler
+    const pending = Array.from(this.pendingRequests.values())
+    this.pendingRequests.clear()
+    for (const resolve of pending) {
       resolve({ error: 'Engine disposed' })
     }
-    this.pendingRequests.clear()
   }
 
   private sendCommand(cmd: Record<string, unknown>): Promise<any> {
