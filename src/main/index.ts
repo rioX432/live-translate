@@ -542,7 +542,7 @@ ipcMain.handle('generate-summary', async (_event, transcriptPath: string) => {
       await slm.dispose()
     }
   } catch (err) {
-    return { error: err instanceof Error ? err.message : String(err) }
+    return { error: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) }
   }
 })
 
