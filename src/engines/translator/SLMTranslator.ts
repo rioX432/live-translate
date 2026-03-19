@@ -1,12 +1,9 @@
 import { utilityProcess } from 'electron'
 import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
-import { getModelsDir, downloadGGUF } from '../model-downloader'
+import { getGGUFDir, downloadGGUF, GGUF_VARIANTS } from '../model-downloader'
 
 const TRANSLATE_TIMEOUT_MS = 30_000
-const GGUF_FILENAME = 'translategemma-4b-it-Q4_K_M.gguf'
-const GGUF_URL =
-  'https://huggingface.co/google/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it-Q4_K_M.gguf'
 
 interface PendingRequest {
   resolve: (text: string) => void
@@ -23,17 +20,20 @@ export class SLMTranslator implements TranslatorEngine {
   private pending = new Map<string, PendingRequest>()
   private nextId = 0
   private onProgress?: (message: string) => void
+  private variant: string
 
-  constructor(options?: { onProgress?: (message: string) => void }) {
+  constructor(options?: { onProgress?: (message: string) => void; variant?: string }) {
     this.onProgress = options?.onProgress
+    this.variant = options?.variant ?? 'Q4_K_M'
   }
 
   async initialize(): Promise<void> {
     if (this.worker) return
 
     // Download model if needed
-    const modelPath = join(getModelsDir(), GGUF_FILENAME)
-    await downloadGGUF(GGUF_FILENAME, GGUF_URL, this.onProgress)
+    const variantConfig = GGUF_VARIANTS[this.variant] ?? GGUF_VARIANTS['Q4_K_M']!
+    const modelPath = join(getGGUFDir(), variantConfig.filename)
+    await downloadGGUF(variantConfig.filename, variantConfig.url, this.onProgress, variantConfig.sha256)
 
     // Spawn UtilityProcess
     this.onProgress?.('Starting TranslateGemma worker...')
