@@ -1,4 +1,4 @@
-import type { TranslatorEngine, Language } from '../types'
+import type { TranslatorEngine, Language, TranslateContext } from '../types'
 
 export interface ProviderConfig {
   engine: TranslatorEngine
@@ -76,7 +76,7 @@ export class ApiRotationController implements TranslatorEngine {
     this.initialized = true
   }
 
-  async translate(text: string, from: Language, to: Language): Promise<string> {
+  async translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string> {
     if (!text.trim()) return ''
     if (from === to) return text
 
@@ -119,7 +119,7 @@ export class ApiRotationController implements TranslatorEngine {
       }
 
       try {
-        const result = await provider.engine.translate(text, from, to)
+        const result = await provider.engine.translate(text, from, to, context)
 
         // Track usage after successful translation
         record.charCount += charCount
