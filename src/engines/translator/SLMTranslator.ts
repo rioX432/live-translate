@@ -106,6 +106,7 @@ export class SLMTranslator implements TranslatorEngine {
 
   async translate(text: string, from: Language, to: Language, _context?: TranslateContext): Promise<string> {
     if (!text.trim()) return ''
+    if (from === to) return text
     if (!this.worker) {
       throw new Error('[slm-translator] Not initialized')
     }

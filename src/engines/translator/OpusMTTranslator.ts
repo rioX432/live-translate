@@ -54,6 +54,7 @@ export class OpusMTTranslator implements TranslatorEngine {
 
   async translate(text: string, from: Language, to: Language): Promise<string> {
     if (!text.trim()) return ''
+    if (from === to) return text
 
     const pipe = from === 'ja' ? this.jaToEn : this.enToJa
     if (!pipe) {

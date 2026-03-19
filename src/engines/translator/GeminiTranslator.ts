@@ -34,6 +34,7 @@ export class GeminiTranslator implements TranslatorEngine {
 
   async translate(text: string, from: Language, to: Language): Promise<string> {
     if (!text.trim()) return ''
+    if (from === to) return text
 
     const prompt = `Translate the following ${LANG_NAMES[from]} text to ${LANG_NAMES[to]}. Output ONLY the translated text, nothing else.\n\n${text}`
 
