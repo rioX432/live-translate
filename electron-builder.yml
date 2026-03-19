@@ -1,5 +1,5 @@
 appId: com.live-translate.app
-productName: live-translate
+productName: Live Translate
 directories:
   buildResources: build
 files:

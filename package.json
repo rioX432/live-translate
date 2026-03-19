@@ -1,7 +1,7 @@
 {
   "name": "live-translate",
-  "version": "0.1.0",
-  "description": "Real-time speech translation overlay for presentations",
+  "version": "0.2.0",
+  "description": "Real-time speech translation overlay — local-first, free, JA↔EN bidirectional with pluggable engines",
   "main": "./out/main/index.js",
   "scripts": {
     "postinstall": "node scripts/fix-whisper-addon.js",
