@@ -5,6 +5,7 @@ import { tmpdir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 
 const TRANSCRIBE_TIMEOUT_MS = 30_000
+const INIT_TIMEOUT_MS = 60_000
 
 export class MlxWhisperEngine implements STTEngine {
   readonly id = 'mlx-whisper'
@@ -35,16 +36,25 @@ export class MlxWhisperEngine implements STTEngine {
     // Find the bridge script
     const bridgePath = join(__dirname, '../../resources/mlx-whisper-bridge.py')
 
+    // Overall init timeout — kills the process if bridge doesn't respond (#228)
+    const initTimeout = setTimeout(() => {
+      console.error('[mlx-whisper] Initialization timed out')
+      try { this.process?.kill() } catch { /* ignore */ }
+      this.process = null
+    }, INIT_TIMEOUT_MS)
+
     try {
       this.process = spawn('python3', [bridgePath], {
         stdio: ['pipe', 'pipe', 'pipe']
       })
     } catch (err) {
+      clearTimeout(initTimeout)
       throw new Error('Python 3 not found. Install Python 3 and run: pip install mlx-whisper')
     }
 
     // Handle spawn errors (python3 not in PATH)
     this.process.on('error', (err) => {
+      clearTimeout(initTimeout)
       console.error('[mlx-whisper] Failed to start Python bridge:', err.message)
       this.process = null
     })
@@ -86,11 +96,15 @@ export class MlxWhisperEngine implements STTEngine {
     })
 
     // Send init command
-    const result = await this.sendCommand({ action: 'init', model: this.model })
-    if (result.error) {
-      throw new Error(`mlx-whisper init failed: ${result.error}`)
+    try {
+      const result = await this.sendCommand({ action: 'init', model: this.model })
+      if (result.error) {
+        throw new Error(`mlx-whisper init failed: ${result.error}`)
+      }
+      this.onProgress?.('mlx-whisper ready')
+    } finally {
+      clearTimeout(initTimeout)
     }
-    this.onProgress?.('mlx-whisper ready')
   }
 
   async processAudio(audioChunk: Float32Array, sampleRate: number): Promise<STTResult | null> {
