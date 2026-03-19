@@ -180,6 +180,9 @@ async function doDownloadWithResume(
       }
 
       // SHA256 verification (streaming to avoid loading multi-GB files into memory)
+      if (!expectedSha256) {
+        console.warn(`[model-downloader] No SHA256 hash provided for ${label} — skipping integrity verification`)
+      }
       if (expectedSha256) {
         onProgress?.('Verifying file integrity...')
         const { createReadStream } = await import('fs')
