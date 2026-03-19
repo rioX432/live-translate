@@ -12,7 +12,6 @@ import { MicrosoftTranslator } from '../engines/translator/MicrosoftTranslator'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { ApiRotationController } from '../engines/translator/ApiRotationController'
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
-import { WhisperTranslateEngine } from '../engines/e2e/WhisperTranslateEngine'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { detectGpu } from '../engines/gpu-detector'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
@@ -118,11 +117,6 @@ function initPipeline(): void {
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
   // GoogleTranslator needs API key — registered dynamically when user provides one
-
-  // Register E2E engines
-  pipeline.registerE2E('whisper-translate', () => new WhisperTranslateEngine({
-    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
-  }))
 
   // Forward results to subtitle window and logger
   pipeline.on('result', (result: TranslationResult) => {

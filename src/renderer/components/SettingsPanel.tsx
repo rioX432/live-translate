@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
 
-type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-e2e' | 'offline-opus' | 'offline-slm'
+type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-slm'
 
 interface DisplayInfo {
   id: number
@@ -233,8 +233,9 @@ function SettingsPanel(): JSX.Element {
         }
       } else {
         config = {
-          mode: 'e2e' as const,
-          e2eEngineId: 'whisper-translate'
+          mode: 'cascade' as const,
+          sttEngineId: sttEngine,
+          translatorEngineId: 'opus-mt'
         }
       }
 
@@ -517,19 +518,6 @@ function SettingsPanel(): JSX.Element {
           <div>
             <div style={{ fontWeight: 500 }}>OPUS-MT</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, no internet, ~100MB model download</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-e2e'}
-            onChange={() => setEngineMode('offline-e2e')}
-            disabled={isRunning}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Whisper Translate</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>JA→EN only, no internet required</div>
           </div>
         </label>
         <label style={radioLabelStyle}>
