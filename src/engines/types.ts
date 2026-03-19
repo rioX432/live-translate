@@ -64,7 +64,7 @@ export interface TranslatorEngine {
   initialize(): Promise<void>
 
   /** Translate text from one language to another */
-  translate(text: string, from: Language, to: Language): Promise<string>
+  translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string>
 
   /** Release resources */
   dispose(): Promise<void>
@@ -90,6 +90,12 @@ export interface E2ETranslationEngine {
 
   /** Release resources */
   dispose(): Promise<void>
+}
+
+/** Context passed to translators that support context-aware translation */
+export interface TranslateContext {
+  /** Previous confirmed translation segments for coherence */
+  previousSegments: Array<{ source: string; translated: string }>
 }
 
 /** Pipeline mode */
