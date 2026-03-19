@@ -442,6 +442,16 @@ function SettingsPanel(): JSX.Element {
           <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
           <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
         </select>
+        {sttEngine === 'moonshine' && (
+          <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
+            Japanese accuracy is unverified. If results are poor, switch to Whisper.
+          </div>
+        )}
+        {sttEngine === 'mlx-whisper' && (
+          <div style={{ marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+            Requires Python 3 + mlx-whisper: pip install mlx-whisper
+          </div>
+        )}
       </Section>
 
       {/* Engine Selection */}
