@@ -11,6 +11,14 @@ export interface ActiveSession {
   startedAt: number
 }
 
+export interface SubtitleSettings {
+  fontSize: number
+  sourceTextColor: string
+  translatedTextColor: string
+  backgroundOpacity: number
+  position: 'top' | 'bottom'
+}
+
 export interface AppSettings {
   translationEngine: string
   googleApiKey: string
@@ -22,6 +30,7 @@ export interface AppSettings {
   selectedDisplay: number
   quotaTracking: Record<string, QuotaRecord>
   activeSession: ActiveSession | null
+  subtitleSettings: SubtitleSettings
 }
 
 export const store = new Store<AppSettings>({
@@ -35,6 +44,13 @@ export const store = new Store<AppSettings>({
     selectedMicrophone: '',
     selectedDisplay: 0,
     quotaTracking: {},
-    activeSession: null
+    activeSession: null,
+    subtitleSettings: {
+      fontSize: 30,
+      sourceTextColor: '#f0f0f0',
+      translatedTextColor: '#93c5fd',
+      backgroundOpacity: 78,
+      position: 'bottom'
+    }
   }
 })

@@ -25,6 +25,13 @@ function SettingsPanel(): JSX.Element {
 
   const [isStarting, setIsStarting] = useState(false) // #31: double-click guard
 
+  // Subtitle customization (#118)
+  const [subtitleFontSize, setSubtitleFontSize] = useState(30)
+  const [subtitleSourceColor, setSubtitleSourceColor] = useState('#f0f0f0')
+  const [subtitleTranslatedColor, setSubtitleTranslatedColor] = useState('#93c5fd')
+  const [subtitleBgOpacity, setSubtitleBgOpacity] = useState(78)
+  const [subtitlePosition, setSubtitlePosition] = useState<'top' | 'bottom'>('bottom')
+
   const audio = useAudioCapture()
 
   const formatDuration = useCallback((ms: number): string => {
@@ -66,6 +73,14 @@ function SettingsPanel(): JSX.Element {
       if (s.microsoftApiKey) setMicrosoftApiKey(s.microsoftApiKey as string)
       if (s.microsoftRegion) setMicrosoftRegion(s.microsoftRegion as string)
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
+      if (s.subtitleSettings) {
+        const sub = s.subtitleSettings as Record<string, unknown>
+        if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
+        if (sub.sourceTextColor) setSubtitleSourceColor(sub.sourceTextColor as string)
+        if (sub.translatedTextColor) setSubtitleTranslatedColor(sub.translatedTextColor as string)
+        if (sub.backgroundOpacity !== undefined) setSubtitleBgOpacity(sub.backgroundOpacity as number)
+        if (sub.position) setSubtitlePosition(sub.position as 'top' | 'bottom')
+      }
     })
 
     // #54: check for crashed session
@@ -246,6 +261,18 @@ function SettingsPanel(): JSX.Element {
   const handleDismissResume = (): void => {
     setCrashedSession(null)
     setStatus('Ready')
+  }
+
+  const pushSubtitleSettings = (overrides: Record<string, unknown> = {}): void => {
+    const settings = {
+      fontSize: subtitleFontSize,
+      sourceTextColor: subtitleSourceColor,
+      translatedTextColor: subtitleTranslatedColor,
+      backgroundOpacity: subtitleBgOpacity,
+      position: subtitlePosition,
+      ...overrides
+    }
+    window.api.saveSubtitleSettings(settings)
   }
 
   const handleDisplayChange = (displayId: number): void => {
@@ -530,6 +557,83 @@ function SettingsPanel(): JSX.Element {
         </Section>
       )}
 
+      {/* Subtitle Appearance (#118) */}
+      <Section label="Subtitle Appearance">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+          <div>
+            <div style={sliderLabelStyle}>Font Size: {subtitleFontSize}px</div>
+            <input
+              type="range"
+              min={20}
+              max={48}
+              value={subtitleFontSize}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                setSubtitleFontSize(v)
+                pushSubtitleSettings({ fontSize: v })
+              }}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <div style={{ flex: 1 }}>
+              <div style={sliderLabelStyle}>Source Text</div>
+              <input
+                type="color"
+                value={subtitleSourceColor}
+                onChange={(e) => {
+                  setSubtitleSourceColor(e.target.value)
+                  pushSubtitleSettings({ sourceTextColor: e.target.value })
+                }}
+                style={colorInputStyle}
+              />
+            </div>
+            <div style={{ flex: 1 }}>
+              <div style={sliderLabelStyle}>Translated Text</div>
+              <input
+                type="color"
+                value={subtitleTranslatedColor}
+                onChange={(e) => {
+                  setSubtitleTranslatedColor(e.target.value)
+                  pushSubtitleSettings({ translatedTextColor: e.target.value })
+                }}
+                style={colorInputStyle}
+              />
+            </div>
+          </div>
+          <div>
+            <div style={sliderLabelStyle}>Background Opacity: {subtitleBgOpacity}%</div>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={subtitleBgOpacity}
+              onChange={(e) => {
+                const v = Number(e.target.value)
+                setSubtitleBgOpacity(v)
+                pushSubtitleSettings({ backgroundOpacity: v })
+              }}
+              style={{ width: '100%' }}
+            />
+          </div>
+          <div>
+            <div style={sliderLabelStyle}>Position</div>
+            <select
+              value={subtitlePosition}
+              onChange={(e) => {
+                const v = e.target.value as 'top' | 'bottom'
+                setSubtitlePosition(v)
+                pushSubtitleSettings({ position: v })
+              }}
+              style={selectStyle}
+            >
+              <option value="bottom">Bottom</option>
+              <option value="top">Top</option>
+            </select>
+          </div>
+        </div>
+      </Section>
+
       {/* Display Selection */}
       <Section label="Subtitle Display">
         <select
@@ -651,6 +755,22 @@ const buttonStyle: React.CSSProperties = {
   cursor: 'pointer',
   color: '#fff',
   marginTop: '8px'
+}
+
+const sliderLabelStyle: React.CSSProperties = {
+  fontSize: '12px',
+  color: '#94a3b8',
+  marginBottom: '4px'
+}
+
+const colorInputStyle: React.CSSProperties = {
+  width: '100%',
+  height: '32px',
+  padding: '2px',
+  background: '#1e293b',
+  border: '1px solid #334155',
+  borderRadius: '6px',
+  cursor: 'pointer'
 }
 
 const statusStyle: React.CSSProperties = {

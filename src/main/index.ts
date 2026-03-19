@@ -395,8 +395,15 @@ ipcMain.handle('get-settings', () => {
     microsoftApiKey: store.get('microsoftApiKey'),
     microsoftRegion: store.get('microsoftRegion'),
     selectedMicrophone: store.get('selectedMicrophone'),
-    selectedDisplay: store.get('selectedDisplay')
+    selectedDisplay: store.get('selectedDisplay'),
+    subtitleSettings: store.get('subtitleSettings')
   }
+})
+
+// Subtitle settings — push changes to subtitle window in real-time
+ipcMain.handle('save-subtitle-settings', (_event, settings: Record<string, unknown>) => {
+  store.set('subtitleSettings', settings as import('./store').SubtitleSettings)
+  subtitleWindow?.webContents.send('subtitle-settings-changed', settings)
 })
 
 ipcMain.handle('save-settings', (_event, settings: Record<string, unknown>) => {
