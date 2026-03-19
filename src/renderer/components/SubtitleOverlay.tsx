@@ -30,12 +30,12 @@ const DEFAULT_CONFIG: SubtitleConfig = {
 const MAX_LINES = 3
 const FADE_DURATION_MS = 8000
 const INTERIM_LINE_ID = -1
-let nextLineId = 1
 
 function SubtitleOverlay(): JSX.Element {
   const [lines, setLines] = useState<SubtitleLine[]>([])
   const [config, setConfig] = useState<SubtitleConfig>(DEFAULT_CONFIG)
   const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const nextLineIdRef = useRef(1)
 
   // Load initial settings and listen for changes
   useEffect(() => {
@@ -58,7 +58,10 @@ function SubtitleOverlay(): JSX.Element {
       setLines((prev) => {
         // Remove any interim line, add the final result
         const withoutInterim = prev.filter((l) => l.id !== INTERIM_LINE_ID)
-        const updated = [...withoutInterim, { ...result, id: nextLineId++, opacity: 1 }]
+        if (nextLineIdRef.current >= Number.MAX_SAFE_INTEGER - 1000) {
+          nextLineIdRef.current = 1
+        }
+        const updated = [...withoutInterim, { ...result, id: nextLineIdRef.current++, opacity: 1 }]
         return updated.slice(-MAX_LINES)
       })
     })
@@ -81,8 +84,9 @@ function SubtitleOverlay(): JSX.Element {
 
     // Fade old lines
     fadeTimerRef.current = setInterval(() => {
-      setLines((prev) =>
-        prev
+      setLines((prev) => {
+        if (prev.length === 0) return prev
+        return prev
           .map((line) => {
             // Don't fade interim lines
             if (line.isInterim) return line
@@ -93,7 +97,7 @@ function SubtitleOverlay(): JSX.Element {
             return line
           })
           .filter((line) => line.opacity > 0)
-      )
+      })
     }, 500)
 
     return () => {
