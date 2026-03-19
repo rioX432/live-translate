@@ -42,6 +42,7 @@ export class DeepLTranslator implements TranslatorEngine {
 
   async translate(text: string, from: Language, to: Language): Promise<string> {
     if (!text.trim()) return ''
+    if (from === to) return text
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs)

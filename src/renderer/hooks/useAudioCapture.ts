@@ -16,12 +16,12 @@ export interface UseAudioCaptureReturn {
   hasVirtualAudioDevice: boolean // #125: BlackHole/Soundflower detected
   start: () => Promise<void>
   stop: () => void
-  /** Callback for VAD-detected complete speech segments (legacy mode) */
-  onAudioChunk: (callback: (chunk: Float32Array) => void) => void
-  /** Callback for periodic rolling buffer during speech (streaming mode) */
-  onStreamingChunk: (callback: (buffer: Float32Array) => void) => void
-  /** Callback when speech segment ends (streaming mode finalization) */
-  onSpeechSegmentEnd: (callback: (finalBuffer: Float32Array) => void) => void
+  /** Callback for VAD-detected complete speech segments (legacy mode). Returns unsubscribe function. */
+  onAudioChunk: (callback: (chunk: Float32Array) => void) => () => void
+  /** Callback for periodic rolling buffer during speech (streaming mode). Returns unsubscribe function. */
+  onStreamingChunk: (callback: (buffer: Float32Array) => void) => () => void
+  /** Callback when speech segment ends (streaming mode finalization). Returns unsubscribe function. */
+  onSpeechSegmentEnd: (callback: (finalBuffer: Float32Array) => void) => () => void
 }
 
 const STREAMING_INTERVAL_MS = 2000
@@ -235,14 +235,17 @@ export function useAudioCapture(): UseAudioCaptureReturn {
 
   const onAudioChunk = useCallback((callback: (chunk: Float32Array) => void) => {
     chunkCallbackRef.current = callback
+    return () => { chunkCallbackRef.current = null }
   }, [])
 
   const onStreamingChunk = useCallback((callback: (buffer: Float32Array) => void) => {
     streamingCallbackRef.current = callback
+    return () => { streamingCallbackRef.current = null }
   }, [])
 
   const onSpeechSegmentEnd = useCallback((callback: (finalBuffer: Float32Array) => void) => {
     speechEndCallbackRef.current = callback
+    return () => { speechEndCallbackRef.current = null }
   }, [])
 
   return {

@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
 
+/** Wrap a promise with a timeout to prevent UI freezes when main process hangs */
+function withIpcTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>
+  const timeoutPromise = new Promise<never>((_resolve, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
+  })
+  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
+}
+
 type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-slm'
 
 interface DisplayInfo {
@@ -132,20 +141,21 @@ function SettingsPanel(): JSX.Element {
 
   // Handle audio: streaming chunks during speech, final segment on speech end
   useEffect(() => {
-    // Legacy: VAD speech end → final processing (non-streaming fallback for e2e mode)
-    audio.onAudioChunk((chunk) => {
+    const unsub1 = audio.onAudioChunk((chunk) => {
       window.api.processAudio(Array.from(chunk))
     })
-
-    // Streaming: periodic rolling buffer during speech
-    audio.onStreamingChunk((buffer) => {
+    const unsub2 = audio.onStreamingChunk((buffer) => {
       window.api.processAudioStreaming(Array.from(buffer))
     })
-
-    // Streaming: finalize when speech ends
-    audio.onSpeechSegmentEnd((finalBuffer) => {
+    const unsub3 = audio.onSpeechSegmentEnd((finalBuffer) => {
       window.api.finalizeStreaming(Array.from(finalBuffer))
     })
+
+    return () => {
+      unsub1()
+      unsub2()
+      unsub3()
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks use stable refs internally
   }, [])
 
@@ -174,7 +184,7 @@ function SettingsPanel(): JSX.Element {
       setStatus('Starting pipeline...')
 
       // Persist settings (#49)
-      await window.api.saveSettings({
+      await withIpcTimeout(window.api.saveSettings({
         translationEngine: engineMode,
         googleApiKey: apiKey,
         deeplApiKey,
@@ -184,7 +194,7 @@ function SettingsPanel(): JSX.Element {
         selectedMicrophone: audio.selectedDevice,
         selectedDisplay,
         sttEngine
-      })
+      }), 10_000, 'saveSettings')
 
       // Resolve auto mode to concrete engine
       let resolvedMode = engineMode
@@ -252,7 +262,7 @@ function SettingsPanel(): JSX.Element {
         }
       }
 
-      const result = await window.api.pipelineStart(config)
+      const result = await withIpcTimeout(window.api.pipelineStart(config), 120_000, 'pipelineStart')
       if (result.error) {
         setStatus(`Error: ${result.error}`)
         setIsStarting(false) // #36: reset on error
@@ -266,6 +276,7 @@ function SettingsPanel(): JSX.Element {
     } catch (err) {
       setStatus(`Error: ${err}`)
       setIsRunning(false) // #36: reset on error
+      stopSessionTimer()
     } finally {
       setIsStarting(false)
     }
@@ -275,7 +286,7 @@ function SettingsPanel(): JSX.Element {
     try {
       audio.stop()
       stopSessionTimer()
-      const result = await window.api.pipelineStop()
+      const result = await withIpcTimeout(window.api.pipelineStop(), 10_000, 'pipelineStop')
       setStatus(result.logPath ? `Saved: ${result.logPath}` : 'Stopped')
 
       if (result.logPath) {
@@ -295,7 +306,7 @@ function SettingsPanel(): JSX.Element {
 
     try {
       setStatus('Resuming previous session...')
-      const result = await window.api.pipelineStart(crashedSession.config)
+      const result = await withIpcTimeout(window.api.pipelineStart(crashedSession.config), 120_000, 'pipelineStart')
       if (result.error) {
         setStatus(`Resume failed: ${result.error}`)
         setIsStarting(false)
@@ -432,7 +443,7 @@ function SettingsPanel(): JSX.Element {
           </div>
         )}
         {!audio.hasVirtualAudioDevice && (
-          <div style={{ marginTop: '6px', fontSize: '11px', color: '#64748b' }}>
+          <div style={{ marginTop: '6px', fontSize: '11px', color: '#94a3b8' }}>
             To capture Zoom/Teams audio, install BlackHole (free) and select it as the input device
           </div>
         )}
@@ -457,7 +468,7 @@ function SettingsPanel(): JSX.Element {
           </div>
         )}
         {sttEngine === 'mlx-whisper' && (
-          <div style={{ marginTop: '4px', fontSize: '11px', color: '#64748b' }}>
+          <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
             Requires Python 3 + mlx-whisper: pip install mlx-whisper
           </div>
         )}
@@ -475,7 +486,7 @@ function SettingsPanel(): JSX.Element {
           />
           <div>
             <div style={{ fontWeight: 500 }}>Auto (Recommended)</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
               {gpuInfo
                 ? gpuInfo.hasGpu
                   ? `GPU detected: ${gpuInfo.gpuNames.join(', ')}`
@@ -485,7 +496,7 @@ function SettingsPanel(): JSX.Element {
           </div>
         </label>
 
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '10px', marginBottom: '4px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '10px', marginBottom: '4px' }}>
           API Translation
         </div>
         <label style={radioLabelStyle}>
@@ -498,7 +509,7 @@ function SettingsPanel(): JSX.Element {
           />
           <div>
             <div style={{ fontWeight: 500 }}>Auto Rotation (Recommended) — up to 4M+ chars/month free</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>Azure → Google → DeepL → Gemini, auto-fallback on quota</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Azure → Google → DeepL → Gemini, auto-fallback on quota</div>
           </div>
         </label>
         <label style={radioLabelStyle}>
@@ -511,7 +522,7 @@ function SettingsPanel(): JSX.Element {
           />
           <div>
             <div style={{ fontWeight: 500 }}>Google Translation</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, high quality, requires internet</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, high quality, requires internet</div>
           </div>
         </label>
         <label style={radioLabelStyle}>
@@ -524,7 +535,7 @@ function SettingsPanel(): JSX.Element {
           />
           <div>
             <div style={{ fontWeight: 500 }}>DeepL</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, high quality, 500K chars/month free</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, high quality, 500K chars/month free</div>
           </div>
         </label>
         <label style={radioLabelStyle}>
@@ -537,11 +548,11 @@ function SettingsPanel(): JSX.Element {
           />
           <div>
             <div style={{ fontWeight: 500 }}>Gemini 2.5 Flash</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, LLM-based, generous free tier</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, LLM-based, generous free tier</div>
           </div>
         </label>
 
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '10px', marginBottom: '4px' }}>
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '10px', marginBottom: '4px' }}>
           Offline
         </div>
         <label style={radioLabelStyle}>
@@ -554,7 +565,7 @@ function SettingsPanel(): JSX.Element {
           />
           <div>
             <div style={{ fontWeight: 500 }}>OPUS-MT</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, no internet, ~100MB model download</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, no internet, ~100MB model download</div>
           </div>
         </label>
         <label style={radioLabelStyle}>
@@ -567,7 +578,7 @@ function SettingsPanel(): JSX.Element {
           />
           <div>
             <div style={{ fontWeight: 500 }}>TranslateGemma 4B</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, GPU-accelerated, ~2.6GB model download</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, GPU-accelerated, ~2.6GB model download</div>
             {engineMode === 'offline-slm' && gpuInfo && !gpuInfo.hasGpu && (
               <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
                 No GPU detected — translation may be slow on CPU-only systems
@@ -795,7 +806,7 @@ function SettingsPanel(): JSX.Element {
         </span>{' '}
         {status}
         {sessionDuration && (
-          <span style={{ marginLeft: '8px', color: '#64748b' }}>
+          <span style={{ marginLeft: '8px', color: '#94a3b8' }}>
             ({sessionDuration})
           </span>
         )}
@@ -815,7 +826,7 @@ function SettingsPanel(): JSX.Element {
               onClick={async () => {
                 setIsSummarizing(true)
                 setStatus('Generating meeting summary...')
-                const result = await window.api.generateSummary(lastTranscriptPath)
+                const result = await withIpcTimeout(window.api.generateSummary(lastTranscriptPath), 120_000, 'generateSummary')
                 setIsSummarizing(false)
                 if (result.summary) {
                   setSummaryText(result.summary)
@@ -889,11 +900,11 @@ function SettingsPanel(): JSX.Element {
               }}>
                 <div>
                   <div style={{ color: '#e2e8f0' }}>{new Date(s.startedAt).toLocaleString()}</div>
-                  <div style={{ color: '#64748b' }}>{s.engineMode} — {s.entryCount} entries</div>
+                  <div style={{ color: '#94a3b8' }}>{s.engineMode} — {s.entryCount} entries</div>
                 </div>
                 <button
                   onClick={async () => {
-                    const result = await window.api.exportSession(s.id, 'text')
+                    const result = await withIpcTimeout(window.api.exportSession(s.id, 'text'), 10_000, 'exportSession')
                     if (result.content) {
                       navigator.clipboard.writeText(result.content)
                       setStatus('Session exported to clipboard')

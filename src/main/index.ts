@@ -24,6 +24,15 @@ import type { EngineConfig, TranslationResult } from '../engines/types'
 /** Minimum amplitude to consider a chunk as non-silent */
 const SILENCE_THRESHOLD = 0.001
 
+/** Calculate subtitle window height based on display scale factor */
+function getSubtitleHeight(display: Electron.Display): number {
+  // Base height for 3 subtitle lines at default font size (30px)
+  const baseHeight = 200
+  const scaleFactor = display.scaleFactor ?? 1
+  // Scale for HiDPI displays but cap at 2x to avoid excessively tall windows
+  return Math.round(baseHeight * Math.min(scaleFactor, 2))
+}
+
 /** Monthly character limits for API rotation providers */
 const QUOTA_LIMITS = {
   microsoft: 2_000_000,
@@ -41,6 +50,8 @@ function createMainWindow(): void {
   mainWindow = new BrowserWindow({
     width: 520,
     height: 720,
+    minWidth: 480,
+    minHeight: 600,
     resizable: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
@@ -65,14 +76,16 @@ function createSubtitleWindow(): void {
   const displays = screen.getAllDisplays()
   const savedDisplayId = store.get('selectedDisplay')
   const savedDisplay = savedDisplayId ? displays.find((d) => d.id === savedDisplayId) : null
-  const externalDisplay = displays.find((d) => d.bounds.x !== 0 || d.bounds.y !== 0)
+  const primaryId = screen.getPrimaryDisplay().id
+  const externalDisplay = displays.find((d) => d.id !== primaryId)
   const targetDisplay = savedDisplay || externalDisplay || displays[0]
 
+  const subtitleHeight = getSubtitleHeight(targetDisplay)
   subtitleWindow = new BrowserWindow({
     x: targetDisplay.bounds.x,
-    y: targetDisplay.bounds.y + targetDisplay.bounds.height - 200,
+    y: targetDisplay.bounds.y + targetDisplay.bounds.height - subtitleHeight,
     width: targetDisplay.bounds.width,
-    height: 200,
+    height: subtitleHeight,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
@@ -254,7 +267,7 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
     }
 
     // Start logger
-    logger = new TranscriptLogger()
+    logger = new TranscriptLogger((msg) => mainWindow?.webContents.send('status-update', msg))
     const sessionLabel = config.mode === 'e2e'
       ? 'Offline (Whisper Translate)'
       : `Cascade (Whisper + ${config.translatorEngineId})`
@@ -404,9 +417,10 @@ ipcMain.handle('finalize-streaming', async (_event, audioData: unknown) => {
 
 // Get available displays
 ipcMain.handle('get-displays', () => {
+  const primary = screen.getPrimaryDisplay()
   return screen.getAllDisplays().map((d, i) => ({
     id: d.id,
-    label: i === 0 ? `Display ${i + 1} (Main)` : `Display ${i + 1} (External)`,
+    label: d.id === primary.id ? `Display ${i + 1} (Main)` : `Display ${i + 1} (External)`,
     bounds: d.bounds
   }))
 })
@@ -419,11 +433,12 @@ ipcMain.on('move-subtitle-to-display', (_event, displayId: number) => {
     return
   }
   if (subtitleWindow) {
+    const h = getSubtitleHeight(display)
     subtitleWindow.setBounds({
       x: display.bounds.x,
-      y: display.bounds.y + display.bounds.height - 200,
+      y: display.bounds.y + display.bounds.height - h,
       width: display.bounds.width,
-      height: 200
+      height: h
     })
   }
 })
@@ -564,11 +579,12 @@ app.whenReady().then(() => {
   screen.on('display-removed', () => {
     if (!subtitleWindow) return
     const primaryDisplay = screen.getPrimaryDisplay()
+    const h = getSubtitleHeight(primaryDisplay)
     subtitleWindow.setBounds({
       x: primaryDisplay.bounds.x,
-      y: primaryDisplay.bounds.y + primaryDisplay.bounds.height - 200,
+      y: primaryDisplay.bounds.y + primaryDisplay.bounds.height - h,
       width: primaryDisplay.bounds.width,
-      height: 200
+      height: h
     })
     // #64: notify renderer to refresh display list
     mainWindow?.webContents.send('displays-changed')
@@ -585,13 +601,18 @@ app.on('before-quit', (event) => {
   isQuitting = true
   event.preventDefault()
 
-  // Async cleanup before quit
+  // Async cleanup before quit — timeout after 5s to prevent hanging (#222)
   ;(async () => {
     try {
       logger?.endSession()
       logger = null
       store.set('activeSession', null)
-      await pipeline?.dispose()
+      await Promise.race([
+        pipeline?.dispose() ?? Promise.resolve(),
+        new Promise((_resolve, reject) =>
+          setTimeout(() => reject(new Error('Cleanup timed out')), 5000)
+        )
+      ])
     } catch (err) {
       console.error('[quit] Cleanup error:', err)
     } finally {

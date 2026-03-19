@@ -8,8 +8,13 @@ export class TranscriptLogger {
   private logPath: string
   private sessionStartTime: Date
   private writeQueue: Promise<void> = Promise.resolve()
+  private consecutiveFailures = 0
+  private loggingDisabled = false
+  private onStatusUpdate?: (message: string) => void
+  private static readonly MAX_FAILURES = 5
 
-  constructor() {
+  constructor(onStatusUpdate?: (message: string) => void) {
+    this.onStatusUpdate = onStatusUpdate
     const logsDir = join(app.getPath('documents'), 'live-translate', 'logs')
     if (!existsSync(logsDir)) {
       mkdirSync(logsDir, { recursive: true })
@@ -38,6 +43,8 @@ export class TranscriptLogger {
 
   /** Append a translation result to the log (sequential writes for ordering) */
   log(result: TranslationResult): void {
+    if (this.loggingDisabled) return
+
     const time = new Date(result.timestamp).toLocaleTimeString('ja-JP')
     const entry = [
       `[${time}] [${result.sourceLanguage.toUpperCase()}] ${result.sourceText}`,
@@ -47,8 +54,18 @@ export class TranscriptLogger {
 
     this.writeQueue = this.writeQueue
       .then(() => appendFile(this.logPath, entry, 'utf-8'))
+      .then(() => {
+        this.consecutiveFailures = 0
+      })
       .catch((err) => {
+        this.consecutiveFailures++
         console.error('[logger] Failed to write log entry:', err)
+        if (this.consecutiveFailures >= TranscriptLogger.MAX_FAILURES) {
+          this.loggingDisabled = true
+          const msg = `Transcript logging disabled after ${this.consecutiveFailures} failures: ${(err as Error).message}`
+          console.error(`[logger] ${msg}`)
+          this.onStatusUpdate?.(msg)
+        }
       })
   }
 
@@ -64,7 +81,12 @@ export class TranscriptLogger {
     ].join('\n')
 
     // endSession is called at shutdown — use sync to ensure footer is written
-    writeFileSync(this.logPath, footer, { encoding: 'utf-8', flag: 'a' })
+    try {
+      writeFileSync(this.logPath, footer, { encoding: 'utf-8', flag: 'a' })
+    } catch (err) {
+      console.error('[logger] Failed to write session footer:', err)
+      this.onStatusUpdate?.(`Failed to write session footer: ${(err as Error).message}`)
+    }
   }
 
   /** Get the log file path */

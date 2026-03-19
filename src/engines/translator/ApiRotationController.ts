@@ -1,4 +1,4 @@
-import type { TranslatorEngine, Language } from '../types'
+import type { TranslatorEngine, Language, TranslateContext } from '../types'
 
 export interface ProviderConfig {
   engine: TranslatorEngine
@@ -37,6 +37,7 @@ export class ApiRotationController implements TranslatorEngine {
   private static readonly MAX_CONSECUTIVE_FAILURES = 5
   private static readonly FAILURE_COOLDOWN_MS = 5 * 60_000 // 5 minutes
   private initialized = false
+  private initializedProviders = new Set<string>()
 
   constructor(
     providers: ProviderConfig[],
@@ -51,15 +52,33 @@ export class ApiRotationController implements TranslatorEngine {
 
   async initialize(): Promise<void> {
     if (this.initialized) return
-    // Initialize all provider engines
+    const errors: Array<{ id: string; error: Error }> = []
+
     for (const provider of this.providers) {
-      await provider.engine.initialize()
+      try {
+        await provider.engine.initialize()
+        this.initializedProviders.add(provider.engine.id)
+      } catch (err) {
+        errors.push({
+          id: provider.engine.id,
+          error: err instanceof Error ? err : new Error(String(err))
+        })
+        console.warn(`[rotation] ${provider.engine.id} init failed:`, err)
+      }
+    }
+
+    if (this.initializedProviders.size === 0) {
+      throw new Error(`All rotation providers failed: ${errors.map((e) => `${e.id}: ${e.error.message}`).join('; ')}`)
+    }
+    if (errors.length > 0) {
+      this.onStatusUpdate?.(`Some providers failed to initialize: ${errors.map((e) => e.id).join(', ')}`)
     }
     this.initialized = true
   }
 
-  async translate(text: string, from: Language, to: Language): Promise<string> {
+  async translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string> {
     if (!text.trim()) return ''
+    if (from === to) return text
 
     const currentMonth = this.getCurrentMonthKey()
     const charCount = text.length
@@ -67,6 +86,10 @@ export class ApiRotationController implements TranslatorEngine {
 
     for (const provider of this.providers) {
       const providerId = provider.engine.id
+
+      // Skip providers that failed to initialize (#219)
+      if (!this.initializedProviders.has(providerId)) continue
+
       const record = this.getQuotaRecord(providerId, currentMonth)
 
       // Skip if quota exhausted
@@ -96,7 +119,7 @@ export class ApiRotationController implements TranslatorEngine {
       }
 
       try {
-        const result = await provider.engine.translate(text, from, to)
+        const result = await provider.engine.translate(text, from, to, context)
 
         // Track usage after successful translation
         record.charCount += charCount
