@@ -1,0 +1,20 @@
+{
+  "name": "live-translate-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Translation quality benchmark: OPUS-MT vs TranslateGemma vs Google Translate",
+  "scripts": {
+    "bench": "tsx --expose-gc run.ts",
+    "bench:google": "tsx --expose-gc run.ts --engines google",
+    "bench:opus": "tsx --expose-gc run.ts --engines opus-mt",
+    "bench:gemma": "tsx --expose-gc run.ts --engines translate-gemma"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.8.0",
+    "node-llama-cpp": "^3.0.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.0"
+  }
+}

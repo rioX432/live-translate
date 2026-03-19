@@ -6,3 +6,5 @@ logs/
 *.log
 .DS_Store
 src/renderer/public/vad/
+benchmark/results/
+benchmark/models/
