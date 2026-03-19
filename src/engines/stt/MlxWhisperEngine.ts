@@ -34,8 +34,18 @@ export class MlxWhisperEngine implements STTEngine {
     // Find the bridge script
     const bridgePath = join(__dirname, '../../resources/mlx-whisper-bridge.py')
 
-    this.process = spawn('python3', [bridgePath], {
-      stdio: ['pipe', 'pipe', 'pipe']
+    try {
+      this.process = spawn('python3', [bridgePath], {
+        stdio: ['pipe', 'pipe', 'pipe']
+      })
+    } catch (err) {
+      throw new Error('Python 3 not found. Install Python 3 and run: pip install mlx-whisper')
+    }
+
+    // Handle spawn errors (python3 not in PATH)
+    this.process.on('error', (err) => {
+      console.error('[mlx-whisper] Failed to start Python bridge:', err.message)
+      this.process = null
     })
 
     this.process.stdout!.on('data', (data: Buffer) => {
