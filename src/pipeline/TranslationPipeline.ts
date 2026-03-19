@@ -66,6 +66,9 @@ export class TranslationPipeline extends EventEmitter {
   private streamingLock = false
   private streamingLockResolvers: Array<() => void> = []
 
+  // Batch processing mutex — STT engines assume sequential access (#217)
+  private batchLock = false
+
   // Engine factories — registered externally
   private sttFactories = new Map<string, () => STTEngine>()
   private translatorFactories = new Map<string, () => TranslatorEngine>()
@@ -255,8 +258,10 @@ export class TranslationPipeline extends EventEmitter {
 
   async process(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
     if (this._state !== PipelineState.RUNNING || !this.config) return null
+    if (this.batchLock) return null
 
     this.processingCount++
+    this.batchLock = true
     try {
       let result: TranslationResult | null = null
 
@@ -277,11 +282,12 @@ export class TranslationPipeline extends EventEmitter {
       this.emit('error', error)
 
       if (this.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-        await this.attemptRecovery()
+        this.scheduleRecovery()
       }
 
       return null
     } finally {
+      this.batchLock = false
       this.processingCount--
       if (this.processingCount === 0) {
         for (const resolve of this.processingDoneResolvers) resolve()
@@ -328,15 +334,15 @@ export class TranslationPipeline extends EventEmitter {
     } catch (translatorErr) {
       console.error('[pipeline] Translator error:', translatorErr)
       this.emit('error', new Error(`Translation failed: ${translatorErr instanceof Error ? translatorErr.message : translatorErr}`))
-      // Return STT-only result so source text still displays
-      return {
-        sourceText: sttResult.text,
-        translatedText: '',
-        sourceLanguage: sttResult.language,
-        targetLanguage: targetLang,
-        timestamp: Date.now()
-      }
+      return null
     }
+  }
+
+  /** Fire-and-forget recovery — does not block the IPC handler (#218) */
+  private scheduleRecovery(): void {
+    this.attemptRecovery().catch((err) => {
+      console.error('[pipeline] Background recovery error:', err)
+    })
   }
 
   private async attemptRecovery(): Promise<void> {
@@ -407,13 +413,15 @@ export class TranslationPipeline extends EventEmitter {
         translatedText = this.lastTranslatedConfirmed
       }
 
+      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
       const interimResult: TranslationResult = {
         sourceText: agreement.confirmedText + agreement.interimText,
         translatedText,
         sourceLanguage: sttResult.language,
         targetLanguage: targetLang,
         timestamp: Date.now(),
-        isInterim: true
+        isInterim: true,
+        speakerId
       }
 
       this.emit('interim-result', interimResult)
@@ -469,13 +477,15 @@ export class TranslationPipeline extends EventEmitter {
 
       this.lastTranslatedConfirmed = ''
 
+      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
       const result: TranslationResult = {
         sourceText: agreement.confirmedText,
         translatedText,
         sourceLanguage: sttResult.language,
         targetLanguage: targetLang,
         timestamp: Date.now(),
-        isInterim: false
+        isInterim: false,
+        speakerId
       }
 
       this.emit('result', result)
