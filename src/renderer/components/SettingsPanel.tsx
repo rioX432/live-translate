@@ -335,7 +335,7 @@ function SettingsPanel(): JSX.Element {
 
       {/* #54: Crash recovery banner */}
       {crashedSession && !isRunning && (
-        <div style={{
+        <div role="alert" style={{
           background: '#1e293b',
           border: '1px solid #f59e0b',
           borderRadius: '8px',
@@ -673,6 +673,7 @@ function SettingsPanel(): JSX.Element {
             <div style={sliderLabelStyle}>Font Size: {subtitleFontSize}px</div>
             <input
               type="range"
+              aria-label="Subtitle font size"
               min={20}
               max={48}
               value={subtitleFontSize}
@@ -714,6 +715,7 @@ function SettingsPanel(): JSX.Element {
             <div style={sliderLabelStyle}>Background Opacity: {subtitleBgOpacity}%</div>
             <input
               type="range"
+              aria-label="Subtitle background opacity"
               min={0}
               max={100}
               value={subtitleBgOpacity}

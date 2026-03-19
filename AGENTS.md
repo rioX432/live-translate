@@ -4,22 +4,21 @@ This file provides guidance to AI coding agents working with this repository.
 
 ## Project Overview
 
-live-translate is a real-time speech translation overlay app for presentations. It captures microphone audio via Silero VAD, performs speech-to-text with Whisper (local), translates via pluggable engines (Google / DeepL / Azure / Gemini / OPUS-MT / Whisper translate), and displays subtitles on an external display overlaid on presentation slides. Supports streaming display via Local Agreement algorithm.
+Live Translate is a real-time speech translation overlay app for presentations and meetings. It captures microphone audio via Silero VAD, performs speech-to-text with pluggable STT engines (Whisper, mlx-whisper, Moonshine), translates via pluggable translation engines (Google, DeepL, Azure, Gemini, OPUS-MT, TranslateGemma 4B), and displays subtitles on an external display. Features GPU-accelerated offline translation, speaker diarization, meeting summaries, and a plugin system.
 
 ## Commands
 
 ```bash
 # Development
-npm run dev        # Start Electron in dev mode (hot reload)
-npm run build      # Build for production
-npm run package    # Package as macOS .app
+npm run dev          # Start Electron in dev mode (hot reload)
+npm run build        # Build for production
+npm run test         # Run unit tests (Vitest, 32 tests)
+npm run package      # Package as macOS .app
+npm run package:dmg  # Build macOS DMG installer
 
 # After cloning
-npm install        # Install deps (postinstall fixes whisper-node-addon)
-                   # node-llama-cpp compiles native bindings (requires Xcode CLT)
-
-# Testing
-npm test           # Run unit tests (Vitest)
+npm install          # Install deps (postinstall fixes whisper-node-addon)
+                     # node-llama-cpp compiles native bindings (requires Xcode CLT)
 ```
 
 ## Architecture
@@ -27,9 +26,12 @@ npm test           # Run unit tests (Vitest)
 ### Tech Stack
 - Electron + React + TypeScript
 - electron-vite (build tooling)
-- whisper-node-addon (whisper.cpp native Node.js binding)
-- @ricky0123/vad-web (Silero VAD for voice activity detection)
-- Multiple translation backends (Google, DeepL, Azure, Gemini, OPUS-MT)
+- whisper-node-addon (whisper.cpp native binding)
+- mlx-whisper (Python subprocess bridge, Apple Silicon)
+- Moonshine AI (ONNX via @huggingface/transformers)
+- node-llama-cpp (TranslateGemma 4B, meeting summaries, UtilityProcess)
+- @ricky0123/vad-web (Silero VAD)
+- Multiple translation backends (Google, DeepL, Azure, Gemini, OPUS-MT, TranslateGemma)
 - Local Agreement algorithm for streaming subtitle display
 
 ### Module Structure
@@ -37,40 +39,52 @@ npm test           # Run unit tests (Vitest)
 ```
 live-translate/
 ├── src/
-│   ├── main/                    # Electron main process
-│   │   ├── index.ts             # App entry, window management, IPC, pipeline wiring
-│   │   └── store.ts             # electron-store (settings, quota tracking)
-│   ├── preload/                 # Context bridge (renderer ↔ main IPC, with unsubscribe)
-│   ├── renderer/                # React UI
+│   ├── main/
+│   │   ├── index.ts             # App entry, IPC handlers, pipeline wiring
+│   │   ├── store.ts             # electron-store (encrypted, settings, quota)
+│   │   └── slm-worker.ts        # UtilityProcess: TranslateGemma + summarization
+│   ├── preload/                 # Context bridge (renderer ↔ main IPC)
+│   ├── renderer/
 │   │   ├── components/
-│   │   │   ├── SettingsPanel.tsx    # Main control panel (6 engine modes, session timer)
-│   │   │   └── SubtitleOverlay.tsx  # Transparent subtitle window (final + interim)
+│   │   │   ├── SettingsPanel.tsx    # Control panel (auto + 7 engines, STT, subtitles)
+│   │   │   └── SubtitleOverlay.tsx  # Transparent subtitle window (speaker labels)
 │   │   └── hooks/
-│   │       └── useAudioCapture.ts   # Mic capture via Silero VAD, streaming chunks
-│   ├── engines/                 # Pluggable translation engines (Strategy pattern)
-│   │   ├── types.ts             # Interfaces: STTEngine, TranslatorEngine, E2ETranslationEngine
-│   │   ├── model-downloader.ts  # Whisper GGML model auto-download
+│   │       └── useAudioCapture.ts   # Mic/virtual audio capture via Silero VAD
+│   ├── engines/
+│   │   ├── types.ts             # STTEngine, TranslatorEngine, TranslateContext
+│   │   ├── model-downloader.ts  # Whisper + GGUF download (resume, SHA256)
+│   │   ├── gpu-detector.ts      # GPU detection via node-llama-cpp
+│   │   ├── plugin-loader.ts     # Engine plugin manifest + loading
 │   │   ├── stt/
-│   │   │   └── WhisperLocalEngine.ts    # Local STT + hallucination filter
-│   │   ├── translator/
-│   │   │   ├── GoogleTranslator.ts      # Google Cloud Translation API v2
-│   │   │   ├── DeepLTranslator.ts       # DeepL API
-│   │   │   ├── GeminiTranslator.ts      # Gemini 2.5 Flash (LLM-based)
-│   │   │   ├── MicrosoftTranslator.ts   # Azure Microsoft Translator
-│   │   │   ├── OpusMTTranslator.ts      # OPUS-MT (Hugging Face, offline)
-│   │   │   └── ApiRotationController.ts # Multi-provider rotation with quota tracking
-│   │   └── e2e/
-│   │       └── WhisperTranslateEngine.ts # Offline JA→EN (Whisper translate task)
+│   │   │   ├── WhisperLocalEngine.ts    # whisper.cpp + hallucination filter
+│   │   │   ├── MlxWhisperEngine.ts      # mlx-whisper (Python bridge)
+│   │   │   └── MoonshineEngine.ts       # Moonshine AI (ONNX)
+│   │   └── translator/
+│   │       ├── GoogleTranslator.ts
+│   │       ├── DeepLTranslator.ts
+│   │       ├── GeminiTranslator.ts
+│   │       ├── MicrosoftTranslator.ts
+│   │       ├── OpusMTTranslator.ts
+│   │       ├── SLMTranslator.ts         # TranslateGemma 4B (UtilityProcess)
+│   │       └── ApiRotationController.ts # Multi-provider rotation
 │   ├── pipeline/
-│   │   ├── TranslationPipeline.ts  # STT → translate orchestration, streaming, auto-recovery
-│   │   ├── LocalAgreement.ts       # Longest common prefix for streaming stability
-│   │   └── whisper-filter.ts       # Whisper hallucination detection and filtering
+│   │   ├── TranslationPipeline.ts  # Orchestration, streaming, auto-recovery
+│   │   ├── LocalAgreement.ts       # LCP for streaming stability
+│   │   ├── ContextBuffer.ts        # Ring buffer for context-aware translation
+│   │   ├── SpeakerTracker.ts       # Silence-gap speaker detection
+│   │   ├── PyannoteDiarizer.ts     # pyannote.audio (Python bridge)
+│   │   └── whisper-filter.ts       # Hallucination detection
 │   └── logger/
-│       └── TranscriptLogger.ts     # Session transcript file writer
+│       ├── TranscriptLogger.ts     # Plain text session logging
+│       └── SessionManager.ts       # JSON sessions, search, export
+├── resources/
+│   ├── mlx-whisper-bridge.py       # Python bridge for mlx-whisper
+│   └── pyannote-bridge.py          # Python bridge for pyannote
 ├── scripts/
-│   └── fix-whisper-addon.js        # postinstall: fix macOS dylib paths
-├── models/                         # Whisper GGML models (auto-downloaded, gitignored)
-└── logs/                           # Transcript logs (gitignored)
+│   ├── fix-whisper-addon.js        # postinstall: fix macOS dylib paths
+│   └── after-pack.js              # electron-builder: fix packaged paths
+├── benchmark/                     # Translation quality benchmark (standalone)
+└── models/                        # Auto-downloaded models (gitignored)
 ```
 
 ### Key Design Patterns
@@ -78,48 +92,48 @@ live-translate/
 **Strategy Pattern (Engine Swapping)**
 - All engines implement shared interfaces from `engines/types.ts`
 - `TranslationPipeline` registers engine factories and switches at runtime
-- Adding a new engine = 1 file implementing the interface + registration in `main/index.ts`
+- Adding a new engine = 1 file + registration in `main/index.ts` (or via plugin)
 
-**Two Pipeline Modes**
-- `cascade`: STTEngine → TranslatorEngine (online: Whisper + any translator)
-- `e2e`: E2ETranslationEngine (offline: Whisper translate task)
+**Pipeline Mode: Cascade**
+- `cascade`: STTEngine → TranslatorEngine (all current modes)
+- STT and translator are independently selectable
 
 **Streaming via Local Agreement**
-- `processStreaming()`: Called periodically during speech with rolling buffer. Emits `interim-result` events with confirmed + tentative text
-- `finalizeStreaming()`: Called when speech ends. Promotes all text to confirmed and emits `result` event
+- `processStreaming()`: Periodic rolling buffer → interim results
+- `finalizeStreaming()`: Speech ends → final results
 - Only translates newly confirmed text to minimize API calls
 
-**API Rotation**
-- `ApiRotationController` wraps multiple `TranslatorEngine` instances
-- Routes to first non-exhausted provider (Azure → Google → DeepL)
-- Tracks per-provider monthly character usage via electron-store
+**UtilityProcess Isolation**
+- TranslateGemma 4B runs in Electron UtilityProcess via node-llama-cpp
+- SLMTranslator acts as IPC proxy (request/response with timeout)
+- Also handles meeting summary generation
 
-**Production Hardening**
-- Memory monitoring logs heap/RSS every 60s during active sessions
-- Auto-recovery reinitializes engines after 3 consecutive errors
-- `whisper-filter.ts` catches hallucination patterns before they reach the pipeline
-- Graceful degradation shows STT-only results when translator is unavailable
+**Engine Auto-Selection**
+- GPU detection via node-llama-cpp `getGpuDeviceNames()`
+- Auto mode: API rotation (if keys) → TranslateGemma (if GPU) → OPUS-MT
+
+**Plugin System**
+- Plugins in `userData/plugins/` with `live-translate-plugin.json` manifest
+- Auto-discovered and registered on startup
+
+**API Rotation**
+- `ApiRotationController` wraps multiple providers
+- Routes to first non-exhausted provider with quota tracking
+- 5-minute cooldown after 5 consecutive failures
 
 **IPC Architecture**
-- Renderer captures audio → sends via IPC to main process
-- Main process runs Whisper (native addon) → translation → sends result via IPC
-- Subtitle window receives both `translation-result` (final) and `interim-result` (streaming) via IPC
-- All IPC listeners return unsubscribe functions for proper cleanup
-
-**IPC Channels**
-- `pipeline-start` / `pipeline-stop`: Pipeline lifecycle
-- `process-audio`: Final audio chunk (VAD speech end)
-- `process-audio-streaming`: Rolling buffer during speech
-- `finalize-streaming`: Speech segment ended, promote to final
-- `get-session-start-time`: For session duration display
-- `status-update`: Engine status messages (main → renderer)
-- `translation-result`: Final translation (main → subtitle + renderer)
-- `interim-result`: Streaming interim translation (main → subtitle)
+- Renderer → Main: audio chunks, pipeline control, settings
+- Main → Subtitle: translation results, subtitle settings
+- Main → Renderer: status updates, results
+- All listeners return unsubscribe functions
 
 ## Code Quality
 
 - TypeScript strict mode enabled
 - Run `npm run build` to verify no type errors before committing
+- Run `npm test` to verify unit tests pass
 - Engine `processAudio()` must return `null` (never throw) for no-speech/error cases
 - Engine `initialize()` must be idempotent (safe to call multiple times)
 - Engine `dispose()` must be safe to call even if not initialized
+- Store is encrypted with `encryptionKey`
+- IPC paths are validated against directory traversal

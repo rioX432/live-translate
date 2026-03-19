@@ -127,7 +127,16 @@ async function doDownloadWithResume(
         headers['Range'] = `bytes=${existingSize}-`
       }
 
-      const response = await fetch(url, { redirect: 'follow', headers })
+      // 10-minute timeout for large model downloads
+      const controller = new AbortController()
+      const fetchTimeout = setTimeout(() => controller.abort(), 10 * 60_000)
+
+      let response: Response
+      try {
+        response = await fetch(url, { redirect: 'follow', headers, signal: controller.signal })
+      } finally {
+        clearTimeout(fetchTimeout)
+      }
 
       // If server doesn't support Range, start over
       if (response.status === 200 && existingSize > 0) {

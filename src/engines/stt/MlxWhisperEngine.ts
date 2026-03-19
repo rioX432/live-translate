@@ -88,17 +88,22 @@ export class MlxWhisperEngine implements STTEngine {
   async processAudio(audioChunk: Float32Array, sampleRate: number): Promise<STTResult | null> {
     if (!this.process) return null
 
-    // Write PCM to temp file (mlx-whisper expects a file path)
     const tempPath = join(tmpdir(), `mlx-whisper-${Date.now()}.wav`)
     try {
-      // Write as WAV
       writeWav(tempPath, audioChunk, sampleRate)
 
-      const result = await this.sendCommand({
-        action: 'transcribe',
-        audio_path: tempPath,
-        sample_rate: sampleRate
-      })
+      let result: any
+      try {
+        result = await this.sendCommand({
+          action: 'transcribe',
+          audio_path: tempPath,
+          sample_rate: sampleRate
+        })
+      } catch (err) {
+        // Timeout or bridge error — return null per interface contract
+        console.error('[mlx-whisper] Bridge error:', err instanceof Error ? err.message : err)
+        return null
+      }
 
       if (result.error) {
         console.error('[mlx-whisper] Transcription error:', result.error)
