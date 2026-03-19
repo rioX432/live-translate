@@ -35,7 +35,13 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin({ exclude: ['electron-store', '@huggingface/transformers'] })],
     build: {
       lib: {
-        entry: resolve(__dirname, 'src/main/index.ts')
+        entry: {
+          index: resolve(__dirname, 'src/main/index.ts'),
+          'slm-worker': resolve(__dirname, 'src/main/slm-worker.ts')
+        }
+      },
+      rollupOptions: {
+        external: ['node-llama-cpp']
       }
     }
   },

@@ -11,6 +11,7 @@ files:
   - '!benchmark/*'
 asarUnpack:
   - 'node_modules/@kutalia/whisper-node-addon/**'
+  - 'node_modules/node-llama-cpp/**'
 mac:
   target:
     - target: dmg

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
 
-type EngineMode = 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-e2e' | 'offline-opus'
+type EngineMode = 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-e2e' | 'offline-opus' | 'offline-slm'
 
 interface DisplayInfo {
   id: number
@@ -195,6 +195,12 @@ function SettingsPanel(): JSX.Element {
           mode: 'cascade' as const,
           sttEngineId: 'whisper-local',
           translatorEngineId: 'opus-mt'
+        }
+      } else if (engineMode === 'offline-slm') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: 'whisper-local',
+          translatorEngineId: 'slm-translate'
         }
       } else {
         config = {
@@ -455,6 +461,19 @@ function SettingsPanel(): JSX.Element {
           <div>
             <div style={{ fontWeight: 500 }}>Whisper Translate</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA→EN only, no internet required</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline-slm'}
+            onChange={() => setEngineMode('offline-slm')}
+            disabled={isRunning}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>TranslateGemma 4B</div>
+            <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, GPU-accelerated, ~2.6GB model download</div>
           </div>
         </label>
       </Section>
