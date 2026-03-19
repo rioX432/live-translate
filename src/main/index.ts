@@ -16,6 +16,7 @@ import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { detectGpu } from '../engines/gpu-detector'
 import { isGGUFDownloaded, GGUF_VARIANTS } from '../engines/model-downloader'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
+import * as SessionManager from '../logger/SessionManager'
 import { store } from './store'
 import type { EngineConfig, TranslationResult } from '../engines/types'
 
@@ -477,6 +478,24 @@ ipcMain.handle('generate-summary', async (_event, transcriptPath: string) => {
     }
   } catch (err) {
     return { error: err instanceof Error ? err.message : String(err) }
+  }
+})
+
+// #121: Session management
+ipcMain.handle('list-sessions', () => SessionManager.listSessions())
+ipcMain.handle('load-session', (_event, id: string) => SessionManager.loadSession(id))
+ipcMain.handle('search-sessions', (_event, query: string) => SessionManager.searchSessions(query))
+ipcMain.handle('delete-session', (_event, id: string) => {
+  SessionManager.deleteSession(id)
+  return { success: true }
+})
+ipcMain.handle('export-session', (_event, id: string, format: 'text' | 'srt' | 'markdown') => {
+  const data = SessionManager.loadSession(id)
+  if (!data) return { error: 'Session not found' }
+  switch (format) {
+    case 'srt': return { content: SessionManager.exportAsSRT(data), ext: '.srt' }
+    case 'markdown': return { content: SessionManager.exportAsMarkdown(data), ext: '.md' }
+    default: return { content: SessionManager.exportAsText(data), ext: '.txt' }
   }
 })
 
