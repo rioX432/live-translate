@@ -8,8 +8,8 @@ export const MODEL_FILENAME = 'ggml-kotoba-whisper-v2.0-q5_0.bin'
 export const MODEL_URL =
   'https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0-ggml/resolve/main/ggml-kotoba-whisper-v2.0-q5_0.bin'
 
-// Download lock to prevent concurrent downloads (#25)
-let downloadInProgress: Promise<string> | null = null
+// Global download lock — serializes all model downloads to prevent disk corruption (#208)
+const activeDownloads = new Map<string, Promise<string>>()
 
 export function getModelPath(): string {
   return join(getModelsDir(), MODEL_FILENAME)
@@ -57,8 +57,7 @@ export const GGUF_VARIANTS: Record<string, GGUFVariant> = {
   }
 }
 
-// GGUF download lock
-let ggufDownloadInProgress: Promise<string> | null = null
+// GGUF download lock uses shared activeDownloads map
 
 /** Get the GGUF models subdirectory */
 export function getGGUFDir(): string {
@@ -89,17 +88,18 @@ export async function downloadGGUF(
     return modelPath
   }
 
-  // Prevent concurrent GGUF downloads
-  if (ggufDownloadInProgress) {
+  // Serialize downloads via shared lock (#208)
+  if (activeDownloads.has(filename)) {
     onProgress?.('Waiting for model download in progress...')
-    return ggufDownloadInProgress
+    return activeDownloads.get(filename)!
   }
 
-  ggufDownloadInProgress = doDownloadWithResume(modelPath, url, filename, onProgress, sha256)
+  const downloadPromise = doDownloadWithResume(modelPath, url, filename, onProgress, sha256)
+  activeDownloads.set(filename, downloadPromise)
   try {
-    return await ggufDownloadInProgress
+    return await downloadPromise
   } finally {
-    ggufDownloadInProgress = null
+    activeDownloads.delete(filename)
   }
 }
 
@@ -231,16 +231,17 @@ export async function downloadModel(
     return modelPath
   }
 
-  // Prevent concurrent downloads — reuse in-flight promise (#25)
-  if (downloadInProgress) {
+  // Serialize downloads via shared lock (#208)
+  if (activeDownloads.has(MODEL_FILENAME)) {
     onProgress?.('Waiting for model download in progress...')
-    return downloadInProgress
+    return activeDownloads.get(MODEL_FILENAME)!
   }
 
-  downloadInProgress = doDownloadWithResume(modelPath, MODEL_URL, 'Whisper model (~540MB)', onProgress)
+  const downloadPromise = doDownloadWithResume(modelPath, MODEL_URL, 'Whisper model (~540MB)', onProgress)
+  activeDownloads.set(MODEL_FILENAME, downloadPromise)
   try {
-    return await downloadInProgress
+    return await downloadPromise
   } finally {
-    downloadInProgress = null
+    activeDownloads.delete(MODEL_FILENAME)
   }
 }
