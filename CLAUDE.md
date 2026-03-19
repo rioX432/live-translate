@@ -29,9 +29,12 @@ Before acting, always pause and reconsider. Re-read the requirements, re-check y
 - macOS microphone permission: Electron dev mode runs via Terminal — grant mic access to Terminal.app in System Preferences
 - `ScriptProcessorNode` is deprecated — migrate to `AudioWorkletNode` when stability is confirmed
 - electron-vite 2.x requires `build.lib.entry` for main/preload configs
-- Whisper model (~600MB) downloads on first launch — handle offline gracefully
-- Whisper translate task only outputs English — JA→EN works, EN→JA requires external translator
+- Whisper model (~540MB) downloads on first launch — handle offline gracefully
+- TranslateGemma GGUF (~2.6GB) downloads with resume support and SHA256 verification
 - Google Cloud Translation API v2 free tier: 500K chars/month, 6000 req/min
+- node-llama-cpp runs in UtilityProcess (slm-worker.ts), not main process
+- electron-store is encrypted — API keys are not stored in plaintext
+- IPC paths must be validated against directory traversal before file operations
 
 ## Language
 
