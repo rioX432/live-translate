@@ -20,6 +20,14 @@ export interface ElectronAPI {
   getSettings: () => Promise<Record<string, unknown>>
   saveSettings: (settings: Record<string, unknown>) => Promise<void>
   getCrashedSession: () => Promise<{ config: Record<string, unknown>; startedAt: number } | null>
+  listSessions: () => Promise<Array<{ id: string; startedAt: number; endedAt?: number; engineMode: string; entryCount: number }>>
+  loadSession: (id: string) => Promise<unknown>
+  searchSessions: (query: string) => Promise<Array<{ sessionId: string; matches: unknown[] }>>
+  deleteSession: (id: string) => Promise<{ success: boolean }>
+  exportSession: (id: string, format: string) => Promise<{ content?: string; ext?: string; error?: string }>
+  getGgufVariants: () => Promise<Array<{ key: string; label: string; filename: string; sizeMB: number; downloaded: boolean }>>
+  listPlugins: () => Promise<Array<{ name: string; version: string; engineType: string; engineId: string }>>
+  getSessionLogs: () => Promise<Array<{ startedAt: number; endedAt: number; engineMode: string; durationMs: number }>>
   generateSummary: (transcriptPath: string) => Promise<{ summary?: string; error?: string }>
   detectGpu: () => Promise<{ hasGpu: boolean; gpuNames: string[] }>
   saveSubtitleSettings: (settings: Record<string, unknown>) => Promise<void>

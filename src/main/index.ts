@@ -15,7 +15,7 @@ import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotati
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { detectGpu } from '../engines/gpu-detector'
 import { isGGUFDownloaded, GGUF_VARIANTS } from '../engines/model-downloader'
-import { listPlugins } from '../engines/plugin-loader'
+import { listPlugins, discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
 import * as SessionManager from '../logger/SessionManager'
 import { store } from './store'
@@ -119,6 +119,19 @@ function initPipeline(): void {
   pipeline.registerTranslator('slm-translate', () => new SLMTranslator({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
+  // Auto-register discovered plugins (#145)
+  for (const plugin of discoverPlugins()) {
+    const { manifest } = plugin
+    const factory = async () => loadPluginEngine(plugin)
+    if (manifest.engineType === 'stt') {
+      pipeline.registerSTT(manifest.engineId, factory as any)
+    } else if (manifest.engineType === 'translator') {
+      pipeline.registerTranslator(manifest.engineId, factory as any)
+    } else if (manifest.engineType === 'e2e') {
+      pipeline.registerE2E(manifest.engineId, factory as any)
+    }
+    console.log(`[plugin] Registered ${manifest.engineType} plugin: ${manifest.name} (${manifest.engineId})`)
+  }
   // GoogleTranslator needs API key — registered dynamically when user provides one
 
   // Forward results to subtitle window and logger

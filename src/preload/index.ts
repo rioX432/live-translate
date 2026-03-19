@@ -44,6 +44,22 @@ contextBridge.exposeInMainWorld('api', {
   // Crash recovery (#54)
   getCrashedSession: () => ipcRenderer.invoke('get-crashed-session'),
 
+  // Session management (#121)
+  listSessions: () => ipcRenderer.invoke('list-sessions'),
+  loadSession: (id: string) => ipcRenderer.invoke('load-session', id),
+  searchSessions: (query: string) => ipcRenderer.invoke('search-sessions', query),
+  deleteSession: (id: string) => ipcRenderer.invoke('delete-session', id),
+  exportSession: (id: string, format: string) => ipcRenderer.invoke('export-session', id, format),
+
+  // GGUF model management (#133)
+  getGgufVariants: () => ipcRenderer.invoke('get-gguf-variants'),
+
+  // Plugin management (#127)
+  listPlugins: () => ipcRenderer.invoke('list-plugins'),
+
+  // Session logs (#116)
+  getSessionLogs: () => ipcRenderer.invoke('get-session-logs'),
+
   // Meeting summary (#124)
   generateSummary: (transcriptPath: string) =>
     ipcRenderer.invoke('generate-summary', transcriptPath),
