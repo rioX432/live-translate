@@ -9,7 +9,7 @@ interface DisplayInfo {
 }
 
 function SettingsPanel(): JSX.Element {
-  const [engineMode, setEngineMode] = useState<EngineMode>('online')
+  const [engineMode, setEngineMode] = useState<EngineMode>('rotation')
   const [apiKey, setApiKey] = useState('')
   const [deeplApiKey, setDeeplApiKey] = useState('')
   const [geminiApiKey, setGeminiApiKey] = useState('')
@@ -345,6 +345,9 @@ function SettingsPanel(): JSX.Element {
 
       {/* Engine Selection */}
       <Section label="Translation Engine" role="radiogroup">
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+          API Translation
+        </div>
         <label style={radioLabelStyle}>
           <input
             type="radio"
@@ -354,7 +357,7 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Auto Rotation — up to 4M+ chars/month free</div>
+            <div style={{ fontWeight: 500 }}>Auto Rotation (Recommended) — up to 4M+ chars/month free</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>Azure → Google → DeepL → Gemini, auto-fallback on quota</div>
           </div>
         </label>
@@ -367,7 +370,7 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Online — Whisper + Google Translation</div>
+            <div style={{ fontWeight: 500 }}>Google Translation</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, high quality, requires internet</div>
           </div>
         </label>
@@ -380,7 +383,7 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Online — Whisper + DeepL</div>
+            <div style={{ fontWeight: 500 }}>DeepL</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, high quality, 500K chars/month free</div>
           </div>
         </label>
@@ -393,10 +396,14 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Online — Whisper + Gemini 2.5 Flash</div>
+            <div style={{ fontWeight: 500 }}>Gemini 2.5 Flash</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, LLM-based, generous free tier</div>
           </div>
         </label>
+
+        <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '10px', marginBottom: '4px' }}>
+          Offline
+        </div>
         <label style={radioLabelStyle}>
           <input
             type="radio"
@@ -406,7 +413,7 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Offline — Whisper + OPUS-MT</div>
+            <div style={{ fontWeight: 500 }}>OPUS-MT</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA↔EN, no internet, ~100MB model download</div>
           </div>
         </label>
@@ -419,7 +426,7 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Offline — Whisper Translate</div>
+            <div style={{ fontWeight: 500 }}>Whisper Translate</div>
             <div style={{ fontSize: '12px', color: '#64748b' }}>JA→EN only, no internet required</div>
           </div>
         </label>
@@ -428,6 +435,20 @@ function SettingsPanel(): JSX.Element {
       {/* API Keys */}
       {engineMode === 'rotation' && (
         <Section label="API Keys (provide at least one)">
+          {!microsoftApiKey && !apiKey && !deeplApiKey && !geminiApiKey && (
+            <div style={{
+              background: '#1e293b',
+              border: '1px solid #3b82f6',
+              borderRadius: '6px',
+              padding: '10px 12px',
+              marginBottom: '8px',
+              fontSize: '12px',
+              color: '#93c5fd',
+              lineHeight: 1.5
+            }}>
+              Add API keys from any combination of providers below. Each provider offers a free tier — combined, you get 4M+ characters/month at no cost.
+            </div>
+          )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <input
               type="password"
