@@ -81,15 +81,18 @@ export async function loadPluginEngine(
   plugin: LoadedPlugin
 ): Promise<STTEngine | TranslatorEngine | E2ETranslationEngine> {
   const { resolve } = await import('path')
+  const { realpathSync } = await import('fs')
   const entryPath = resolve(plugin.path, plugin.manifest.entryPoint)
-
-  // Prevent path traversal — entry must be within plugin directory
-  if (!entryPath.startsWith(resolve(plugin.path))) {
-    throw new Error(`Plugin entry point escapes plugin directory: ${plugin.manifest.entryPoint}`)
-  }
 
   if (!existsSync(entryPath)) {
     throw new Error(`Plugin entry point not found: ${entryPath}`)
+  }
+
+  // Prevent symlink escapes — resolve real paths
+  const realEntry = realpathSync(entryPath)
+  const realPlugin = realpathSync(plugin.path)
+  if (!realEntry.startsWith(realPlugin)) {
+    throw new Error(`Plugin entry point escapes plugin directory via symlink: ${plugin.manifest.entryPoint}`)
   }
 
   console.warn(`[plugin-loader] Loading plugin "${plugin.manifest.name}" — plugins run with full system access`)

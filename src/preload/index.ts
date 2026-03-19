@@ -9,7 +9,6 @@ contextBridge.exposeInMainWorld('api', {
   finalizeStreaming: (audioData: number[]) => ipcRenderer.invoke('finalize-streaming', audioData),
 
   // Translation results
-  sendTranslationResult: (data: unknown) => ipcRenderer.send('translation-result', data),
   onTranslationResult: (callback: (data: unknown) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: unknown): void => callback(data)
     ipcRenderer.on('translation-result', handler)

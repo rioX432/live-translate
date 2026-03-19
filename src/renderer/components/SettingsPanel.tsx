@@ -169,7 +169,7 @@ function SettingsPanel(): JSX.Element {
       setStatus('Starting pipeline...')
 
       // Persist settings (#49)
-      window.api.saveSettings({
+      await window.api.saveSettings({
         translationEngine: engineMode,
         googleApiKey: apiKey,
         deeplApiKey,
@@ -267,15 +267,19 @@ function SettingsPanel(): JSX.Element {
   }
 
   const handleStop = async (): Promise<void> => {
-    audio.stop()
-    stopSessionTimer()
-    const result = await window.api.pipelineStop()
-    setIsRunning(false)
-    setStatus(result.logPath ? `Saved: ${result.logPath}` : 'Stopped')
+    try {
+      audio.stop()
+      stopSessionTimer()
+      const result = await window.api.pipelineStop()
+      setStatus(result.logPath ? `Saved: ${result.logPath}` : 'Stopped')
 
-    // Offer summary generation if transcript exists
-    if (result.logPath) {
-      setLastTranscriptPath(result.logPath)
+      if (result.logPath) {
+        setLastTranscriptPath(result.logPath)
+      }
+    } catch (err) {
+      setStatus(`Stop error: ${err}`)
+    } finally {
+      setIsRunning(false)
     }
   }
 

@@ -7,6 +7,7 @@
 
 const SPEAKER_CHANGE_GAP_MS = 2000
 const SPEAKER_COLORS = ['#60a5fa', '#4ade80', '#f472b6', '#facc15', '#a78bfa', '#fb923c']
+const SPEAKER_NAMES = ['A', 'B', 'C', 'D', 'E', 'F']
 
 export class SpeakerTracker {
   private currentSpeaker = 0
@@ -30,7 +31,7 @@ export class SpeakerTracker {
   }
 
   getSpeakerId(): string {
-    return `Speaker ${String.fromCharCode(65 + this.currentSpeaker)}`
+    return `Speaker ${SPEAKER_NAMES[this.currentSpeaker % SPEAKER_NAMES.length]}`
   }
 
   getColor(): string {

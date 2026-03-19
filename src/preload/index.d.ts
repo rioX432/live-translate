@@ -4,7 +4,6 @@ export interface ElectronAPI {
   processAudio: (audioData: number[]) => Promise<unknown>
   processAudioStreaming: (audioData: number[]) => Promise<unknown>
   finalizeStreaming: (audioData: number[]) => Promise<unknown>
-  sendTranslationResult: (data: unknown) => void
   onTranslationResult: (callback: (data: unknown) => void) => (() => void)
   onInterimResult: (callback: (data: unknown) => void) => (() => void)
   onStatusUpdate: (callback: (message: string) => void) => (() => void)
