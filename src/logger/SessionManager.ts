@@ -42,8 +42,13 @@ function getSessionsDir(): string {
   return dir
 }
 
+/** Sanitize session ID to prevent path traversal */
+function sanitizeId(id: string): string {
+  return id.replace(/[^a-zA-Z0-9\-_T]/g, '')
+}
+
 function sessionFilePath(id: string): string {
-  return join(getSessionsDir(), `${id}.json`)
+  return join(getSessionsDir(), `${sanitizeId(id)}.json`)
 }
 
 /** Create a new session and return its ID */

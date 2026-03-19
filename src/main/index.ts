@@ -458,8 +458,15 @@ ipcMain.handle('get-crashed-session', () => {
 // #124: Generate meeting summary from transcript
 ipcMain.handle('generate-summary', async (_event, transcriptPath: string) => {
   try {
+    // #150: Validate path is within expected logs directory
+    const { resolve } = await import('path')
     const { readFileSync } = await import('fs')
-    const transcript = readFileSync(transcriptPath, 'utf-8')
+    const logsDir = join(app.getPath('documents'), 'live-translate')
+    const resolved = resolve(transcriptPath)
+    if (!resolved.startsWith(logsDir)) {
+      return { error: 'Invalid transcript path' }
+    }
+    const transcript = readFileSync(resolved, 'utf-8')
 
     if (!transcript.trim()) {
       return { error: 'Transcript is empty' }

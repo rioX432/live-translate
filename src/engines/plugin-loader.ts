@@ -72,14 +72,27 @@ function validateManifest(manifest: unknown): manifest is PluginManifest {
   )
 }
 
-/** Load a plugin's engine factory */
+/**
+ * Load a plugin's engine factory.
+ * WARNING: Plugins execute with full Node.js access. Only install plugins from trusted sources.
+ * The entry point must be within the plugin directory (no path traversal).
+ */
 export async function loadPluginEngine(
   plugin: LoadedPlugin
 ): Promise<STTEngine | TranslatorEngine | E2ETranslationEngine> {
-  const entryPath = join(plugin.path, plugin.manifest.entryPoint)
+  const { resolve } = await import('path')
+  const entryPath = resolve(plugin.path, plugin.manifest.entryPoint)
+
+  // Prevent path traversal — entry must be within plugin directory
+  if (!entryPath.startsWith(resolve(plugin.path))) {
+    throw new Error(`Plugin entry point escapes plugin directory: ${plugin.manifest.entryPoint}`)
+  }
+
   if (!existsSync(entryPath)) {
     throw new Error(`Plugin entry point not found: ${entryPath}`)
   }
+
+  console.warn(`[plugin-loader] Loading plugin "${plugin.manifest.name}" — plugins run with full system access`)
 
   const module = await import(entryPath)
   const createEngine = module.default || module.createEngine
