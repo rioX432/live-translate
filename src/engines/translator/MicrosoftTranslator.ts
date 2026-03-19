@@ -86,6 +86,6 @@ export class MicrosoftTranslator implements TranslatorEngine {
   }
 
   async dispose(): Promise<void> {
-    // No cleanup needed
+    console.log('[microsoft-translate] Disposing resources')
   }
 }

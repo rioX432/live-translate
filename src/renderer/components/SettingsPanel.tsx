@@ -31,8 +31,8 @@ function SettingsPanel(): JSX.Element {
   const [sttEngine, setSttEngine] = useState<'whisper-local' | 'mlx-whisper' | 'moonshine'>('whisper-local')
 
   const [subtitleFontSize, setSubtitleFontSize] = useState(30)
-  const [subtitleSourceColor, setSubtitleSourceColor] = useState('#f0f0f0')
-  const [subtitleTranslatedColor, setSubtitleTranslatedColor] = useState('#93c5fd')
+  const [subtitleSourceColor, setSubtitleSourceColor] = useState('#ffffff')
+  const [subtitleTranslatedColor, setSubtitleTranslatedColor] = useState('#7dd3fc')
   const [subtitleBgOpacity, setSubtitleBgOpacity] = useState(78)
   const [subtitlePosition, setSubtitlePosition] = useState<'top' | 'bottom'>('bottom')
 
@@ -115,14 +115,19 @@ function SettingsPanel(): JSX.Element {
     window.api.detectGpu().then(setGpuInfo).catch(() => setGpuInfo({ hasGpu: false, gpuNames: [] }))
   }, [])
 
-  // Load displays
+  // Load displays and listen for display changes (#192)
   useEffect(() => {
-    window.api.getDisplays().then((d) => {
-      setDisplays(d)
-      // #45: safely default to external display if available
-      const external = d.find((disp: DisplayInfo) => disp.label.includes('External'))
-      setSelectedDisplay(external?.id ?? d[0]?.id ?? 0)
-    })
+    const refreshDisplays = (): void => {
+      window.api.getDisplays().then((d) => {
+        setDisplays(d)
+        // #45: safely default to external display if available
+        const external = d.find((disp: DisplayInfo) => disp.label.includes('External'))
+        setSelectedDisplay(external?.id ?? d[0]?.id ?? 0)
+      })
+    }
+    refreshDisplays()
+    const unsubscribe = window.api.onDisplaysChanged(refreshDisplays)
+    return () => unsubscribe?.()
   }, [])
 
   // Handle audio: streaming chunks during speech, final segment on speech end
@@ -339,7 +344,7 @@ function SettingsPanel(): JSX.Element {
 
       {/* #54: Crash recovery banner */}
       {crashedSession && !isRunning && (
-        <div role="alert" style={{
+        <div role="alert" aria-live="assertive" aria-atomic="true" style={{
           background: '#1e293b',
           border: '1px solid #f59e0b',
           borderRadius: '8px',
@@ -395,7 +400,7 @@ function SettingsPanel(): JSX.Element {
           value={audio.selectedDevice}
           onChange={(e) => audio.setSelectedDevice(e.target.value)}
           style={selectStyle}
-          disabled={isRunning}
+          disabled={isRunning || isStarting}
           aria-label="Microphone device"
         >
           {audio.devices.map((d) => (
@@ -439,7 +444,7 @@ function SettingsPanel(): JSX.Element {
           value={sttEngine}
           onChange={(e) => setSttEngine(e.target.value as 'whisper-local' | 'mlx-whisper' | 'moonshine')}
           style={selectStyle}
-          disabled={isRunning}
+          disabled={isRunning || isStarting}
           aria-label="STT engine"
         >
           <option value="whisper-local">Whisper (whisper.cpp)</option>
@@ -466,7 +471,7 @@ function SettingsPanel(): JSX.Element {
             name="engine"
             checked={engineMode === 'auto'}
             onChange={() => setEngineMode('auto')}
-            disabled={isRunning}
+            disabled={isRunning || isStarting}
           />
           <div>
             <div style={{ fontWeight: 500 }}>Auto (Recommended)</div>
@@ -489,7 +494,7 @@ function SettingsPanel(): JSX.Element {
             name="engine"
             checked={engineMode === 'rotation'}
             onChange={() => setEngineMode('rotation')}
-            disabled={isRunning}
+            disabled={isRunning || isStarting}
           />
           <div>
             <div style={{ fontWeight: 500 }}>Auto Rotation (Recommended) — up to 4M+ chars/month free</div>
@@ -502,7 +507,7 @@ function SettingsPanel(): JSX.Element {
             name="engine"
             checked={engineMode === 'online'}
             onChange={() => setEngineMode('online')}
-            disabled={isRunning}
+            disabled={isRunning || isStarting}
           />
           <div>
             <div style={{ fontWeight: 500 }}>Google Translation</div>
@@ -515,7 +520,7 @@ function SettingsPanel(): JSX.Element {
             name="engine"
             checked={engineMode === 'online-deepl'}
             onChange={() => setEngineMode('online-deepl')}
-            disabled={isRunning}
+            disabled={isRunning || isStarting}
           />
           <div>
             <div style={{ fontWeight: 500 }}>DeepL</div>
@@ -528,7 +533,7 @@ function SettingsPanel(): JSX.Element {
             name="engine"
             checked={engineMode === 'online-gemini'}
             onChange={() => setEngineMode('online-gemini')}
-            disabled={isRunning}
+            disabled={isRunning || isStarting}
           />
           <div>
             <div style={{ fontWeight: 500 }}>Gemini 2.5 Flash</div>
@@ -545,7 +550,7 @@ function SettingsPanel(): JSX.Element {
             name="engine"
             checked={engineMode === 'offline-opus'}
             onChange={() => setEngineMode('offline-opus')}
-            disabled={isRunning}
+            disabled={isRunning || isStarting}
           />
           <div>
             <div style={{ fontWeight: 500 }}>OPUS-MT</div>
@@ -558,7 +563,7 @@ function SettingsPanel(): JSX.Element {
             name="engine"
             checked={engineMode === 'offline-slm'}
             onChange={() => setEngineMode('offline-slm')}
-            disabled={isRunning}
+            disabled={isRunning || isStarting}
           />
           <div>
             <div style={{ fontWeight: 500 }}>TranslateGemma 4B</div>
@@ -596,7 +601,7 @@ function SettingsPanel(): JSX.Element {
               onChange={(e) => setMicrosoftApiKey(e.target.value)}
               placeholder="Azure Microsoft Translator key"
               style={inputStyle}
-              disabled={isRunning}
+              disabled={isRunning || isStarting}
             />
             <input
               type="text"
@@ -604,7 +609,7 @@ function SettingsPanel(): JSX.Element {
               onChange={(e) => setMicrosoftRegion(e.target.value)}
               placeholder="Azure region (e.g. eastus)"
               style={inputStyle}
-              disabled={isRunning}
+              disabled={isRunning || isStarting}
             />
             <input
               type="password"
@@ -612,7 +617,7 @@ function SettingsPanel(): JSX.Element {
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="Google Cloud Translation key"
               style={inputStyle}
-              disabled={isRunning}
+              disabled={isRunning || isStarting}
             />
             <input
               type="password"
@@ -620,7 +625,7 @@ function SettingsPanel(): JSX.Element {
               onChange={(e) => setDeeplApiKey(e.target.value)}
               placeholder="DeepL API key"
               style={inputStyle}
-              disabled={isRunning}
+              disabled={isRunning || isStarting}
             />
             <input
               type="password"
@@ -628,7 +633,7 @@ function SettingsPanel(): JSX.Element {
               onChange={(e) => setGeminiApiKey(e.target.value)}
               placeholder="Gemini API key"
               style={inputStyle}
-              disabled={isRunning}
+              disabled={isRunning || isStarting}
             />
           </div>
         </Section>
@@ -641,7 +646,7 @@ function SettingsPanel(): JSX.Element {
             onChange={(e) => setApiKey(e.target.value)}
             placeholder="Enter API key..."
             style={inputStyle}
-            disabled={isRunning}
+            disabled={isRunning || isStarting}
           />
         </Section>
       )}
@@ -653,7 +658,7 @@ function SettingsPanel(): JSX.Element {
             onChange={(e) => setDeeplApiKey(e.target.value)}
             placeholder="Enter DeepL API key..."
             style={inputStyle}
-            disabled={isRunning}
+            disabled={isRunning || isStarting}
           />
         </Section>
       )}
@@ -665,7 +670,7 @@ function SettingsPanel(): JSX.Element {
             onChange={(e) => setGeminiApiKey(e.target.value)}
             placeholder="Enter Gemini API key..."
             style={inputStyle}
-            disabled={isRunning}
+            disabled={isRunning || isStarting}
           />
         </Section>
       )}

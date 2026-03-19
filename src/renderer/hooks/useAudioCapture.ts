@@ -71,10 +71,14 @@ export function useAudioCapture(): UseAudioCaptureReturn {
         }
       } catch (err) {
         console.error('Failed to enumerate audio devices:', err)
-        // #48: surface permission errors to UI
+        // #48: surface permission errors to UI with specific messages
         const message = err instanceof Error ? err.message : String(err)
-        if (message.includes('Permission') || message.includes('NotAllowedError')) {
+        if (message.includes('NotAllowedError') || message.includes('Permission')) {
           setPermissionError('Microphone access denied. Please grant permission in System Settings > Privacy & Security > Microphone.')
+        } else if (message.includes('NotFoundError') || message.includes('DevicesNotFoundError')) {
+          setPermissionError('No microphone detected. Please connect a microphone and restart.')
+        } else if (message.includes('NotReadableError') || message.includes('TrackStartError')) {
+          setPermissionError('Microphone is in use by another application. Please close the other app and try again.')
         } else {
           setPermissionError(`Microphone error: ${message}`)
         }

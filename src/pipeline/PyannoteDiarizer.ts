@@ -18,7 +18,7 @@ const DIARIZE_TIMEOUT_MS = 60_000
  */
 export class PyannoteDiarizer {
   private process: ChildProcess | null = null
-  private pendingRequests = new Map<number, (data: any) => void>()
+  private pendingRequests = new Map<number, { resolve: (data: any) => void; timeout: ReturnType<typeof setTimeout> }>()
   private nextRequestId = 0
   private buffer = ''
 
@@ -51,7 +51,9 @@ export class PyannoteDiarizer {
           const msg = JSON.parse(line)
           const reqId = msg._reqId as number | undefined
           if (reqId !== undefined && this.pendingRequests.has(reqId)) {
-            this.pendingRequests.get(reqId)!(msg)
+            const req = this.pendingRequests.get(reqId)!
+            clearTimeout(req.timeout)
+            req.resolve(msg)
             this.pendingRequests.delete(reqId)
           }
         } catch {
@@ -93,6 +95,14 @@ export class PyannoteDiarizer {
   }
 
   async dispose(): Promise<void> {
+    console.log('[pyannote] Disposing resources')
+    // Reject all pending requests
+    for (const [, req] of this.pendingRequests) {
+      clearTimeout(req.timeout)
+      req.resolve({ error: 'Diarizer disposed' })
+    }
+    this.pendingRequests.clear()
+
     if (this.process) {
       try {
         this.sendCommand({ action: 'dispose' }).catch(() => {})
@@ -116,10 +126,10 @@ export class PyannoteDiarizer {
         reject(new Error('Diarization timed out'))
       }, DIARIZE_TIMEOUT_MS)
 
-      this.pendingRequests.set(reqId, (data) => {
+      this.pendingRequests.set(reqId, { resolve: (data) => {
         clearTimeout(timeout)
         resolve(data)
-      })
+      }, timeout })
 
       this.process.stdin.write(JSON.stringify({ ...cmd, _reqId: reqId }) + '\n')
     })

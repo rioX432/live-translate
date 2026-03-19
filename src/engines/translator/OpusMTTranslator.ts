@@ -12,6 +12,7 @@ export class OpusMTTranslator implements TranslatorEngine {
 
   private jaToEn: TranslationPipeline | null = null
   private enToJa: TranslationPipeline | null = null
+  private initializing = false
   private onProgress?: (message: string) => void
 
   constructor(options?: { onProgress?: (message: string) => void }) {
@@ -20,6 +21,8 @@ export class OpusMTTranslator implements TranslatorEngine {
 
   async initialize(): Promise<void> {
     if (this.jaToEn && this.enToJa) return
+    if (this.initializing) return
+    this.initializing = true
     // Reset both to ensure clean retry after partial failure
     this.jaToEn = null
     this.enToJa = null
@@ -44,6 +47,8 @@ export class OpusMTTranslator implements TranslatorEngine {
       this.jaToEn = null
       this.enToJa = null
       throw err
+    } finally {
+      this.initializing = false
     }
   }
 
@@ -61,6 +66,7 @@ export class OpusMTTranslator implements TranslatorEngine {
   }
 
   async dispose(): Promise<void> {
+    console.log('[opus-mt] Disposing resources')
     this.jaToEn = null
     this.enToJa = null
   }

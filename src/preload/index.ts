@@ -73,5 +73,12 @@ contextBridge.exposeInMainWorld('api', {
     const handler = (_event: Electron.IpcRendererEvent, settings: unknown): void => callback(settings)
     ipcRenderer.on('subtitle-settings-changed', handler)
     return () => ipcRenderer.off('subtitle-settings-changed', handler)
+  },
+
+  // Display change notifications (#192)
+  onDisplaysChanged: (callback: () => void) => {
+    const handler = (): void => callback()
+    ipcRenderer.on('displays-changed', handler)
+    return () => ipcRenderer.off('displays-changed', handler)
   }
 })

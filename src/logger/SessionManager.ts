@@ -137,14 +137,16 @@ export function loadSession(sessionId: string): SessionData | null {
   }
 }
 
-/** Search across all sessions */
+/** Search across all sessions (limited to most recent 50 sessions, max 100 matches) */
 export function searchSessions(query: string): Array<{ sessionId: string; matches: SessionEntry[] }> {
   const dir = getSessionsDir()
-  const files = readdirSync(dir).filter((f) => f.endsWith('.json'))
+  const files = readdirSync(dir).filter((f) => f.endsWith('.json')).sort().reverse().slice(0, 50)
   const lower = query.toLowerCase()
   const results: Array<{ sessionId: string; matches: SessionEntry[] }> = []
+  let totalMatches = 0
 
   for (const f of files) {
+    if (totalMatches >= 100) break
     try {
       const data: SessionData = JSON.parse(readFileSync(join(dir, f), 'utf-8'))
       const matches = data.entries.filter(
@@ -154,6 +156,7 @@ export function searchSessions(query: string): Array<{ sessionId: string; matche
       )
       if (matches.length > 0) {
         results.push({ sessionId: data.metadata.id, matches })
+        totalMatches += matches.length
       }
     } catch { /* skip corrupted files */ }
   }

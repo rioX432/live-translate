@@ -31,6 +31,7 @@ export interface ElectronAPI {
   detectGpu: () => Promise<{ hasGpu: boolean; gpuNames: string[] }>
   saveSubtitleSettings: (settings: Record<string, unknown>) => Promise<void>
   onSubtitleSettingsChanged: (callback: (settings: unknown) => void) => (() => void)
+  onDisplaysChanged: (callback: () => void) => (() => void)
 }
 
 declare global {

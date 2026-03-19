@@ -55,7 +55,9 @@ export class WhisperLocalEngine implements STTEngine {
     }
   }
 
-  async dispose(): Promise<void> {}
+  async dispose(): Promise<void> {
+    console.log('[whisper-local] Disposing resources')
+  }
 
   private detectLanguage(text: string): Language {
     if (!text || text.length === 0) return 'en'

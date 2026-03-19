@@ -20,6 +20,7 @@ const LANG_NAMES: Record<string, string> = {
 let llama: any = null
 let model: any = null
 let context: any = null
+let requestQueue: Promise<void> = Promise.resolve()
 
 async function handleInit(modelPath: string): Promise<void> {
   const { getLlama } = await import('node-llama-cpp')
@@ -140,28 +141,39 @@ async function handleDispose(): Promise<void> {
 }
 
 // Listen for messages from main process
-process.parentPort!.on('message', async (e: { data: any }) => {
+// Serialize translate/summarize requests to prevent concurrent context access
+process.parentPort!.on('message', (e: { data: any }) => {
   const msg = e.data
-  try {
-    switch (msg.type) {
-      case 'init':
-        await handleInit(msg.modelPath)
-        break
-      case 'translate':
-        await handleTranslate(msg.id, msg.text, msg.from, msg.to)
-        break
-      case 'summarize':
-        await handleSummarize(msg.id, msg.transcript)
-        break
-      case 'dispose':
-        await handleDispose()
-        break
+
+  const handleMessage = async (): Promise<void> => {
+    try {
+      switch (msg.type) {
+        case 'init':
+          await handleInit(msg.modelPath)
+          break
+        case 'translate':
+          await handleTranslate(msg.id, msg.text, msg.from, msg.to)
+          break
+        case 'summarize':
+          await handleSummarize(msg.id, msg.transcript)
+          break
+        case 'dispose':
+          await handleDispose()
+          break
+      }
+    } catch (err) {
+      process.parentPort!.postMessage({
+        type: 'error',
+        id: msg.id,
+        message: err instanceof Error ? err.message : String(err)
+      })
     }
-  } catch (err) {
-    process.parentPort!.postMessage({
-      type: 'error',
-      id: msg.id,
-      message: err instanceof Error ? err.message : String(err)
-    })
+  }
+
+  if (msg.type === 'translate' || msg.type === 'summarize') {
+    // Queue to serialize context access
+    requestQueue = requestQueue.then(handleMessage, handleMessage)
+  } else {
+    handleMessage()
   }
 })
