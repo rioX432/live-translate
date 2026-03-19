@@ -50,6 +50,13 @@ npm run package:dmg  # Build macOS DMG installer
 npm run test         # Run unit tests
 ```
 
+### Installing the DMG
+
+1. Open `dist/Live Translate-x.x.x-arm64.dmg`
+2. Drag the app to Applications
+3. First launch: right-click the app > Open (bypasses Gatekeeper since the app is not code-signed)
+4. Grant microphone permission when prompted
+
 ## Requirements
 
 - macOS 13+ (Apple Silicon recommended)
