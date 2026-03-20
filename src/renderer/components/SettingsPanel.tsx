@@ -10,7 +10,7 @@ function withIpcTimeout<T>(promise: Promise<T>, ms: number, label: string): Prom
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
 }
 
-type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-ct2-opus' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-hybrid'
+type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-ct2-opus' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-ane' | 'offline-hybrid'
 
 interface DisplayInfo {
   id: number
@@ -306,6 +306,12 @@ function SettingsPanel(): JSX.Element {
           mode: 'cascade' as const,
           sttEngineId: sttEngine,
           translatorEngineId: 'hunyuan-mt'
+        }
+      } else if (resolvedMode === 'offline-ane') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: sttEngine,
+          translatorEngineId: 'ane-translate'
         }
       } else if (resolvedMode === 'offline-hybrid') {
         config = {
@@ -685,6 +691,26 @@ function SettingsPanel(): JSX.Element {
             )}
           </div>
         </label>
+        {platform === 'darwin' && (
+          <label style={radioLabelStyle}>
+            <input
+              type="radio"
+              name="engine"
+              checked={engineMode === 'offline-ane'}
+              onChange={() => setEngineMode('offline-ane')}
+              disabled={isRunning || isStarting}
+            />
+            <div>
+              <div style={{ fontWeight: 500 }}>ANEMLL (Apple Neural Engine)</div>
+              <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, ultra-low power (~1/10 GPU), ~1/16 memory, Apple Silicon only</div>
+              {engineMode === 'offline-ane' && (
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                  Requires: pip install anemll coremltools transformers pyyaml numpy torch
+                </div>
+              )}
+            </div>
+          </label>
+        )}
         {(engineMode === 'offline-slm' || engineMode === 'offline-hunyuan-mt' || engineMode === 'offline-hybrid') && (
           <>
             <div style={{ paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '2px' }}>

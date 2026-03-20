@@ -15,6 +15,7 @@ import { ApiRotationController } from '../engines/translator/ApiRotationControll
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
+import { ANETranslator } from '../engines/translator/ANETranslator'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { detectGpu } from '../engines/gpu-detector'
 import { isGGUFDownloaded, getGGUFVariants, getHunyuanMTVariants } from '../engines/model-downloader'
@@ -168,6 +169,12 @@ function initPipeline(): void {
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
     kvCacheQuant: store.get('slmKvCacheQuant')
   }))
+  // ANEMLL Apple Neural Engine translator — macOS Apple Silicon only (#241)
+  if (process.platform === 'darwin') {
+    pipeline.registerTranslator('ane-translate', () => new ANETranslator({
+      onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+    }))
+  }
   // Hybrid translator: OPUS-MT instant draft + TranslateGemma refinement (#235)
   pipeline.registerTranslator('hybrid', () => new HybridTranslator(
     new OpusMTTranslator({
