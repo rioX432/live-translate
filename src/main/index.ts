@@ -289,6 +289,10 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
       throw err
     }
 
+    // Load glossary terms from store
+    const glossaryTerms = store.get('glossaryTerms') || []
+    pipeline!.setGlossary(glossaryTerms)
+
     // Start logger
     logger = new TranscriptLogger((msg) => mainWindow?.webContents.send('status-update', msg))
     const sessionLabel = config.mode === 'e2e'
@@ -485,7 +489,8 @@ ipcMain.handle('get-settings', () => {
     selectedDisplay: store.get('selectedDisplay'),
     subtitleSettings: store.get('subtitleSettings'),
     slmKvCacheQuant: store.get('slmKvCacheQuant'),
-    slmModelSize: store.get('slmModelSize')
+    slmModelSize: store.get('slmModelSize'),
+    glossaryTerms: store.get('glossaryTerms') || []
   }
 })
 
@@ -498,6 +503,15 @@ ipcMain.handle('save-subtitle-settings', (_event, settings: Record<string, unkno
 ipcMain.handle('save-settings', (_event, settings: Record<string, unknown>) => {
   for (const [key, value] of Object.entries(settings)) {
     store.set(key as keyof import('./store').AppSettings, value as never)
+  }
+})
+
+// Glossary terms persistence (#240)
+ipcMain.handle('save-glossary', (_event, terms: Array<{ source: string; target: string }>) => {
+  store.set('glossaryTerms', terms)
+  // Update running pipeline glossary in real-time
+  if (pipeline) {
+    pipeline.setGlossary(terms)
   }
 })
 

@@ -5,7 +5,8 @@ import type {
   TranslatorEngine,
   E2ETranslationEngine,
   TranslationResult,
-  Language
+  Language,
+  GlossaryEntry
 } from '../engines/types'
 import { LocalAgreement } from './LocalAgreement'
 import { ContextBuffer } from './ContextBuffer'
@@ -81,6 +82,9 @@ export class TranslationPipeline extends EventEmitter {
   // Auto-recovery state
   private consecutiveErrors = 0
 
+  // Glossary terms for context-aware translation
+  private glossary: GlossaryEntry[] = []
+
   // Memory monitoring
   private memoryTimer: ReturnType<typeof setInterval> | null = null
   private startedAt: number | null = null
@@ -130,6 +134,11 @@ export class TranslationPipeline extends EventEmitter {
       default:
         return false
     }
+  }
+
+  /** Set glossary terms for context-aware translation */
+  setGlossary(glossary: GlossaryEntry[]): void {
+    this.glossary = glossary
   }
 
   // --- Engine registration ---
@@ -315,15 +324,16 @@ export class TranslationPipeline extends EventEmitter {
     }
 
     try {
+      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
+      const glossary = this.glossary.length > 0 ? this.glossary : undefined
       const translated = await this.translator.translate(
         sttResult.text,
         sttResult.language,
         targetLang,
-        this.contextBuffer.getContext()
+        this.contextBuffer.getContext(glossary, speakerId)
       )
 
-      this.contextBuffer.add(sttResult.text, translated)
-      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
+      this.contextBuffer.add(sttResult.text, translated, speakerId)
 
       return {
         sourceText: sttResult.text,
@@ -402,20 +412,21 @@ export class TranslationPipeline extends EventEmitter {
       const agreement = this.agreement.update(sttResult.text)
       const targetLang = this.resolveTargetLanguage(sttResult.language)
 
+      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
+      const glossary = this.glossary.length > 0 ? this.glossary : undefined
+
       let translatedText = ''
       if (agreement.newConfirmed && this.translator) {
         translatedText = await this.translator.translate(
           agreement.confirmedText,
           sttResult.language,
           targetLang,
-          this.contextBuffer.getContext()
+          this.contextBuffer.getContext(glossary, speakerId)
         )
         this.lastTranslatedConfirmed = translatedText
       } else {
         translatedText = this.lastTranslatedConfirmed
       }
-
-      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
       const interimResult: TranslationResult = {
         sourceText: agreement.confirmedText + agreement.interimText,
         translatedText,
@@ -466,20 +477,21 @@ export class TranslationPipeline extends EventEmitter {
       const agreement = this.agreement.finalize(sttResult.text)
       const targetLang = this.resolveTargetLanguage(sttResult.language)
 
+      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
+      const glossary = this.glossary.length > 0 ? this.glossary : undefined
+
       let translatedText = ''
       if (this.translator && agreement.confirmedText.trim()) {
         translatedText = await this.translator.translate(
           agreement.confirmedText,
           sttResult.language,
           targetLang,
-          this.contextBuffer.getContext()
+          this.contextBuffer.getContext(glossary, speakerId)
         )
-        this.contextBuffer.add(agreement.confirmedText, translatedText)
+        this.contextBuffer.add(agreement.confirmedText, translatedText, speakerId)
       }
 
       this.lastTranslatedConfirmed = ''
-
-      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
       const result: TranslationResult = {
         sourceText: agreement.confirmedText,
         translatedText,

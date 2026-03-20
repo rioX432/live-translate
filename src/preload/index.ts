@@ -75,6 +75,10 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('subtitle-settings-changed', handler)
   },
 
+  // Glossary management (#240)
+  saveGlossary: (terms: Array<{ source: string; target: string }>) =>
+    ipcRenderer.invoke('save-glossary', terms),
+
   // Display change notifications (#192)
   onDisplaysChanged: (callback: () => void) => {
     const handler = (): void => callback()
