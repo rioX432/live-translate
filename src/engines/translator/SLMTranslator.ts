@@ -21,10 +21,12 @@ export class SLMTranslator implements TranslatorEngine {
   private nextId = 0
   private onProgress?: (message: string) => void
   private variant: string
+  private kvCacheQuant: boolean
 
-  constructor(options?: { onProgress?: (message: string) => void; variant?: string }) {
+  constructor(options?: { onProgress?: (message: string) => void; variant?: string; kvCacheQuant?: boolean }) {
     this.onProgress = options?.onProgress
     this.variant = options?.variant ?? 'Q4_K_M'
+    this.kvCacheQuant = options?.kvCacheQuant ?? true
   }
 
   async initialize(): Promise<void> {
@@ -78,7 +80,7 @@ export class SLMTranslator implements TranslatorEngine {
       }
 
       this.worker!.on('message', initHandler)
-      this.worker!.postMessage({ type: 'init', modelPath })
+      this.worker!.postMessage({ type: 'init', modelPath, kvCacheQuant: this.kvCacheQuant })
     })
 
     // Guard: worker may have been killed during init timeout (#205)

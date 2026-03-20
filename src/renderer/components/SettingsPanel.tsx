@@ -48,6 +48,9 @@ function SettingsPanel(): JSX.Element {
   // Session history (#144)
   const [sessions, setSessions] = useState<Array<{ id: string; startedAt: number; engineMode: string; entryCount: number }>>([])
 
+  // KV cache quantization (#237)
+  const [slmKvCacheQuant, setSlmKvCacheQuant] = useState(true)
+
   // Meeting summary (#124)
   const [lastTranscriptPath, setLastTranscriptPath] = useState<string | null>(null)
   const [summaryText, setSummaryText] = useState<string | null>(null)
@@ -95,6 +98,7 @@ function SettingsPanel(): JSX.Element {
       if (s.microsoftRegion) setMicrosoftRegion(s.microsoftRegion as string)
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
       if (s.sttEngine) setSttEngine(s.sttEngine as 'whisper-local' | 'mlx-whisper' | 'moonshine')
+      if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(s.slmKvCacheQuant as boolean)
       if (s.subtitleSettings) {
         const sub = s.subtitleSettings as Record<string, unknown>
         if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
@@ -193,7 +197,8 @@ function SettingsPanel(): JSX.Element {
         microsoftRegion,
         selectedMicrophone: audio.selectedDevice,
         selectedDisplay,
-        sttEngine
+        sttEngine,
+        slmKvCacheQuant
       }), 10_000, 'saveSettings')
 
       // Resolve auto mode to concrete engine
@@ -586,6 +591,22 @@ function SettingsPanel(): JSX.Element {
             )}
           </div>
         </label>
+        {engineMode === 'offline-slm' && (
+          <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
+            <input
+              type="checkbox"
+              checked={slmKvCacheQuant}
+              onChange={(e) => setSlmKvCacheQuant(e.target.checked)}
+              disabled={isRunning || isStarting}
+            />
+            <div>
+              <div style={{ fontWeight: 500, fontSize: '12px' }}>KV cache quantization (Q8_0)</div>
+              <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                Reduces VRAM usage ~50% with negligible quality impact
+              </div>
+            </div>
+          </label>
+        )}
       </Section>
 
       {/* API Keys */}
