@@ -57,3 +57,24 @@ jobs:
       - run: npm ci --ignore-scripts
 
       - run: npm run build
+
+  e2e:
+    name: E2E Tests
+    runs-on: macos-latest
+    needs: build
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # Run postinstall to create native addon symlinks (required on macOS)
+      - run: npm ci
+
+      - run: npm run build
+
+      - run: npm run test:e2e
+        env:
+          ELECTRON_DISABLE_GPU: '1'
