@@ -50,6 +50,10 @@ export interface AppSettings {
   glossaryTerms: GlossaryEntry[]
   /** Enable speculative decoding: 4B draft model + 12B verifier for 2-3x throughput */
   slmSpeculativeDecoding: boolean
+  /** Enable simultaneous translation (SimulMT) with Wait-k policy for lower latency */
+  simulMtEnabled: boolean
+  /** Wait-k value: start translating after k confirmed words (default 3) */
+  simulMtWaitK: number
 }
 
 export const store = new Store<AppSettings>({
@@ -77,6 +81,8 @@ export const store = new Store<AppSettings>({
     slmKvCacheQuant: true,
     slmModelSize: '4b',
     glossaryTerms: [],
-    slmSpeculativeDecoding: false
+    slmSpeculativeDecoding: false,
+    simulMtEnabled: false,
+    simulMtWaitK: 3
   }
 })

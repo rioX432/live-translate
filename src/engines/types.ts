@@ -72,6 +72,20 @@ export interface TranslatorEngine {
   /** Translate text from one language to another */
   translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string>
 
+  /**
+   * Incremental translation for SimulMT (Wait-k policy).
+   * Translates partial source text while maintaining consistency with previous output.
+   * The returned translation must extend (not replace) previousOutput.
+   * Optional — only offline LLM engines (TranslateGemma, Hunyuan-MT) support this.
+   */
+  translateIncremental?(
+    text: string,
+    previousOutput: string,
+    from: Language,
+    to: Language,
+    context?: TranslateContext
+  ): Promise<string>
+
   /** Release resources */
   dispose(): Promise<void>
 }

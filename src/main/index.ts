@@ -321,6 +321,9 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
     const glossaryTerms = store.get('glossaryTerms') || []
     pipeline!.setGlossary(glossaryTerms)
 
+    // Configure SimulMT (#239)
+    pipeline!.setSimulMt(store.get('simulMtEnabled'), store.get('simulMtWaitK'))
+
     // Start logger
     logger = new TranscriptLogger((msg) => mainWindow?.webContents.send('status-update', msg))
     const sessionLabel = config.mode === 'e2e'
@@ -519,7 +522,9 @@ ipcMain.handle('get-settings', () => {
     slmKvCacheQuant: store.get('slmKvCacheQuant'),
     slmModelSize: store.get('slmModelSize'),
     slmSpeculativeDecoding: store.get('slmSpeculativeDecoding'),
-    glossaryTerms: store.get('glossaryTerms') || []
+    glossaryTerms: store.get('glossaryTerms') || [],
+    simulMtEnabled: store.get('simulMtEnabled'),
+    simulMtWaitK: store.get('simulMtWaitK')
   }
 })
 
