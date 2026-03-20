@@ -39,6 +39,33 @@ export interface GGUFVariant {
 /** Model size identifier for TranslateGemma */
 export type SLMModelSize = '4b' | '12b'
 
+/** Hunyuan-MT-7B GGUF variants (Mungert quantizations) */
+export const HUNYUAN_MT_VARIANTS: Record<string, GGUFVariant> = {
+  'Q4_K_M': {
+    filename: 'Hunyuan-MT-7B-q4_k_m.gguf',
+    url: 'https://huggingface.co/Mungert/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B-q4_k_m.gguf',
+    sizeMB: 4700,
+    label: 'Q4_K_M (Recommended, ~4.7GB)'
+  },
+  'Q8_0': {
+    filename: 'Hunyuan-MT-7B-q8_0.gguf',
+    url: 'https://huggingface.co/Mungert/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B-q8_0.gguf',
+    sizeMB: 7980,
+    label: 'Q8_0 (Best quality, ~8.0GB)'
+  },
+  'Q3_K_M': {
+    filename: 'Hunyuan-MT-7B-q3_k_m.gguf',
+    url: 'https://huggingface.co/Mungert/Hunyuan-MT-7B-GGUF/resolve/main/Hunyuan-MT-7B-q3_k_m.gguf',
+    sizeMB: 3760,
+    label: 'Q3_K_M (Smallest, ~3.8GB)'
+  }
+}
+
+/** Get Hunyuan-MT GGUF variants */
+export function getHunyuanMTVariants(): Record<string, GGUFVariant> {
+  return HUNYUAN_MT_VARIANTS
+}
+
 export const GGUF_VARIANTS_4B: Record<string, GGUFVariant> = {
   'Q4_K_M': {
     filename: 'translategemma-4b-it-Q4_K_M.gguf',

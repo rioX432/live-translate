@@ -10,7 +10,7 @@ function withIpcTimeout<T>(promise: Promise<T>, ms: number, label: string): Prom
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
 }
 
-type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-slm' | 'offline-hybrid'
+type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-hybrid'
 
 interface DisplayInfo {
   id: number
@@ -269,6 +269,12 @@ function SettingsPanel(): JSX.Element {
           mode: 'cascade' as const,
           sttEngineId: sttEngine,
           translatorEngineId: 'slm-translate'
+        }
+      } else if (resolvedMode === 'offline-hunyuan-mt') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: sttEngine,
+          translatorEngineId: 'hunyuan-mt'
         }
       } else if (resolvedMode === 'offline-hybrid') {
         config = {
@@ -608,7 +614,25 @@ function SettingsPanel(): JSX.Element {
             )}
           </div>
         </label>
-        {(engineMode === 'offline-slm' || engineMode === 'offline-hybrid') && (
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline-hunyuan-mt'}
+            onChange={() => setEngineMode('offline-hunyuan-mt')}
+            disabled={isRunning || isStarting}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Hunyuan-MT 7B (WMT25 Winner)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, 33 languages, GPU-accelerated, ~4.7GB download</div>
+            {engineMode === 'offline-hunyuan-mt' && gpuInfo && !gpuInfo.hasGpu && (
+              <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
+                No GPU detected — translation may be slow on CPU-only systems
+              </div>
+            )}
+          </div>
+        </label>
+        {(engineMode === 'offline-slm' || engineMode === 'offline-hunyuan-mt' || engineMode === 'offline-hybrid') && (
           <>
             <div style={{ paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '2px' }}>Model Size</div>
