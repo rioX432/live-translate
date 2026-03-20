@@ -10,7 +10,7 @@ function withIpcTimeout<T>(promise: Promise<T>, ms: number, label: string): Prom
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
 }
 
-type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-ct2-opus' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-hybrid'
+type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-ct2-opus' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-ane' | 'offline-hybrid'
 
 interface DisplayInfo {
   id: number
@@ -321,6 +321,12 @@ function SettingsPanel(): JSX.Element {
           sttEngineId: sttEngine,
           translatorEngineId: 'hunyuan-mt'
         }
+      } else if (resolvedMode === 'offline-ane') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: sttEngine,
+          translatorEngineId: 'ane-translate'
+        }
       } else if (resolvedMode === 'offline-hybrid') {
         config = {
           mode: 'cascade' as const,
@@ -433,6 +439,7 @@ function SettingsPanel(): JSX.Element {
       case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B'
       case 'offline-opus': return 'OPUS-MT'
       case 'offline-ct2-opus': return 'OPUS-MT (CTranslate2)'
+      case 'offline-ane': return 'ANEMLL (Apple Neural Engine)'
       case 'rotation': return 'API Auto Rotation'
       case 'online': return 'Google Translation'
       case 'online-deepl': return 'DeepL'
@@ -691,6 +698,21 @@ function SettingsPanel(): JSX.Element {
                 <div style={{ fontSize: '12px', color: '#94a3b8' }}>6-10x faster, requires Python 3</div>
               </div>
             </label>
+            {platform === 'darwin' && (
+              <label style={radioLabelStyle}>
+                <input
+                  type="radio"
+                  name="engine"
+                  checked={engineMode === 'offline-ane'}
+                  onChange={() => setEngineMode('offline-ane')}
+                  disabled={isRunning || isStarting}
+                />
+                <div>
+                  <div style={{ fontWeight: 500 }}>ANEMLL (Apple Neural Engine)</div>
+                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Ultra-low power, Apple Silicon only</div>
+                </div>
+              </label>
+            )}
 
             {/* SLM sub-options */}
             {showSlmOptions && (
