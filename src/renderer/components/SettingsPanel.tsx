@@ -10,7 +10,7 @@ function withIpcTimeout<T>(promise: Promise<T>, ms: number, label: string): Prom
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
 }
 
-type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-hybrid'
+type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-ct2-opus' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-hybrid'
 
 interface DisplayInfo {
   id: number
@@ -288,6 +288,12 @@ function SettingsPanel(): JSX.Element {
           mode: 'cascade' as const,
           sttEngineId: sttEngine,
           translatorEngineId: 'opus-mt'
+        }
+      } else if (resolvedMode === 'offline-ct2-opus') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: sttEngine,
+          translatorEngineId: 'ct2-opus-mt'
         }
       } else if (resolvedMode === 'offline-slm') {
         config = {
@@ -625,6 +631,24 @@ function SettingsPanel(): JSX.Element {
             <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, no internet, ~100MB model download</div>
           </div>
         </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline-ct2-opus'}
+            onChange={() => setEngineMode('offline-ct2-opus')}
+            disabled={isRunning || isStarting}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>OPUS-MT (CTranslate2 Accelerated)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, 6-10x faster than standard OPUS-MT, requires Python 3</div>
+          </div>
+        </label>
+        {engineMode === 'offline-ct2-opus' && (
+          <div style={{ paddingLeft: '24px', fontSize: '11px', color: '#94a3b8', marginTop: '-4px', marginBottom: '4px' }}>
+            Requires: pip install ctranslate2 transformers sentencepiece
+          </div>
+        )}
         <label style={radioLabelStyle}>
           <input
             type="radio"
