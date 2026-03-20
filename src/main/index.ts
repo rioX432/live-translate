@@ -11,6 +11,7 @@ import { GeminiTranslator } from '../engines/translator/GeminiTranslator'
 import { MicrosoftTranslator } from '../engines/translator/MicrosoftTranslator'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { CT2OpusMTTranslator } from '../engines/translator/CT2OpusMTTranslator'
+import { CT2Madlad400Translator } from '../engines/translator/CT2Madlad400Translator'
 import { ApiRotationController } from '../engines/translator/ApiRotationController'
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
@@ -159,6 +160,9 @@ function initPipeline(): void {
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
   pipeline.registerTranslator('ct2-opus-mt', () => new CT2OpusMTTranslator({
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+  }))
+  pipeline.registerTranslator('ct2-madlad-400', () => new CT2Madlad400Translator({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
   pipeline.registerTranslator('slm-translate', () => new SLMTranslator({
