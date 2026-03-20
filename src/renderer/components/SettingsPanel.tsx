@@ -10,7 +10,7 @@ function withIpcTimeout<T>(promise: Promise<T>, ms: number, label: string): Prom
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
 }
 
-type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-slm'
+type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-slm' | 'offline-hybrid'
 
 interface DisplayInfo {
   id: number
@@ -269,6 +269,12 @@ function SettingsPanel(): JSX.Element {
           mode: 'cascade' as const,
           sttEngineId: sttEngine,
           translatorEngineId: 'slm-translate'
+        }
+      } else if (resolvedMode === 'offline-hybrid') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: sttEngine,
+          translatorEngineId: 'hybrid'
         }
       } else {
         config = {
@@ -602,7 +608,7 @@ function SettingsPanel(): JSX.Element {
             )}
           </div>
         </label>
-        {engineMode === 'offline-slm' && (
+        {(engineMode === 'offline-slm' || engineMode === 'offline-hybrid') && (
           <>
             <div style={{ paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
               <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '2px' }}>Model Size</div>
@@ -649,6 +655,24 @@ function SettingsPanel(): JSX.Element {
             </label>
           </>
         )}
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline-hybrid'}
+            onChange={() => setEngineMode('offline-hybrid')}
+            disabled={isRunning || isStarting}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Hybrid (OPUS-MT + TranslateGemma)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Instant OPUS-MT draft + LLM refinement for best quality</div>
+            {engineMode === 'offline-hybrid' && gpuInfo && !gpuInfo.hasGpu && (
+              <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
+                No GPU detected — LLM refinement may be slow on CPU-only systems
+              </div>
+            )}
+          </div>
+        </label>
       </Section>
 
       {/* API Keys */}

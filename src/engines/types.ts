@@ -31,6 +31,8 @@ export interface TranslationResult {
   isInterim?: boolean
   /** Speaker identifier (if diarization is enabled) */
   speakerId?: string
+  /** Translation stage for hybrid mode: 'draft' (OPUS-MT) or 'refined' (LLM) */
+  translationStage?: 'draft' | 'refined'
 }
 
 /**

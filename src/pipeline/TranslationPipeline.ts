@@ -8,6 +8,7 @@ import type {
   Language,
   GlossaryEntry
 } from '../engines/types'
+import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { LocalAgreement } from './LocalAgreement'
 import { ContextBuffer } from './ContextBuffer'
 import { SpeakerTracker } from './SpeakerTracker'
@@ -15,6 +16,8 @@ import { SpeakerTracker } from './SpeakerTracker'
 export interface PipelineEvents {
   result: (result: TranslationResult) => void
   'interim-result': (result: TranslationResult) => void
+  /** Draft result from hybrid translation mode — shown immediately before LLM refinement */
+  'draft-result': (result: TranslationResult) => void
   error: (error: Error) => void
   'engine-loading': (message: string) => void
   'engine-ready': () => void
@@ -209,6 +212,13 @@ export class TranslationPipeline extends EventEmitter {
         this.emit('engine-loading', 'Initializing translator...')
         this.translator = await Promise.resolve(translatorFactory())
         await this.withTimeout(this.translator.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Translator initialization')
+
+        // Wire up draft callback for hybrid translator (#235)
+        if (this.translator instanceof HybridTranslator) {
+          this.translator.setOnDraft((draft) => {
+            this.emit('draft-result', draft)
+          })
+        }
       } else if (config.mode === 'e2e') {
         const e2eId = config.e2eEngineId
         if (!e2eId) throw new Error('e2e mode requires e2eEngineId')
