@@ -23,27 +23,27 @@ export class OpusMTTranslator implements TranslatorEngine {
     if (this.jaToEn && this.enToJa) return
     if (this.initializing) return
     this.initializing = true
-    // Reset both to ensure clean retry after partial failure
-    this.jaToEn = null
-    this.enToJa = null
 
     const { pipeline, env } = await import('@huggingface/transformers')
     env.cacheDir = join(app.getPath('userData'), 'models', 'transformers')
 
     try {
       this.onProgress?.('Loading JA→EN translation model...')
-      this.jaToEn = (await pipeline('translation', 'Xenova/opus-mt-ja-en', {
+      // Use local variables to avoid leaking partial state on failure (#207)
+      const jaToEn = (await pipeline('translation', 'Xenova/opus-mt-ja-en', {
         dtype: 'q8'
       })) as unknown as TranslationPipeline
 
       this.onProgress?.('Loading EN→JA translation model...')
-      this.enToJa = (await pipeline('translation', 'Xenova/opus-mt-en-jap', {
+      const enToJa = (await pipeline('translation', 'Xenova/opus-mt-en-jap', {
         dtype: 'q8'
       })) as unknown as TranslationPipeline
 
+      // Only assign after both succeed
+      this.jaToEn = jaToEn
+      this.enToJa = enToJa
       this.onProgress?.('OPUS-MT models loaded')
     } catch (err) {
-      // Reset both on partial failure to allow retry (#32)
       this.jaToEn = null
       this.enToJa = null
       throw err

@@ -21,6 +21,25 @@ import * as SessionManager from '../logger/SessionManager'
 import { store } from './store'
 import type { EngineConfig, TranslationResult } from '../engines/types'
 
+/** Scrub API keys from error messages before sending to renderer (#209) */
+function sanitizeErrorMessage(message: string): string {
+  const settings = store.store as Record<string, unknown>
+  const secrets = [
+    settings.googleApiKey,
+    settings.deeplApiKey,
+    settings.geminiApiKey,
+    settings.microsoftApiKey
+  ].filter((s): s is string => typeof s === 'string' && s.length > 8)
+
+  let sanitized = message
+  for (const secret of secrets) {
+    sanitized = sanitized.split(secret).join('***')
+  }
+  // Also scrub common API key patterns that may leak from HTTP responses
+  sanitized = sanitized.replace(/AIza[0-9A-Za-z\-_]{35}/g, '***')
+  return sanitized
+}
+
 /** Minimum amplitude to consider a chunk as non-silent */
 const SILENCE_THRESHOLD = 0.001
 
@@ -161,8 +180,9 @@ function initPipeline(): void {
   })
 
   pipeline.on('error', (err: Error) => {
-    const hint = getErrorHint(err.message)
-    mainWindow?.webContents.send('status-update', `Error: ${err.message}${hint}`)
+    const msg = sanitizeErrorMessage(err.message)
+    const hint = getErrorHint(msg)
+    mainWindow?.webContents.send('status-update', `Error: ${msg}${hint}`)
   })
 
   pipeline.on('engine-loading', (msg: string) => {
@@ -280,7 +300,7 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
 
     return { success: true }
   } catch (err) {
-    return { error: String(err) }
+    return { error: sanitizeErrorMessage(String(err)) }
   }
 })
 
@@ -302,7 +322,7 @@ ipcMain.handle('pipeline-stop', async () => {
     store.set('sessionLogs', logs.slice(-100))
   }
 
-  pipeline?.stop()
+  await pipeline?.stop()
   logger?.endSession()
   const logPath = logger?.getLogPath()
   logger = null
@@ -379,7 +399,7 @@ ipcMain.handle('process-audio', async (_event, audioData: unknown) => {
   } catch (err) {
     console.error('[audio] Pipeline error:', err)
     // #43: propagate error to renderer
-    const message = err instanceof Error ? err.message : String(err)
+    const message = sanitizeErrorMessage(err instanceof Error ? err.message : String(err))
     mainWindow?.webContents.send('status-update', `Processing error: ${message}`)
     return null
   }
@@ -522,7 +542,7 @@ ipcMain.handle('generate-summary', async (_event, transcriptPath: string) => {
       await slm.dispose()
     }
   } catch (err) {
-    return { error: err instanceof Error ? err.message : String(err) }
+    return { error: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) }
   }
 })
 
