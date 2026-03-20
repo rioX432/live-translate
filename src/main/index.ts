@@ -10,6 +10,7 @@ import { DeepLTranslator } from '../engines/translator/DeepLTranslator'
 import { GeminiTranslator } from '../engines/translator/GeminiTranslator'
 import { MicrosoftTranslator } from '../engines/translator/MicrosoftTranslator'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
+import { CT2OpusMTTranslator } from '../engines/translator/CT2OpusMTTranslator'
 import { ApiRotationController } from '../engines/translator/ApiRotationController'
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
@@ -152,6 +153,9 @@ function initPipeline(): void {
 
   // Register translator engines
   pipeline.registerTranslator('opus-mt', () => new OpusMTTranslator({
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+  }))
+  pipeline.registerTranslator('ct2-opus-mt', () => new CT2OpusMTTranslator({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
   pipeline.registerTranslator('slm-translate', () => new SLMTranslator({
