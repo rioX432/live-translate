@@ -1,5 +1,5 @@
 import Store from 'electron-store'
-import type { GlossaryEntry } from '../engines/types'
+import type { GlossaryEntry, Language, SourceLanguage } from '../engines/types'
 
 export interface QuotaRecord {
   monthKey: string
@@ -56,6 +56,10 @@ export interface AppSettings {
   simulMtWaitK: number
   /** Whisper model variant for local STT: kotoba-v2.0 (Japanese-optimized) or large-v3-turbo (multilingual) */
   whisperVariant: string
+  /** Source language: 'auto' for auto-detection or a specific language code */
+  sourceLanguage: SourceLanguage
+  /** Target language for translation output */
+  targetLanguage: Language
 }
 
 export const store = new Store<AppSettings>({
@@ -86,6 +90,8 @@ export const store = new Store<AppSettings>({
     slmSpeculativeDecoding: false,
     simulMtEnabled: false,
     simulMtWaitK: 3,
-    whisperVariant: 'kotoba-v2.0'
+    whisperVariant: 'kotoba-v2.0',
+    sourceLanguage: 'auto',
+    targetLanguage: 'en'
   }
 })

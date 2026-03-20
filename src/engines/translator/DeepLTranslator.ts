@@ -4,9 +4,24 @@ const DEEPL_FREE_URL = 'https://api-free.deepl.com/v2/translate'
 const DEEPL_PRO_URL = 'https://api.deepl.com/v2/translate'
 const DEFAULT_TIMEOUT_MS = 15_000
 
+/** Map Language codes to DeepL API source/target codes */
 const LANG_MAP: Record<Language, { source: string; target: string }> = {
   ja: { source: 'JA', target: 'JA' },
-  en: { source: 'EN', target: 'EN-US' }
+  en: { source: 'EN', target: 'EN-US' },
+  zh: { source: 'ZH', target: 'ZH-HANS' },
+  ko: { source: 'KO', target: 'KO' },
+  fr: { source: 'FR', target: 'FR' },
+  de: { source: 'DE', target: 'DE' },
+  es: { source: 'ES', target: 'ES' },
+  pt: { source: 'PT', target: 'PT-BR' },
+  ru: { source: 'RU', target: 'RU' },
+  it: { source: 'IT', target: 'IT' },
+  nl: { source: 'NL', target: 'NL' },
+  pl: { source: 'PL', target: 'PL' },
+  ar: { source: 'AR', target: 'AR' },
+  th: { source: 'TH', target: 'TH' },
+  vi: { source: 'VI', target: 'VI' },
+  id: { source: 'ID', target: 'ID' }
 }
 
 export class DeepLTranslator implements TranslatorEngine {

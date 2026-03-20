@@ -49,11 +49,22 @@ export class MoonshineEngine implements STTEngine {
       const text = (result?.text ?? '').trim()
       if (!text) return null
 
-      // Detect language using ratio-based heuristic (aligned with WhisperLocalEngine)
-      const matches = text.match(JA_REGEX)
-      const matchCount = matches?.length || 0
-      const japaneseRatio = text.length > 0 ? matchCount / text.length : 0
-      const language: Language = (japaneseRatio > 0.3 && matchCount >= 2) ? 'ja' : 'en'
+      // Detect language using script-based heuristic (Moonshine is primarily English-focused)
+      const jaKanaMatches = text.match(/[\u3040-\u309F\u30A0-\u30FF]/g)
+      const jaKanaCount = jaKanaMatches?.length || 0
+      const cjkMatches = text.match(/[\u4E00-\u9FFF\u3400-\u4DBF]/g)
+      const cjkCount = cjkMatches?.length || 0
+      const koMatches = text.match(/[\uAC00-\uD7AF]/g)
+      const koCount = koMatches?.length || 0
+
+      let language: Language = 'en'
+      if (jaKanaCount / text.length > 0.3 && jaKanaCount >= 2) {
+        language = 'ja'
+      } else if (cjkCount / text.length > 0.3 && cjkCount >= 2 && jaKanaCount === 0) {
+        language = 'zh'
+      } else if (koCount / text.length > 0.3 && koCount >= 2) {
+        language = 'ko'
+      }
 
       return {
         text,

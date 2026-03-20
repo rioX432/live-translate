@@ -73,12 +73,43 @@ export class WhisperLocalEngine implements STTEngine {
 
   private detectLanguage(text: string): Language {
     if (!text || text.length === 0) return 'en'
-    const japanesePattern = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3400-\u4DBF]/g
-    const matches = text.match(japanesePattern)
-    const matchCount = matches?.length || 0
-    // Require both ratio > 30% AND at least 2 Japanese characters (#39)
-    const japaneseRatio = matchCount / text.length
-    return (japaneseRatio > 0.3 && matchCount >= 2) ? 'ja' : 'en'
+
+    // Japanese: Hiragana, Katakana, CJK ideographs (when mixed with kana)
+    const japanesePattern = /[\u3040-\u309F\u30A0-\u30FF]/g
+    const jpMatches = text.match(japanesePattern)
+    const jpCount = jpMatches?.length || 0
+    const jpRatio = jpCount / text.length
+    if (jpRatio > 0.3 && jpCount >= 2) return 'ja'
+
+    // Chinese: CJK ideographs without Japanese kana
+    const cjkPattern = /[\u4E00-\u9FFF\u3400-\u4DBF]/g
+    const cjkMatches = text.match(cjkPattern)
+    const cjkCount = cjkMatches?.length || 0
+    const cjkRatio = cjkCount / text.length
+    if (cjkRatio > 0.3 && cjkCount >= 2 && jpCount === 0) return 'zh'
+
+    // Korean: Hangul syllables and jamo
+    const koreanPattern = /[\uAC00-\uD7AF\u1100-\u11FF\u3130-\u318F]/g
+    const koMatches = text.match(koreanPattern)
+    const koCount = koMatches?.length || 0
+    const koRatio = koCount / text.length
+    if (koRatio > 0.3 && koCount >= 2) return 'ko'
+
+    // Thai
+    const thaiPattern = /[\u0E00-\u0E7F]/g
+    const thMatches = text.match(thaiPattern)
+    const thCount = thMatches?.length || 0
+    if (thCount / text.length > 0.3 && thCount >= 2) return 'th'
+
+    // Arabic
+    const arabicPattern = /[\u0600-\u06FF\u0750-\u077F]/g
+    const arMatches = text.match(arabicPattern)
+    const arCount = arMatches?.length || 0
+    if (arCount / text.length > 0.3 && arCount >= 2) return 'ar'
+
+    // Default to English for Latin-script languages
+    // (more precise detection for fr/de/es/etc. relies on Whisper's own language detection)
+    return 'en'
   }
 
   private extractText(transcription: string[][] | string[]): string {
