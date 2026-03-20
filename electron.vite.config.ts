@@ -32,7 +32,7 @@ function serveOrtWasm(): Plugin {
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin({ exclude: ['electron-store', '@huggingface/transformers'] })],
+    plugins: [externalizeDepsPlugin({ exclude: ['electron-store'] })],
     build: {
       lib: {
         entry: {

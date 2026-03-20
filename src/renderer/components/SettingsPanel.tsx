@@ -18,7 +18,7 @@ interface DisplayInfo {
 }
 
 function SettingsPanel(): JSX.Element {
-  const [engineMode, setEngineMode] = useState<EngineMode>('auto')
+  const [engineMode, setEngineMode] = useState<EngineMode>('offline-hybrid')
   const [gpuInfo, setGpuInfo] = useState<{ hasGpu: boolean; gpuNames: string[] } | null>(null)
   const [apiKey, setApiKey] = useState('')
   const [deeplApiKey, setDeeplApiKey] = useState('')
@@ -33,10 +33,8 @@ function SettingsPanel(): JSX.Element {
   const sessionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const sessionStartRef = useRef<number | null>(null)
 
-  const [isStarting, setIsStarting] = useState(false) // #31: double-click guard
+  const [isStarting, setIsStarting] = useState(false)
 
-  // Subtitle customization (#118)
-  // STT engine selection (#119)
   const [sttEngine, setSttEngine] = useState<'whisper-local' | 'mlx-whisper' | 'moonshine'>('whisper-local')
 
   const [subtitleFontSize, setSubtitleFontSize] = useState(30)
@@ -45,35 +43,28 @@ function SettingsPanel(): JSX.Element {
   const [subtitleBgOpacity, setSubtitleBgOpacity] = useState(78)
   const [subtitlePosition, setSubtitlePosition] = useState<'top' | 'bottom'>('bottom')
 
-  // Session history (#144)
   const [sessions, setSessions] = useState<Array<{ id: string; startedAt: number; engineMode: string; entryCount: number }>>([])
 
-  // KV cache quantization (#237)
   const [slmKvCacheQuant, setSlmKvCacheQuant] = useState(true)
-
-  // Model size (#236)
   const [slmModelSize, setSlmModelSize] = useState<'4b' | '12b'>('4b')
-
-  // Speculative decoding (#238)
   const [slmSpeculativeDecoding, setSlmSpeculativeDecoding] = useState(false)
   const [draftModelAvailable, setDraftModelAvailable] = useState(false)
-
-  // SimulMT (#239)
   const [simulMtEnabled, setSimulMtEnabled] = useState(false)
   const [simulMtWaitK, setSimulMtWaitK] = useState(3)
 
-  // Glossary (#240)
   const [glossaryTerms, setGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
   const [newGlossarySource, setNewGlossarySource] = useState('')
   const [newGlossaryTarget, setNewGlossaryTarget] = useState('')
 
-  // #243: Platform detection for hiding macOS-only options
   const [platform, setPlatform] = useState<string>('darwin')
 
-  // Meeting summary (#124)
   const [lastTranscriptPath, setLastTranscriptPath] = useState<string | null>(null)
   const [summaryText, setSummaryText] = useState<string | null>(null)
   const [isSummarizing, setIsSummarizing] = useState(false)
+
+  // UI state
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showApiOptions, setShowApiOptions] = useState(false)
 
   const audio = useAudioCapture()
 
@@ -106,7 +97,7 @@ function SettingsPanel(): JSX.Element {
 
   const [crashedSession, setCrashedSession] = useState<{ config: Record<string, unknown>; startedAt: number } | null>(null)
 
-  // Load saved settings on mount (#49) and check for crashed session (#54)
+  // Load saved settings on mount and set platform-aware defaults
   useEffect(() => {
     window.api.getSettings().then((s) => {
       if (s.translationEngine) setEngineMode(s.translationEngine as EngineMode)
@@ -131,12 +122,27 @@ function SettingsPanel(): JSX.Element {
         if (sub.backgroundOpacity !== undefined) setSubtitleBgOpacity(sub.backgroundOpacity as number)
         if (sub.position) setSubtitlePosition(sub.position as 'top' | 'bottom')
       }
+
+      // Auto-expand API section if an API engine is saved
+      const apiModes: EngineMode[] = ['rotation', 'online', 'online-deepl', 'online-gemini']
+      if (s.translationEngine && apiModes.includes(s.translationEngine as EngineMode)) {
+        setShowAdvanced(true)
+        setShowApiOptions(true)
+      }
     })
 
-    // #243: detect platform to hide macOS-only options
-    window.api.getPlatform().then(setPlatform).catch(() => {})
+    // Set platform-aware STT default (mlx-whisper on macOS)
+    window.api.getPlatform().then((p) => {
+      setPlatform(p)
+      // Only set default if no saved setting exists
+      window.api.getSettings().then((s) => {
+        if (!s.sttEngine && p === 'darwin') {
+          setSttEngine('mlx-whisper')
+        }
+      })
+    }).catch(() => {})
 
-    // #54: check for crashed session
+    // Check for crashed session
     window.api.getCrashedSession().then((session) => {
       if (session) {
         setCrashedSession(session)
@@ -145,27 +151,36 @@ function SettingsPanel(): JSX.Element {
     })
   }, [])
 
-  // Load session history (#144)
+  // Load session history
   useEffect(() => {
     window.api.listSessions().then(setSessions).catch(() => {})
   }, [isRunning])
 
-  // Detect GPU (#132)
+  // Detect GPU — fall back to OPUS-MT if no GPU
   useEffect(() => {
-    window.api.detectGpu().then(setGpuInfo).catch(() => setGpuInfo({ hasGpu: false, gpuNames: [] }))
+    window.api.detectGpu().then((info) => {
+      setGpuInfo(info)
+      // If no GPU and no saved engine preference, fall back to OPUS-MT
+      if (!info.hasGpu) {
+        window.api.getSettings().then((s) => {
+          if (!s.translationEngine) {
+            setEngineMode('offline-opus')
+          }
+        })
+      }
+    }).catch(() => setGpuInfo({ hasGpu: false, gpuNames: [] }))
   }, [])
 
-  // Check if 4B draft model is available for speculative decoding (#238)
+  // Check if 4B draft model is available for speculative decoding
   useEffect(() => {
     window.api.isDraftModelAvailable().then(setDraftModelAvailable).catch(() => setDraftModelAvailable(false))
   }, [slmModelSize])
 
-  // Load displays and listen for display changes (#192)
+  // Load displays and listen for display changes
   useEffect(() => {
     const refreshDisplays = (): void => {
       window.api.getDisplays().then((d) => {
         setDisplays(d)
-        // #45: safely default to external display if available
         const external = d.find((disp: DisplayInfo) => disp.label.includes('External'))
         setSelectedDisplay(external?.id ?? d[0]?.id ?? 0)
       })
@@ -213,13 +228,12 @@ function SettingsPanel(): JSX.Element {
   }, [])
 
   const handleStart = async (): Promise<void> => {
-    if (isStarting) return // #31: prevent double-click
+    if (isStarting) return
     setIsStarting(true)
 
     try {
       setStatus('Starting pipeline...')
 
-      // Persist settings (#49)
       await withIpcTimeout(window.api.saveSettings({
         translationEngine: engineMode,
         googleApiKey: apiKey,
@@ -324,7 +338,7 @@ function SettingsPanel(): JSX.Element {
       const result = await withIpcTimeout(window.api.pipelineStart(config), 120_000, 'pipelineStart')
       if (result.error) {
         setStatus(`Error: ${result.error}`)
-        setIsStarting(false) // #36: reset on error
+        setIsStarting(false)
         return
       }
 
@@ -334,7 +348,7 @@ function SettingsPanel(): JSX.Element {
       setStatus('Listening...')
     } catch (err) {
       setStatus(`Error: ${err}`)
-      setIsRunning(false) // #36: reset on error
+      setIsRunning(false)
       stopSessionTimer()
     } finally {
       setIsStarting(false)
@@ -358,7 +372,7 @@ function SettingsPanel(): JSX.Element {
     }
   }
 
-  // #54: resume crashed session
+  // Resume crashed session
   const handleResume = async (): Promise<void> => {
     if (!crashedSession || isStarting) return
     setIsStarting(true)
@@ -373,7 +387,7 @@ function SettingsPanel(): JSX.Element {
       }
       await audio.start()
       setIsRunning(true)
-      setCrashedSession(null) // only clear on success
+      setCrashedSession(null)
       startSessionTimer()
       setStatus('Listening... (resumed)')
     } catch (err) {
@@ -408,11 +422,43 @@ function SettingsPanel(): JSX.Element {
     window.api.moveSubtitleToDisplay(displayId)
   }
 
+  // Helper: is current engine an API engine?
+  const isApiEngine = ['rotation', 'online', 'online-deepl', 'online-gemini'].includes(engineMode)
+
+  // Current engine display name
+  const engineDisplayName = (): string => {
+    switch (engineMode) {
+      case 'offline-hybrid': return 'Hybrid (OPUS-MT + TranslateGemma)'
+      case 'offline-slm': return 'TranslateGemma'
+      case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B'
+      case 'offline-opus': return 'OPUS-MT'
+      case 'offline-ct2-opus': return 'OPUS-MT (CTranslate2)'
+      case 'rotation': return 'API Auto Rotation'
+      case 'online': return 'Google Translation'
+      case 'online-deepl': return 'DeepL'
+      case 'online-gemini': return 'Gemini 2.5 Flash'
+      case 'auto': return 'Auto'
+      default: return engineMode
+    }
+  }
+
+  const sttDisplayName = (): string => {
+    switch (sttEngine) {
+      case 'mlx-whisper': return 'mlx-whisper (Apple Silicon)'
+      case 'whisper-local': return 'Whisper (whisper.cpp)'
+      case 'moonshine': return 'Moonshine AI'
+      default: return sttEngine
+    }
+  }
+
+  // Does the current engine use SLM options?
+  const showSlmOptions = ['offline-slm', 'offline-hunyuan-mt', 'offline-hybrid'].includes(engineMode)
+
   return (
     <div style={containerStyle}>
       <h1 style={titleStyle}>live-translate</h1>
 
-      {/* #54: Crash recovery banner */}
+      {/* Crash recovery banner */}
       {crashedSession && !isRunning && (
         <div role="alert" aria-live="assertive" aria-atomic="true" style={{
           background: '#1e293b',
@@ -464,7 +510,7 @@ function SettingsPanel(): JSX.Element {
         </div>
       )}
 
-      {/* Microphone Selection */}
+      {/* Microphone Selection — always visible */}
       <Section label="Microphone">
         <select
           value={audio.selectedDevice}
@@ -496,606 +542,572 @@ function SettingsPanel(): JSX.Element {
             {audio.permissionError}
           </div>
         )}
-        {audio.hasVirtualAudioDevice && (
-          <div style={{ marginTop: '6px', fontSize: '11px', color: '#22c55e' }}>
-            Virtual audio device detected — select it above to capture Zoom/Teams audio
-          </div>
-        )}
-        {!audio.hasVirtualAudioDevice && (
-          <div style={{ marginTop: '6px', fontSize: '11px', color: '#94a3b8' }}>
-            {platform === 'win32'
-              ? 'To capture Zoom/Teams audio, enable Stereo Mix in Sound settings or install VB-Audio Virtual Cable'
-              : 'To capture Zoom/Teams audio, install BlackHole (free) and select it as the input device'}
-          </div>
-        )}
       </Section>
 
-      {/* STT Engine (#119) */}
-      <Section label="Speech Recognition">
-        <select
-          value={sttEngine}
-          onChange={(e) => setSttEngine(e.target.value as 'whisper-local' | 'mlx-whisper' | 'moonshine')}
-          style={selectStyle}
-          disabled={isRunning || isStarting}
-          aria-label="STT engine"
-        >
-          <option value="whisper-local">Whisper (whisper.cpp)</option>
-          {platform === 'darwin' && (
-            <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
-          )}
-          <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
-        </select>
-        {sttEngine === 'moonshine' && (
-          <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
-            Japanese accuracy is unverified. If results are poor, switch to Whisper.
-          </div>
-        )}
-        {sttEngine === 'mlx-whisper' && (
-          <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
-            Requires Python 3 + mlx-whisper: pip install mlx-whisper
-          </div>
-        )}
-      </Section>
-
-      {/* Engine Selection */}
-      <Section label="Translation Engine" role="radiogroup">
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'auto'}
-            onChange={() => setEngineMode('auto')}
-            disabled={isRunning || isStarting}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Auto (Recommended)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-              {gpuInfo
-                ? gpuInfo.hasGpu
-                  ? `GPU detected: ${gpuInfo.gpuNames.join(', ')}`
-                  : 'No GPU detected — will use OPUS-MT or API rotation'
-                : 'Detecting hardware...'}
-            </div>
-          </div>
-        </label>
-
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '10px', marginBottom: '4px' }}>
-          API Translation
+      {/* Current config summary — always visible */}
+      <div style={{
+        background: '#1e293b',
+        borderRadius: '8px',
+        padding: '10px 14px',
+        marginBottom: '16px',
+        fontSize: '12px',
+        color: '#94a3b8'
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+          <span>Speech Recognition</span>
+          <span style={{ color: '#e2e8f0' }}>{sttDisplayName()}</span>
         </div>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'rotation'}
-            onChange={() => setEngineMode('rotation')}
-            disabled={isRunning || isStarting}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Auto Rotation (Recommended) — up to 4M+ chars/month free</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Azure → Google → DeepL → Gemini, auto-fallback on quota</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'online'}
-            onChange={() => setEngineMode('online')}
-            disabled={isRunning || isStarting}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Google Translation</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, high quality, requires internet</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'online-deepl'}
-            onChange={() => setEngineMode('online-deepl')}
-            disabled={isRunning || isStarting}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>DeepL</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, high quality, 500K chars/month free</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'online-gemini'}
-            onChange={() => setEngineMode('online-gemini')}
-            disabled={isRunning || isStarting}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Gemini 2.5 Flash</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, LLM-based, generous free tier</div>
-          </div>
-        </label>
-
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '10px', marginBottom: '4px' }}>
-          Offline
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span>Translation</span>
+          <span style={{ color: '#e2e8f0' }}>{engineDisplayName()}</span>
         </div>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-opus'}
-            onChange={() => setEngineMode('offline-opus')}
-            disabled={isRunning || isStarting}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>OPUS-MT</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, no internet, ~100MB model download</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-ct2-opus'}
-            onChange={() => setEngineMode('offline-ct2-opus')}
-            disabled={isRunning || isStarting}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>OPUS-MT (CTranslate2 Accelerated)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, 6-10x faster than standard OPUS-MT, requires Python 3</div>
-          </div>
-        </label>
-        {engineMode === 'offline-ct2-opus' && (
-          <div style={{ paddingLeft: '24px', fontSize: '11px', color: '#94a3b8', marginTop: '-4px', marginBottom: '4px' }}>
-            Requires: pip install ctranslate2 transformers sentencepiece
+        {gpuInfo && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+            <span>GPU</span>
+            <span style={{ color: gpuInfo.hasGpu ? '#22c55e' : '#f59e0b' }}>
+              {gpuInfo.hasGpu ? gpuInfo.gpuNames.join(', ') : 'Not detected'}
+            </span>
           </div>
         )}
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-slm'}
-            onChange={() => setEngineMode('offline-slm')}
-            disabled={isRunning || isStarting}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>TranslateGemma</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, GPU-accelerated offline translation</div>
-            {engineMode === 'offline-slm' && gpuInfo && !gpuInfo.hasGpu && (
-              <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
-                No GPU detected — translation may be slow on CPU-only systems
+      </div>
+
+      {/* Advanced Settings toggle */}
+      <button
+        onClick={() => setShowAdvanced(!showAdvanced)}
+        style={{
+          width: '100%',
+          padding: '10px 14px',
+          background: 'transparent',
+          border: '1px solid #334155',
+          borderRadius: '8px',
+          color: '#94a3b8',
+          fontSize: '13px',
+          fontWeight: 500,
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: '16px'
+        }}
+      >
+        <span>Advanced Settings</span>
+        <span style={{ transform: showAdvanced ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}>
+          ▼
+        </span>
+      </button>
+
+      {/* Advanced Settings content */}
+      {showAdvanced && (
+        <div style={{ marginBottom: '16px' }}>
+          {/* STT Engine */}
+          <Section label="Speech Recognition">
+            <select
+              value={sttEngine}
+              onChange={(e) => setSttEngine(e.target.value as 'whisper-local' | 'mlx-whisper' | 'moonshine')}
+              style={selectStyle}
+              disabled={isRunning || isStarting}
+              aria-label="STT engine"
+            >
+              <option value="whisper-local">Whisper (whisper.cpp)</option>
+              {platform === 'darwin' && (
+                <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
+              )}
+              <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
+            </select>
+            {sttEngine === 'moonshine' && (
+              <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
+                Japanese accuracy is unverified. If results are poor, switch to Whisper.
               </div>
             )}
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-hunyuan-mt'}
-            onChange={() => setEngineMode('offline-hunyuan-mt')}
-            disabled={isRunning || isStarting}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Hunyuan-MT 7B (WMT25 Winner)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, 33 languages, GPU-accelerated, ~4.7GB download</div>
-            {engineMode === 'offline-hunyuan-mt' && gpuInfo && !gpuInfo.hasGpu && (
-              <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
-                No GPU detected — translation may be slow on CPU-only systems
-              </div>
-            )}
-          </div>
-        </label>
-        {(engineMode === 'offline-slm' || engineMode === 'offline-hunyuan-mt' || engineMode === 'offline-hybrid') && (
-          <>
-            <div style={{ paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '2px' }}>Model Size</div>
-              <label style={radioLabelStyle}>
-                <input
-                  type="radio"
-                  name="slm-model-size"
-                  checked={slmModelSize === '4b'}
-                  onChange={() => setSlmModelSize('4b')}
-                  disabled={isRunning || isStarting}
-                />
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: '12px' }}>4B (Faster, ~2.6GB)</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>Good quality, runs on most GPUs</div>
-                </div>
-              </label>
-              <label style={radioLabelStyle}>
-                <input
-                  type="radio"
-                  name="slm-model-size"
-                  checked={slmModelSize === '12b'}
-                  onChange={() => setSlmModelSize('12b')}
-                  disabled={isRunning || isStarting}
-                />
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: '12px' }}>12B (Higher quality, ~7.3GB)</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>Best offline quality, requires M3 Pro+ or 8GB+ VRAM</div>
-                </div>
-              </label>
+          </Section>
+
+          {/* Offline Translation Engines */}
+          <Section label="Translation Engine" role="radiogroup">
+            <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+              Offline
             </div>
-            <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
+            <label style={radioLabelStyle}>
               <input
-                type="checkbox"
-                checked={slmKvCacheQuant}
-                onChange={(e) => setSlmKvCacheQuant(e.target.checked)}
+                type="radio"
+                name="engine"
+                checked={engineMode === 'offline-hybrid'}
+                onChange={() => setEngineMode('offline-hybrid')}
                 disabled={isRunning || isStarting}
               />
               <div>
-                <div style={{ fontWeight: 500, fontSize: '12px' }}>KV cache quantization (Q8_0)</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                  Reduces VRAM usage ~50% with negligible quality impact
-                </div>
+                <div style={{ fontWeight: 500 }}>Hybrid (OPUS-MT + TranslateGemma)</div>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>Instant draft + LLM refinement — best offline quality</div>
               </div>
             </label>
-            {slmModelSize === '12b' && (
-              <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
-                <input
-                  type="checkbox"
-                  checked={slmSpeculativeDecoding}
-                  onChange={(e) => setSlmSpeculativeDecoding(e.target.checked)}
-                  disabled={isRunning || isStarting || !draftModelAvailable}
-                />
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: '12px' }}>
-                    Speculative decoding (4B draft + 12B verify)
+            <label style={radioLabelStyle}>
+              <input
+                type="radio"
+                name="engine"
+                checked={engineMode === 'offline-slm'}
+                onChange={() => setEngineMode('offline-slm')}
+                disabled={isRunning || isStarting}
+              />
+              <div>
+                <div style={{ fontWeight: 500 }}>TranslateGemma</div>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>GPU-accelerated offline translation</div>
+              </div>
+            </label>
+            <label style={radioLabelStyle}>
+              <input
+                type="radio"
+                name="engine"
+                checked={engineMode === 'offline-hunyuan-mt'}
+                onChange={() => setEngineMode('offline-hunyuan-mt')}
+                disabled={isRunning || isStarting}
+              />
+              <div>
+                <div style={{ fontWeight: 500 }}>Hunyuan-MT 7B (WMT25 Winner)</div>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>33 languages, ~4.7GB download</div>
+              </div>
+            </label>
+            <label style={radioLabelStyle}>
+              <input
+                type="radio"
+                name="engine"
+                checked={engineMode === 'offline-opus'}
+                onChange={() => setEngineMode('offline-opus')}
+                disabled={isRunning || isStarting}
+              />
+              <div>
+                <div style={{ fontWeight: 500 }}>OPUS-MT</div>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>Lightweight, ~100MB — fast but basic</div>
+              </div>
+            </label>
+            <label style={radioLabelStyle}>
+              <input
+                type="radio"
+                name="engine"
+                checked={engineMode === 'offline-ct2-opus'}
+                onChange={() => setEngineMode('offline-ct2-opus')}
+                disabled={isRunning || isStarting}
+              />
+              <div>
+                <div style={{ fontWeight: 500 }}>OPUS-MT (CTranslate2)</div>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>6-10x faster, requires Python 3</div>
+              </div>
+            </label>
+
+            {/* SLM sub-options */}
+            {showSlmOptions && (
+              <>
+                {gpuInfo && !gpuInfo.hasGpu && (
+                  <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 4px 24px' }}>
+                    No GPU detected — translation may be slow on CPU-only systems
                   </div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                    2-3x throughput with identical output quality. Requires both models in VRAM (~10GB).
+                )}
+                <div style={{ paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
+                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '2px' }}>Model Size</div>
+                  <label style={radioLabelStyle}>
+                    <input
+                      type="radio"
+                      name="slm-model-size"
+                      checked={slmModelSize === '4b'}
+                      onChange={() => setSlmModelSize('4b')}
+                      disabled={isRunning || isStarting}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 500, fontSize: '12px' }}>4B (Faster, ~2.6GB)</div>
+                    </div>
+                  </label>
+                  <label style={radioLabelStyle}>
+                    <input
+                      type="radio"
+                      name="slm-model-size"
+                      checked={slmModelSize === '12b'}
+                      onChange={() => setSlmModelSize('12b')}
+                      disabled={isRunning || isStarting}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 500, fontSize: '12px' }}>12B (Higher quality, ~7.3GB)</div>
+                    </div>
+                  </label>
+                </div>
+                <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
+                  <input
+                    type="checkbox"
+                    checked={slmKvCacheQuant}
+                    onChange={(e) => setSlmKvCacheQuant(e.target.checked)}
+                    disabled={isRunning || isStarting}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 500, fontSize: '12px' }}>KV cache quantization (Q8_0)</div>
+                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>Reduces VRAM ~50%</div>
                   </div>
-                  {!draftModelAvailable && (
-                    <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
-                      Download the 4B model first (select 4B, start once, then switch back to 12B)
+                </label>
+                {slmModelSize === '12b' && (
+                  <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
+                    <input
+                      type="checkbox"
+                      checked={slmSpeculativeDecoding}
+                      onChange={(e) => setSlmSpeculativeDecoding(e.target.checked)}
+                      disabled={isRunning || isStarting || !draftModelAvailable}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 500, fontSize: '12px' }}>Speculative decoding (4B draft + 12B verify)</div>
+                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>2-3x throughput, requires both models in VRAM (~10GB)</div>
+                      {!draftModelAvailable && (
+                        <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
+                          Download the 4B model first
+                        </div>
+                      )}
+                    </div>
+                  </label>
+                )}
+                <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
+                  <input
+                    type="checkbox"
+                    checked={simulMtEnabled}
+                    onChange={(e) => setSimulMtEnabled(e.target.checked)}
+                    disabled={isRunning || isStarting}
+                  />
+                  <div>
+                    <div style={{ fontWeight: 500, fontSize: '12px' }}>Simultaneous translation (SimulMT)</div>
+                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>Start translating before speaker finishes</div>
+                  </div>
+                </label>
+                {simulMtEnabled && (
+                  <div style={{ paddingLeft: '48px', marginTop: '-4px', marginBottom: '4px' }}>
+                    <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
+                      Wait-k: start after {simulMtWaitK} confirmed words
+                    </div>
+                    <input
+                      type="range"
+                      aria-label="Wait-k value"
+                      min={1}
+                      max={10}
+                      value={simulMtWaitK}
+                      onChange={(e) => setSimulMtWaitK(Number(e.target.value))}
+                      disabled={isRunning || isStarting}
+                      style={{ width: '100%' }}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* API Translation — collapsed by default */}
+            <div style={{ marginTop: '12px' }}>
+              <button
+                onClick={() => setShowApiOptions(!showApiOptions)}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: '#64748b',
+                  fontSize: '11px',
+                  fontWeight: 600,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.05em',
+                  cursor: 'pointer',
+                  padding: '4px 0',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <span style={{ transform: showApiOptions ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', fontSize: '10px' }}>
+                  ▶
+                </span>
+                API Translation (requires internet)
+              </button>
+
+              {showApiOptions && (
+                <div style={{ marginTop: '4px' }}>
+                  <label style={radioLabelStyle}>
+                    <input
+                      type="radio"
+                      name="engine"
+                      checked={engineMode === 'rotation'}
+                      onChange={() => setEngineMode('rotation')}
+                      disabled={isRunning || isStarting}
+                    />
+                    <div>
+                      <div style={{ fontWeight: 500 }}>Auto Rotation — up to 4M+ chars/month free</div>
+                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>Azure → Google → DeepL → Gemini</div>
+                    </div>
+                  </label>
+                  <label style={radioLabelStyle}>
+                    <input
+                      type="radio"
+                      name="engine"
+                      checked={engineMode === 'online'}
+                      onChange={() => setEngineMode('online')}
+                      disabled={isRunning || isStarting}
+                    />
+                    <div style={{ fontWeight: 500 }}>Google Translation</div>
+                  </label>
+                  <label style={radioLabelStyle}>
+                    <input
+                      type="radio"
+                      name="engine"
+                      checked={engineMode === 'online-deepl'}
+                      onChange={() => setEngineMode('online-deepl')}
+                      disabled={isRunning || isStarting}
+                    />
+                    <div style={{ fontWeight: 500 }}>DeepL</div>
+                  </label>
+                  <label style={radioLabelStyle}>
+                    <input
+                      type="radio"
+                      name="engine"
+                      checked={engineMode === 'online-gemini'}
+                      onChange={() => setEngineMode('online-gemini')}
+                      disabled={isRunning || isStarting}
+                    />
+                    <div style={{ fontWeight: 500 }}>Gemini 2.5 Flash</div>
+                  </label>
+
+                  {/* API Keys */}
+                  {isApiEngine && (
+                    <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {(engineMode === 'rotation' || engineMode === 'online') && (
+                        <input
+                          type="password"
+                          value={apiKey}
+                          onChange={(e) => setApiKey(e.target.value)}
+                          placeholder="Google Cloud Translation key"
+                          style={inputStyle}
+                          disabled={isRunning || isStarting}
+                        />
+                      )}
+                      {(engineMode === 'rotation' || engineMode === 'online-deepl') && (
+                        <input
+                          type="password"
+                          value={deeplApiKey}
+                          onChange={(e) => setDeeplApiKey(e.target.value)}
+                          placeholder="DeepL API key"
+                          style={inputStyle}
+                          disabled={isRunning || isStarting}
+                        />
+                      )}
+                      {(engineMode === 'rotation' || engineMode === 'online-gemini') && (
+                        <input
+                          type="password"
+                          value={geminiApiKey}
+                          onChange={(e) => setGeminiApiKey(e.target.value)}
+                          placeholder="Gemini API key"
+                          style={inputStyle}
+                          disabled={isRunning || isStarting}
+                        />
+                      )}
+                      {engineMode === 'rotation' && (
+                        <>
+                          <input
+                            type="password"
+                            value={microsoftApiKey}
+                            onChange={(e) => setMicrosoftApiKey(e.target.value)}
+                            placeholder="Azure Microsoft Translator key"
+                            style={inputStyle}
+                            disabled={isRunning || isStarting}
+                          />
+                          <input
+                            type="text"
+                            value={microsoftRegion}
+                            onChange={(e) => setMicrosoftRegion(e.target.value)}
+                            placeholder="Azure region (e.g. eastus)"
+                            style={inputStyle}
+                            disabled={isRunning || isStarting}
+                          />
+                        </>
+                      )}
                     </div>
                   )}
                 </div>
-              </label>
-            )}
-            {/* SimulMT (#239) */}
-            <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
-              <input
-                type="checkbox"
-                checked={simulMtEnabled}
-                onChange={(e) => setSimulMtEnabled(e.target.checked)}
-                disabled={isRunning || isStarting}
-              />
-              <div>
-                <div style={{ fontWeight: 500, fontSize: '12px' }}>
-                  Simultaneous translation (SimulMT)
-                </div>
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                  Start translating before the speaker finishes. Lower latency, requires offline LLM engine.
-                </div>
-              </div>
-            </label>
-            {simulMtEnabled && (
-              <div style={{ paddingLeft: '48px', marginTop: '-4px', marginBottom: '4px' }}>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
-                  Wait-k: start after {simulMtWaitK} confirmed words
-                </div>
-                <input
-                  type="range"
-                  aria-label="Wait-k value"
-                  min={1}
-                  max={10}
-                  value={simulMtWaitK}
-                  onChange={(e) => setSimulMtWaitK(Number(e.target.value))}
-                  disabled={isRunning || isStarting}
-                  style={{ width: '100%' }}
-                />
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#64748b' }}>
-                  <span>1 (faster, less stable)</span>
-                  <span>10 (slower, more stable)</span>
-                </div>
-              </div>
-            )}
-          </>
-        )}
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-hybrid'}
-            onChange={() => setEngineMode('offline-hybrid')}
-            disabled={isRunning || isStarting}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Hybrid (OPUS-MT + TranslateGemma)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Instant OPUS-MT draft + LLM refinement for best quality</div>
-            {engineMode === 'offline-hybrid' && gpuInfo && !gpuInfo.hasGpu && (
-              <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
-                No GPU detected — LLM refinement may be slow on CPU-only systems
-              </div>
-            )}
-          </div>
-        </label>
-      </Section>
-
-      {/* API Keys */}
-      {engineMode === 'rotation' && (
-        <Section label="API Keys (provide at least one)">
-          {!microsoftApiKey && !apiKey && !deeplApiKey && !geminiApiKey && (
-            <div style={{
-              background: '#1e293b',
-              border: '1px solid #3b82f6',
-              borderRadius: '6px',
-              padding: '10px 12px',
-              marginBottom: '8px',
-              fontSize: '12px',
-              color: '#93c5fd',
-              lineHeight: 1.5
-            }}>
-              Add API keys from any combination of providers below. Each provider offers a free tier — combined, you get 4M+ characters/month at no cost.
+              )}
             </div>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            <input
-              type="password"
-              value={microsoftApiKey}
-              onChange={(e) => setMicrosoftApiKey(e.target.value)}
-              placeholder="Azure Microsoft Translator key"
-              style={inputStyle}
-              disabled={isRunning || isStarting}
-            />
-            <input
-              type="text"
-              value={microsoftRegion}
-              onChange={(e) => setMicrosoftRegion(e.target.value)}
-              placeholder="Azure region (e.g. eastus)"
-              style={inputStyle}
-              disabled={isRunning || isStarting}
-            />
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="Google Cloud Translation key"
-              style={inputStyle}
-              disabled={isRunning || isStarting}
-            />
-            <input
-              type="password"
-              value={deeplApiKey}
-              onChange={(e) => setDeeplApiKey(e.target.value)}
-              placeholder="DeepL API key"
-              style={inputStyle}
-              disabled={isRunning || isStarting}
-            />
-            <input
-              type="password"
-              value={geminiApiKey}
-              onChange={(e) => setGeminiApiKey(e.target.value)}
-              placeholder="Gemini API key"
-              style={inputStyle}
-              disabled={isRunning || isStarting}
-            />
-          </div>
-        </Section>
-      )}
-      {engineMode === 'online' && (
-        <Section label="Google Cloud Translation API Key">
-          <input
-            type="password"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder="Enter API key..."
-            style={inputStyle}
-            disabled={isRunning || isStarting}
-          />
-        </Section>
-      )}
-      {engineMode === 'online-deepl' && (
-        <Section label="DeepL API Key">
-          <input
-            type="password"
-            value={deeplApiKey}
-            onChange={(e) => setDeeplApiKey(e.target.value)}
-            placeholder="Enter DeepL API key..."
-            style={inputStyle}
-            disabled={isRunning || isStarting}
-          />
-        </Section>
-      )}
-      {engineMode === 'online-gemini' && (
-        <Section label="Gemini API Key">
-          <input
-            type="password"
-            value={geminiApiKey}
-            onChange={(e) => setGeminiApiKey(e.target.value)}
-            placeholder="Enter Gemini API key..."
-            style={inputStyle}
-            disabled={isRunning || isStarting}
-          />
-        </Section>
-      )}
+          </Section>
 
-      {/* Glossary (#240) */}
-      <Section label="Translation Glossary">
-        <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>
-          Define fixed translations for specific terms. These are injected into LLM-based translators (Gemini, TranslateGemma).
-        </div>
-        {glossaryTerms.length > 0 && (
-          <div style={{ marginBottom: '8px' }}>
-            {glossaryTerms.map((term, idx) => (
-              <div
-                key={idx}
+          {/* Glossary */}
+          <Section label="Translation Glossary">
+            <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>
+              Define fixed translations for specific terms (e.g. proper nouns).
+            </div>
+            {glossaryTerms.length > 0 && (
+              <div style={{ marginBottom: '8px' }}>
+                {glossaryTerms.map((term, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '4px 0',
+                      borderBottom: '1px solid #1e293b',
+                      fontSize: '12px'
+                    }}
+                  >
+                    <span style={{ flex: 1, color: '#e2e8f0' }}>{term.source}</span>
+                    <span style={{ color: '#64748b' }}>&rarr;</span>
+                    <span style={{ flex: 1, color: '#93c5fd' }}>{term.target}</span>
+                    <button
+                      onClick={() => {
+                        const updated = glossaryTerms.filter((_, i) => i !== idx)
+                        setGlossaryTerms(updated)
+                        window.api.saveGlossary(updated)
+                      }}
+                      disabled={isRunning}
+                      style={{
+                        padding: '2px 6px',
+                        fontSize: '11px',
+                        background: '#334155',
+                        color: '#ef4444',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: isRunning ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={newGlossarySource}
+                onChange={(e) => setNewGlossarySource(e.target.value)}
+                placeholder="Source term"
+                style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
+                disabled={isRunning}
+              />
+              <input
+                type="text"
+                value={newGlossaryTarget}
+                onChange={(e) => setNewGlossaryTarget(e.target.value)}
+                placeholder="Translation"
+                style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
+                disabled={isRunning}
+              />
+              <button
+                onClick={() => {
+                  if (!newGlossarySource.trim() || !newGlossaryTarget.trim()) return
+                  const updated = [...glossaryTerms, { source: newGlossarySource.trim(), target: newGlossaryTarget.trim() }]
+                  setGlossaryTerms(updated)
+                  window.api.saveGlossary(updated)
+                  setNewGlossarySource('')
+                  setNewGlossaryTarget('')
+                }}
+                disabled={isRunning || !newGlossarySource.trim() || !newGlossaryTarget.trim()}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '4px 0',
-                  borderBottom: '1px solid #1e293b',
-                  fontSize: '12px'
+                  padding: '8px 12px',
+                  fontSize: '12px',
+                  fontWeight: 600,
+                  background: '#334155',
+                  color: '#e2e8f0',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: (isRunning || !newGlossarySource.trim() || !newGlossaryTarget.trim()) ? 'not-allowed' : 'pointer',
+                  whiteSpace: 'nowrap'
                 }}
               >
-                <span style={{ flex: 1, color: '#e2e8f0' }}>{term.source}</span>
-                <span style={{ color: '#64748b' }}>&rarr;</span>
-                <span style={{ flex: 1, color: '#93c5fd' }}>{term.target}</span>
-                <button
-                  onClick={() => {
-                    const updated = glossaryTerms.filter((_, i) => i !== idx)
-                    setGlossaryTerms(updated)
-                    window.api.saveGlossary(updated)
+                Add
+              </button>
+            </div>
+          </Section>
+
+          {/* Subtitle Appearance */}
+          <Section label="Subtitle Appearance">
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div>
+                <div style={sliderLabelStyle}>Font Size: {subtitleFontSize}px</div>
+                <input
+                  type="range"
+                  aria-label="Subtitle font size"
+                  min={20}
+                  max={48}
+                  value={subtitleFontSize}
+                  onChange={(e) => {
+                    const v = Number(e.target.value)
+                    setSubtitleFontSize(v)
+                    pushSubtitleSettings({ fontSize: v })
                   }}
-                  disabled={isRunning}
-                  style={{
-                    padding: '2px 6px',
-                    fontSize: '11px',
-                    background: '#334155',
-                    color: '#ef4444',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: isRunning ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Remove
-                </button>
+                  style={{ width: '100%' }}
+                />
               </div>
-            ))}
-          </div>
-        )}
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <input
-            type="text"
-            value={newGlossarySource}
-            onChange={(e) => setNewGlossarySource(e.target.value)}
-            placeholder="Source term"
-            style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
-            disabled={isRunning}
-          />
-          <input
-            type="text"
-            value={newGlossaryTarget}
-            onChange={(e) => setNewGlossaryTarget(e.target.value)}
-            placeholder="Translation"
-            style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
-            disabled={isRunning}
-          />
-          <button
-            onClick={() => {
-              if (!newGlossarySource.trim() || !newGlossaryTarget.trim()) return
-              const updated = [...glossaryTerms, { source: newGlossarySource.trim(), target: newGlossaryTarget.trim() }]
-              setGlossaryTerms(updated)
-              window.api.saveGlossary(updated)
-              setNewGlossarySource('')
-              setNewGlossaryTarget('')
-            }}
-            disabled={isRunning || !newGlossarySource.trim() || !newGlossaryTarget.trim()}
-            style={{
-              padding: '8px 12px',
-              fontSize: '12px',
-              fontWeight: 600,
-              background: '#334155',
-              color: '#e2e8f0',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: (isRunning || !newGlossarySource.trim() || !newGlossaryTarget.trim()) ? 'not-allowed' : 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            Add
-          </button>
-        </div>
-      </Section>
+              <div style={{ display: 'flex', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={sliderLabelStyle}>Source Text</div>
+                  <input
+                    type="color"
+                    value={subtitleSourceColor}
+                    onChange={(e) => {
+                      setSubtitleSourceColor(e.target.value)
+                      pushSubtitleSettings({ sourceTextColor: e.target.value })
+                    }}
+                    style={colorInputStyle}
+                  />
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div style={sliderLabelStyle}>Translated Text</div>
+                  <input
+                    type="color"
+                    value={subtitleTranslatedColor}
+                    onChange={(e) => {
+                      setSubtitleTranslatedColor(e.target.value)
+                      pushSubtitleSettings({ translatedTextColor: e.target.value })
+                    }}
+                    style={colorInputStyle}
+                  />
+                </div>
+              </div>
+              <div>
+                <div style={sliderLabelStyle}>Background Opacity: {subtitleBgOpacity}%</div>
+                <input
+                  type="range"
+                  aria-label="Subtitle background opacity"
+                  min={0}
+                  max={100}
+                  value={subtitleBgOpacity}
+                  onChange={(e) => {
+                    const v = Number(e.target.value)
+                    setSubtitleBgOpacity(v)
+                    pushSubtitleSettings({ backgroundOpacity: v })
+                  }}
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <div>
+                <div style={sliderLabelStyle}>Position</div>
+                <select
+                  value={subtitlePosition}
+                  onChange={(e) => {
+                    const v = e.target.value as 'top' | 'bottom'
+                    setSubtitlePosition(v)
+                    pushSubtitleSettings({ position: v })
+                  }}
+                  style={selectStyle}
+                >
+                  <option value="bottom">Bottom</option>
+                  <option value="top">Top</option>
+                </select>
+              </div>
+            </div>
+          </Section>
 
-      {/* Subtitle Appearance (#118) */}
-      <Section label="Subtitle Appearance">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div>
-            <div style={sliderLabelStyle}>Font Size: {subtitleFontSize}px</div>
-            <input
-              type="range"
-              aria-label="Subtitle font size"
-              min={20}
-              max={48}
-              value={subtitleFontSize}
-              onChange={(e) => {
-                const v = Number(e.target.value)
-                setSubtitleFontSize(v)
-                pushSubtitleSettings({ fontSize: v })
-              }}
-              style={{ width: '100%' }}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: '12px' }}>
-            <div style={{ flex: 1 }}>
-              <div style={sliderLabelStyle}>Source Text</div>
-              <input
-                type="color"
-                value={subtitleSourceColor}
-                onChange={(e) => {
-                  setSubtitleSourceColor(e.target.value)
-                  pushSubtitleSettings({ sourceTextColor: e.target.value })
-                }}
-                style={colorInputStyle}
-              />
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={sliderLabelStyle}>Translated Text</div>
-              <input
-                type="color"
-                value={subtitleTranslatedColor}
-                onChange={(e) => {
-                  setSubtitleTranslatedColor(e.target.value)
-                  pushSubtitleSettings({ translatedTextColor: e.target.value })
-                }}
-                style={colorInputStyle}
-              />
-            </div>
-          </div>
-          <div>
-            <div style={sliderLabelStyle}>Background Opacity: {subtitleBgOpacity}%</div>
-            <input
-              type="range"
-              aria-label="Subtitle background opacity"
-              min={0}
-              max={100}
-              value={subtitleBgOpacity}
-              onChange={(e) => {
-                const v = Number(e.target.value)
-                setSubtitleBgOpacity(v)
-                pushSubtitleSettings({ backgroundOpacity: v })
-              }}
-              style={{ width: '100%' }}
-            />
-          </div>
-          <div>
-            <div style={sliderLabelStyle}>Position</div>
+          {/* Display Selection */}
+          <Section label="Subtitle Display">
             <select
-              value={subtitlePosition}
-              onChange={(e) => {
-                const v = e.target.value as 'top' | 'bottom'
-                setSubtitlePosition(v)
-                pushSubtitleSettings({ position: v })
-              }}
+              value={selectedDisplay}
+              onChange={(e) => handleDisplayChange(Number(e.target.value))}
               style={selectStyle}
+              aria-label="Subtitle display"
             >
-              <option value="bottom">Bottom</option>
-              <option value="top">Top</option>
+              {displays.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.label}
+                </option>
+              ))}
             </select>
-          </div>
+          </Section>
         </div>
-      </Section>
+      )}
 
-      {/* Display Selection */}
-      <Section label="Subtitle Display">
-        <select
-          value={selectedDisplay}
-          onChange={(e) => handleDisplayChange(Number(e.target.value))}
-          style={selectStyle}
-          aria-label="Subtitle display"
-        >
-          {displays.map((d) => (
-            <option key={d.id} value={d.id}>
-              {d.label}
-            </option>
-          ))}
-        </select>
-      </Section>
-
-      {/* Start/Stop Button */}
+      {/* Start/Stop Button — always visible */}
       <button
         aria-label={isRunning ? 'Stop translation' : 'Start translation'}
         onClick={isRunning ? handleStop : handleStart}
@@ -1126,7 +1138,7 @@ function SettingsPanel(): JSX.Element {
         )}
       </div>
 
-      {/* Meeting Summary (#124) */}
+      {/* Meeting Summary */}
       {lastTranscriptPath && !isRunning && (
         <div style={{
           marginTop: '12px',
@@ -1199,7 +1211,7 @@ function SettingsPanel(): JSX.Element {
         </div>
       )}
 
-      {/* Session History (#144) */}
+      {/* Session History */}
       {sessions.length > 0 && (
         <Section label="Session History">
           <div style={{ maxHeight: '200px', overflowY: 'auto' }}>

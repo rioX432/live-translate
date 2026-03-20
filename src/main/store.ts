@@ -59,13 +59,13 @@ export interface AppSettings {
 export const store = new Store<AppSettings>({
   encryptionKey: 'live-translate-v1',
   defaults: {
-    translationEngine: 'auto',
+    translationEngine: 'offline-hybrid',
     googleApiKey: '',
     microsoftApiKey: '',
     microsoftRegion: '',
     deeplApiKey: '',
     geminiApiKey: '',
-    sttEngine: 'whisper-local',
+    sttEngine: 'mlx-whisper',
     selectedMicrophone: '',
     selectedDisplay: 0,
     quotaTracking: {},

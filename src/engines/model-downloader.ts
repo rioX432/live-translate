@@ -68,22 +68,22 @@ export function getHunyuanMTVariants(): Record<string, GGUFVariant> {
 
 export const GGUF_VARIANTS_4B: Record<string, GGUFVariant> = {
   'Q4_K_M': {
-    filename: 'translategemma-4b-it-Q4_K_M.gguf',
-    url: 'https://huggingface.co/google/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it-Q4_K_M.gguf',
+    filename: 'translategemma-4b-it.Q4_K_M.gguf',
+    url: 'https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it.Q4_K_M.gguf',
     sizeMB: 2600,
     label: 'Q4_K_M (Recommended, ~2.6GB)'
   },
   'Q8_0': {
-    filename: 'translategemma-4b-it-Q8_0.gguf',
-    url: 'https://huggingface.co/google/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it-Q8_0.gguf',
-    sizeMB: 4400,
-    label: 'Q8_0 (Best quality, ~4.4GB)'
+    filename: 'translategemma-4b-it.Q8_0.gguf',
+    url: 'https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it.Q8_0.gguf',
+    sizeMB: 4200,
+    label: 'Q8_0 (Best quality, ~4.2GB)'
   },
   'Q2_K': {
-    filename: 'translategemma-4b-it-Q2_K.gguf',
-    url: 'https://huggingface.co/google/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it-Q2_K.gguf',
-    sizeMB: 1400,
-    label: 'Q2_K (Smallest, ~1.4GB)'
+    filename: 'translategemma-4b-it.Q2_K.gguf',
+    url: 'https://huggingface.co/mradermacher/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it.Q2_K.gguf',
+    sizeMB: 1800,
+    label: 'Q2_K (Smallest, ~1.8GB)'
   }
 }
 

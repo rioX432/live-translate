@@ -38,15 +38,33 @@ async function handleInit(
 ): Promise<void> {
   activeModelType = modelType ?? 'translategemma'
   const { getLlama } = await import('node-llama-cpp')
+  console.log('[slm-worker] Getting llama instance...')
   llama = await getLlama({ gpu: 'auto' })
+  console.log('[slm-worker] Loading model:', modelPath)
   model = await llama.loadModel({ modelPath })
+  console.log('[slm-worker] Model loaded, creating context...')
 
-  const contextOptions: Record<string, unknown> = {}
+  const contextOptions: Record<string, unknown> = {
+    contextSize: 2048 // Limit context size for translation (short segments)
+  }
   if (kvCacheQuant) {
     contextOptions.experimentalKvCacheKeyType = 'Q8_0'
     contextOptions.experimentalKvCacheValueType = 'Q8_0'
   }
-  context = await model.createContext(contextOptions)
+  try {
+    context = await model.createContext(contextOptions)
+    console.log('[slm-worker] Context created successfully')
+  } catch (err) {
+    console.error('[slm-worker] createContext failed:', err)
+    // Retry without KV cache quantization
+    if (kvCacheQuant) {
+      console.log('[slm-worker] Retrying without KV cache quantization...')
+      context = await model.createContext({ contextSize: 2048 })
+      console.log('[slm-worker] Context created without KV cache quant')
+    } else {
+      throw err
+    }
+  }
 
   // Load draft model for speculative decoding if provided
   if (draftModelPath) {

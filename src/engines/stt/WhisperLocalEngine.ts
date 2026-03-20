@@ -10,6 +10,7 @@ export class WhisperLocalEngine implements STTEngine {
 
   private modelPath = ''
   private onProgress?: (message: string) => void
+  private processing = false
 
   constructor(options?: { onProgress?: (message: string) => void }) {
     this.onProgress = options?.onProgress
@@ -26,13 +27,16 @@ export class WhisperLocalEngine implements STTEngine {
 
   async processAudio(audioChunk: Float32Array, _sampleRate: number): Promise<STTResult | null> {
     if (!this.modelPath) return null
+    // Serialize calls — whisper-node-addon uses Metal GPU which is not thread-safe
+    if (this.processing) return null
+    this.processing = true
 
     try {
       const result = await transcribe({
         model: this.modelPath,
         pcmf32: audioChunk,
         language: 'auto',
-        vad: true,
+        vad: false,
         no_timestamps: true,
         no_prints: true
       })
@@ -52,6 +56,8 @@ export class WhisperLocalEngine implements STTEngine {
     } catch (err) {
       console.error('Whisper transcription error:', err)
       return null
+    } finally {
+      this.processing = false
     }
   }
 

@@ -1,7 +1,7 @@
-import { spawn, type ChildProcess } from 'child_process'
+import { spawn, execSync, type ChildProcess } from 'child_process'
 import { join } from 'path'
-import { writeFileSync, unlinkSync } from 'fs'
-import { tmpdir } from 'os'
+import { writeFileSync, unlinkSync, existsSync } from 'fs'
+import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 
 const TRANSCRIBE_TIMEOUT_MS = 30_000
@@ -44,12 +44,14 @@ export class MlxWhisperEngine implements STTEngine {
     }, INIT_TIMEOUT_MS)
 
     try {
-      this.process = spawn('python3', [bridgePath], {
+      const python3 = findPython3WithMlxWhisper()
+      this.onProgress?.(`Using Python: ${python3}`)
+      this.process = spawn(python3, [bridgePath], {
         stdio: ['pipe', 'pipe', 'pipe']
       })
     } catch (err) {
       clearTimeout(initTimeout)
-      throw new Error('Python 3 not found. Install Python 3 and run: pip install mlx-whisper')
+      throw new Error('Python 3 with mlx-whisper not found. Create a venv and install: python3 -m venv ~/mlx-env && ~/mlx-env/bin/pip install mlx-whisper')
     }
 
     // Handle spawn errors (python3 not in PATH)
@@ -201,6 +203,32 @@ export class MlxWhisperEngine implements STTEngine {
       })
     })
   }
+}
+
+/** Find a python3 binary that has mlx_whisper installed */
+function findPython3WithMlxWhisper(): string {
+  // Check common venv locations first
+  const venvPaths = [
+    join(homedir(), 'mlx-env', 'bin', 'python3'),
+    join(homedir(), '.venv', 'bin', 'python3'),
+    join(homedir(), 'venv', 'bin', 'python3')
+  ]
+
+  for (const p of venvPaths) {
+    if (!existsSync(p)) continue
+    try {
+      execSync(`${p} -c "import mlx_whisper"`, { stdio: 'ignore', timeout: 5000 })
+      return p
+    } catch { /* mlx_whisper not installed in this venv */ }
+  }
+
+  // Fall back to system python3
+  try {
+    execSync('python3 -c "import mlx_whisper"', { stdio: 'ignore', timeout: 5000 })
+    return 'python3'
+  } catch { /* not available */ }
+
+  throw new Error('mlx-whisper not found')
 }
 
 /** Write Float32Array as a minimal WAV file */
