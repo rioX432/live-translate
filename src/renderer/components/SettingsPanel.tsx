@@ -1,6 +1,31 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
 
+/** Supported language codes — must match Language type in types.ts */
+type Language = 'ja' | 'en' | 'zh' | 'ko' | 'fr' | 'de' | 'es' | 'pt' | 'ru' | 'it' | 'nl' | 'pl' | 'ar' | 'th' | 'vi' | 'id'
+type SourceLanguage = 'auto' | Language
+
+const LANGUAGE_LABELS: Record<Language, string> = {
+  ja: 'Japanese',
+  en: 'English',
+  zh: 'Chinese',
+  ko: 'Korean',
+  fr: 'French',
+  de: 'German',
+  es: 'Spanish',
+  pt: 'Portuguese',
+  ru: 'Russian',
+  it: 'Italian',
+  nl: 'Dutch',
+  pl: 'Polish',
+  ar: 'Arabic',
+  th: 'Thai',
+  vi: 'Vietnamese',
+  id: 'Indonesian'
+}
+
+const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
+
 /** Wrap a promise with a timeout to prevent UI freezes when main process hangs */
 function withIpcTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout>
@@ -34,6 +59,9 @@ function SettingsPanel(): JSX.Element {
   const sessionStartRef = useRef<number | null>(null)
 
   const [isStarting, setIsStarting] = useState(false)
+
+  const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>('auto')
+  const [targetLanguage, setTargetLanguage] = useState<Language>('en')
 
   const [sttEngine, setSttEngine] = useState<'whisper-local' | 'mlx-whisper' | 'moonshine'>('whisper-local')
   const [whisperVariant, setWhisperVariant] = useState<'kotoba-v2.0' | 'large-v3-turbo'>('kotoba-v2.0')
@@ -116,6 +144,8 @@ function SettingsPanel(): JSX.Element {
       if (s.glossaryTerms) setGlossaryTerms(s.glossaryTerms as Array<{ source: string; target: string }>)
       if (s.simulMtEnabled !== undefined) setSimulMtEnabled(s.simulMtEnabled as boolean)
       if (s.simulMtWaitK !== undefined) setSimulMtWaitK(s.simulMtWaitK as number)
+      if (s.sourceLanguage) setSourceLanguage(s.sourceLanguage as SourceLanguage)
+      if (s.targetLanguage) setTargetLanguage(s.targetLanguage as Language)
       if (s.subtitleSettings) {
         const sub = s.subtitleSettings as Record<string, unknown>
         if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
@@ -251,7 +281,9 @@ function SettingsPanel(): JSX.Element {
         slmModelSize,
         slmSpeculativeDecoding,
         simulMtEnabled,
-        simulMtWaitK
+        simulMtWaitK,
+        sourceLanguage,
+        targetLanguage
       }), 10_000, 'saveSettings')
 
       // Resolve auto mode to concrete engine
@@ -471,6 +503,13 @@ function SettingsPanel(): JSX.Element {
     }
   }
 
+  // Language display name for config summary
+  const languageDisplayName = (): string => {
+    const src = sourceLanguage === 'auto' ? 'Auto-detect' : LANGUAGE_LABELS[sourceLanguage]
+    const tgt = LANGUAGE_LABELS[targetLanguage]
+    return `${src} → ${tgt}`
+  }
+
   // Does the current engine use SLM options?
   const showSlmOptions = ['offline-slm', 'offline-hunyuan-mt', 'offline-hunyuan-mt-15', 'offline-hybrid'].includes(engineMode)
 
@@ -581,6 +620,10 @@ function SettingsPanel(): JSX.Element {
           <span>Translation</span>
           <span style={{ color: '#e2e8f0' }}>{engineDisplayName()}</span>
         </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+          <span>Language</span>
+          <span style={{ color: '#e2e8f0' }}>{languageDisplayName()}</span>
+        </div>
         {gpuInfo && (
           <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
             <span>GPU</span>
@@ -619,6 +662,50 @@ function SettingsPanel(): JSX.Element {
       {/* Advanced Settings content */}
       {showAdvanced && (
         <div style={{ marginBottom: '16px' }}>
+          {/* Language Settings */}
+          <Section label="Language">
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>
+                  Source Language
+                </div>
+                <select
+                  value={sourceLanguage}
+                  onChange={(e) => setSourceLanguage(e.target.value as SourceLanguage)}
+                  style={selectStyle}
+                  disabled={isRunning || isStarting}
+                  aria-label="Source language"
+                >
+                  <option value="auto">Auto-detect</option>
+                  {ALL_LANGUAGES.map((lang) => (
+                    <option key={lang} value={lang}>{LANGUAGE_LABELS[lang]}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>
+                  Target Language
+                </div>
+                <select
+                  value={targetLanguage}
+                  onChange={(e) => setTargetLanguage(e.target.value as Language)}
+                  style={selectStyle}
+                  disabled={isRunning || isStarting}
+                  aria-label="Target language"
+                >
+                  {ALL_LANGUAGES.map((lang) => (
+                    <option key={lang} value={lang}>{LANGUAGE_LABELS[lang]}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            {sourceLanguage !== 'auto' && sourceLanguage === targetLanguage && (
+              <div style={{ marginTop: '6px', fontSize: '11px', color: '#f59e0b' }}>
+                Source and target languages are the same. Translation will fall back to ja/en swap.
+              </div>
+            )}
+          </Section>
+
           {/* STT Engine */}
           <Section label="Speech Recognition">
             <select

@@ -338,6 +338,9 @@ ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => 
     const glossaryTerms = store.get('glossaryTerms') || []
     pipeline!.setGlossary(glossaryTerms)
 
+    // Configure language settings (#263)
+    pipeline!.setLanguageConfig(store.get('sourceLanguage'), store.get('targetLanguage'))
+
     // Configure SimulMT (#239)
     pipeline!.setSimulMt(store.get('simulMtEnabled'), store.get('simulMtWaitK'))
 
@@ -542,7 +545,9 @@ ipcMain.handle('get-settings', () => {
     glossaryTerms: store.get('glossaryTerms') || [],
     simulMtEnabled: store.get('simulMtEnabled'),
     simulMtWaitK: store.get('simulMtWaitK'),
-    whisperVariant: store.get('whisperVariant')
+    whisperVariant: store.get('whisperVariant'),
+    sourceLanguage: store.get('sourceLanguage'),
+    targetLanguage: store.get('targetLanguage')
   }
 })
 

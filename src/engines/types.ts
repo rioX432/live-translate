@@ -1,5 +1,31 @@
-/** Detected/target language */
-export type Language = 'ja' | 'en'
+/** Supported language codes (ISO 639-1) */
+export type Language = 'ja' | 'en' | 'zh' | 'ko' | 'fr' | 'de' | 'es' | 'pt' | 'ru' | 'it' | 'nl' | 'pl' | 'ar' | 'th' | 'vi' | 'id'
+
+/** Source language setting: specific language or auto-detect */
+export type SourceLanguage = 'auto' | Language
+
+/** Human-readable language labels */
+export const LANGUAGE_LABELS: Record<Language, string> = {
+  ja: 'Japanese',
+  en: 'English',
+  zh: 'Chinese',
+  ko: 'Korean',
+  fr: 'French',
+  de: 'German',
+  es: 'Spanish',
+  pt: 'Portuguese',
+  ru: 'Russian',
+  it: 'Italian',
+  nl: 'Dutch',
+  pl: 'Polish',
+  ar: 'Arabic',
+  th: 'Thai',
+  vi: 'Vietnamese',
+  id: 'Indonesian'
+}
+
+/** All supported language codes */
+export const ALL_LANGUAGES: Language[] = Object.keys(LANGUAGE_LABELS) as Language[]
 
 /** STT engine result */
 export interface STTResult {

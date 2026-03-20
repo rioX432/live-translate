@@ -3,6 +3,7 @@ import { join } from 'path'
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
+import { ALL_LANGUAGES } from '../types'
 
 const TRANSCRIBE_TIMEOUT_MS = 30_000
 const INIT_TIMEOUT_MS = 60_000
@@ -144,7 +145,7 @@ export class MlxWhisperEngine implements STTEngine {
 
       return {
         text: result.text,
-        language: (result.language === 'ja' ? 'ja' : 'en') as Language,
+        language: (ALL_LANGUAGES.includes(result.language as Language) ? result.language : 'en') as Language,
         isFinal: true,
         timestamp: Date.now()
       }

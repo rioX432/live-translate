@@ -6,6 +6,7 @@ import type {
   E2ETranslationEngine,
   TranslationResult,
   Language,
+  SourceLanguage,
   GlossaryEntry
 } from '../engines/types'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
@@ -65,6 +66,10 @@ export class TranslationPipeline extends EventEmitter {
   private contextBuffer = new ContextBuffer()
   private speakerTracker = new SpeakerTracker()
   private lastTranslatedConfirmed = ''
+
+  // Language configuration
+  private sourceLanguage: SourceLanguage = 'auto'
+  private targetLanguage: Language = 'en'
 
   // SimulMT state
   private simulMtEnabled = false
@@ -147,6 +152,12 @@ export class TranslationPipeline extends EventEmitter {
   /** Set glossary terms for context-aware translation */
   setGlossary(glossary: GlossaryEntry[]): void {
     this.glossary = glossary
+  }
+
+  /** Configure source and target languages */
+  setLanguageConfig(source: SourceLanguage, target: Language): void {
+    this.sourceLanguage = source
+    this.targetLanguage = target
   }
 
   /** Configure simultaneous translation (Wait-k policy) */
@@ -571,21 +582,33 @@ export class TranslationPipeline extends EventEmitter {
   }
 
   /**
-   * Count words in text. For CJK text (Japanese/Chinese), count characters
+   * Count words in text. For CJK text (Japanese/Chinese/Korean), count characters
    * since there are no space-delimited word boundaries.
    */
   private countWords(text: string, language: Language): number {
-    if (language === 'ja') {
-      // For Japanese, each character roughly corresponds to a morpheme
+    if (language === 'ja' || language === 'zh') {
+      // For Japanese/Chinese, each character roughly corresponds to a morpheme
+      return text.replace(/\s/g, '').length
+    }
+    // Korean has spaces between words, but character count is a better proxy for SimulMT
+    if (language === 'ko') {
       return text.replace(/\s/g, '').length
     }
     return text.trim().split(/\s+/).filter(Boolean).length
   }
 
-  /** Resolve the target language for a given source language */
-  private resolveTargetLanguage(sourceLang: Language): Language {
-    // Currently only ja↔en is supported
-    return sourceLang === 'ja' ? 'en' : 'ja'
+  /**
+   * Resolve the target language based on user settings and detected source language.
+   * When source and target are the same, falls back to ja↔en swap for backward compatibility.
+   */
+  private resolveTargetLanguage(detectedLang: Language): Language {
+    const target = this.targetLanguage
+    // If detected language matches target, swap to avoid no-op translation
+    if (detectedLang === target) {
+      // Backward-compatible fallback: ja↔en
+      return detectedLang === 'ja' ? 'en' : 'ja'
+    }
+    return target
   }
 
   // --- Memory monitoring ---
