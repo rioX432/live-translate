@@ -35,7 +35,7 @@ function withIpcTimeout<T>(promise: Promise<T>, ms: number, label: string): Prom
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
 }
 
-type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-ct2-opus' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-hunyuan-mt-15' | 'offline-ane' | 'offline-hybrid'
+type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-ct2-opus' | 'offline-madlad-400' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-hunyuan-mt-15' | 'offline-ane' | 'offline-hybrid'
 
 interface DisplayInfo {
   id: number
@@ -344,6 +344,12 @@ function SettingsPanel(): JSX.Element {
           sttEngineId: sttEngine,
           translatorEngineId: 'ct2-opus-mt'
         }
+      } else if (resolvedMode === 'offline-madlad-400') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: sttEngine,
+          translatorEngineId: 'ct2-madlad-400'
+        }
       } else if (resolvedMode === 'offline-slm') {
         config = {
           mode: 'cascade' as const,
@@ -481,6 +487,7 @@ function SettingsPanel(): JSX.Element {
       case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B'
       case 'offline-opus': return 'OPUS-MT'
       case 'offline-ct2-opus': return 'OPUS-MT (CTranslate2)'
+      case 'offline-madlad-400': return 'Madlad-400 (450+ Languages)'
       case 'offline-ane': return 'ANEMLL (Apple Neural Engine)'
       case 'rotation': return 'API Auto Rotation'
       case 'online': return 'Google Translation'
@@ -831,6 +838,19 @@ function SettingsPanel(): JSX.Element {
               <div>
                 <div style={{ fontWeight: 500 }}>OPUS-MT (CTranslate2)</div>
                 <div style={{ fontSize: '12px', color: '#94a3b8' }}>6-10x faster, requires Python 3</div>
+              </div>
+            </label>
+            <label style={radioLabelStyle}>
+              <input
+                type="radio"
+                name="engine"
+                checked={engineMode === 'offline-madlad-400'}
+                onChange={() => setEngineMode('offline-madlad-400')}
+                disabled={isRunning || isStarting}
+              />
+              <div>
+                <div style={{ fontWeight: 500 }}>Madlad-400 (450+ Languages)</div>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>Google T5-based, ~1.5GB, requires Python 3</div>
               </div>
             </label>
             {platform === 'darwin' && (
