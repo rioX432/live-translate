@@ -58,6 +58,10 @@ function SettingsPanel(): JSX.Element {
   const [slmSpeculativeDecoding, setSlmSpeculativeDecoding] = useState(false)
   const [draftModelAvailable, setDraftModelAvailable] = useState(false)
 
+  // SimulMT (#239)
+  const [simulMtEnabled, setSimulMtEnabled] = useState(false)
+  const [simulMtWaitK, setSimulMtWaitK] = useState(3)
+
   // Glossary (#240)
   const [glossaryTerms, setGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
   const [newGlossarySource, setNewGlossarySource] = useState('')
@@ -117,6 +121,8 @@ function SettingsPanel(): JSX.Element {
       if (s.slmModelSize) setSlmModelSize(s.slmModelSize as '4b' | '12b')
       if (s.slmSpeculativeDecoding !== undefined) setSlmSpeculativeDecoding(s.slmSpeculativeDecoding as boolean)
       if (s.glossaryTerms) setGlossaryTerms(s.glossaryTerms as Array<{ source: string; target: string }>)
+      if (s.simulMtEnabled !== undefined) setSimulMtEnabled(s.simulMtEnabled as boolean)
+      if (s.simulMtWaitK !== undefined) setSimulMtWaitK(s.simulMtWaitK as number)
       if (s.subtitleSettings) {
         const sub = s.subtitleSettings as Record<string, unknown>
         if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
@@ -226,7 +232,9 @@ function SettingsPanel(): JSX.Element {
         sttEngine,
         slmKvCacheQuant,
         slmModelSize,
-        slmSpeculativeDecoding
+        slmSpeculativeDecoding,
+        simulMtEnabled,
+        simulMtWaitK
       }), 10_000, 'saveSettings')
 
       // Resolve auto mode to concrete engine
@@ -720,6 +728,44 @@ function SettingsPanel(): JSX.Element {
                   )}
                 </div>
               </label>
+            )}
+            {/* SimulMT (#239) */}
+            <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
+              <input
+                type="checkbox"
+                checked={simulMtEnabled}
+                onChange={(e) => setSimulMtEnabled(e.target.checked)}
+                disabled={isRunning || isStarting}
+              />
+              <div>
+                <div style={{ fontWeight: 500, fontSize: '12px' }}>
+                  Simultaneous translation (SimulMT)
+                </div>
+                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                  Start translating before the speaker finishes. Lower latency, requires offline LLM engine.
+                </div>
+              </div>
+            </label>
+            {simulMtEnabled && (
+              <div style={{ paddingLeft: '48px', marginTop: '-4px', marginBottom: '4px' }}>
+                <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
+                  Wait-k: start after {simulMtWaitK} confirmed words
+                </div>
+                <input
+                  type="range"
+                  aria-label="Wait-k value"
+                  min={1}
+                  max={10}
+                  value={simulMtWaitK}
+                  onChange={(e) => setSimulMtWaitK(Number(e.target.value))}
+                  disabled={isRunning || isStarting}
+                  style={{ width: '100%' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#64748b' }}>
+                  <span>1 (faster, less stable)</span>
+                  <span>10 (slower, more stable)</span>
+                </div>
+              </div>
             )}
           </>
         )}

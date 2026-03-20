@@ -66,6 +66,11 @@ export class TranslationPipeline extends EventEmitter {
   private speakerTracker = new SpeakerTracker()
   private lastTranslatedConfirmed = ''
 
+  // SimulMT state
+  private simulMtEnabled = false
+  private simulMtWaitK = 3
+  private simulMtPreviousOutput = ''
+
   // Streaming mutex (separate from lifecycle state)
   private streamingLock = false
   private streamingLockResolvers: Array<() => void> = []
@@ -142,6 +147,12 @@ export class TranslationPipeline extends EventEmitter {
   /** Set glossary terms for context-aware translation */
   setGlossary(glossary: GlossaryEntry[]): void {
     this.glossary = glossary
+  }
+
+  /** Configure simultaneous translation (Wait-k policy) */
+  setSimulMt(enabled: boolean, waitK: number): void {
+    this.simulMtEnabled = enabled
+    this.simulMtWaitK = Math.max(1, Math.min(waitK, 10))
   }
 
   // --- Engine registration ---
@@ -271,6 +282,7 @@ export class TranslationPipeline extends EventEmitter {
     this.contextBuffer.reset()
     this.speakerTracker.reset()
     this.lastTranslatedConfirmed = ''
+    this.simulMtPreviousOutput = ''
     // Dispose engines to free memory (#211)
     await this.disposeEngines()
   }
@@ -381,6 +393,7 @@ export class TranslationPipeline extends EventEmitter {
       this.agreement.reset()
       this.contextBuffer.reset()
       this.lastTranslatedConfirmed = ''
+      this.simulMtPreviousOutput = ''
 
       // Temporarily go to IDLE so switchEngine can transition to INITIALIZING
       this.setState(PipelineState.IDLE)
@@ -416,6 +429,7 @@ export class TranslationPipeline extends EventEmitter {
         // Reset agreement on silence to prevent stale state accumulation (#75)
         this.agreement.reset()
         this.lastTranslatedConfirmed = ''
+        this.simulMtPreviousOutput = ''
         return null
       }
 
@@ -426,7 +440,29 @@ export class TranslationPipeline extends EventEmitter {
       const glossary = this.glossary.length > 0 ? this.glossary : undefined
 
       let translatedText = ''
-      if (agreement.newConfirmed && this.translator) {
+
+      // SimulMT path: use incremental translation with Wait-k policy
+      if (
+        this.simulMtEnabled &&
+        this.translator?.translateIncremental &&
+        agreement.confirmedText.trim()
+      ) {
+        const wordCount = this.countWords(agreement.confirmedText, sttResult.language)
+        if (wordCount >= this.simulMtWaitK) {
+          translatedText = await this.translator.translateIncremental(
+            agreement.confirmedText,
+            this.simulMtPreviousOutput,
+            sttResult.language,
+            targetLang,
+            this.contextBuffer.getContext(glossary, speakerId)
+          )
+          this.simulMtPreviousOutput = translatedText
+          this.lastTranslatedConfirmed = translatedText
+        } else {
+          translatedText = this.simulMtPreviousOutput || this.lastTranslatedConfirmed
+        }
+      } else if (agreement.newConfirmed && this.translator) {
+        // Standard path: translate only when new confirmed text appears
         translatedText = await this.translator.translate(
           agreement.confirmedText,
           sttResult.language,
@@ -437,6 +473,7 @@ export class TranslationPipeline extends EventEmitter {
       } else {
         translatedText = this.lastTranslatedConfirmed
       }
+
       const interimResult: TranslationResult = {
         sourceText: agreement.confirmedText + agreement.interimText,
         translatedText,
@@ -481,6 +518,7 @@ export class TranslationPipeline extends EventEmitter {
       if (!sttResult || !sttResult.text.trim()) {
         this.agreement.reset()
         this.lastTranslatedConfirmed = ''
+        this.simulMtPreviousOutput = ''
         return null
       }
 
@@ -502,6 +540,7 @@ export class TranslationPipeline extends EventEmitter {
       }
 
       this.lastTranslatedConfirmed = ''
+      this.simulMtPreviousOutput = ''
       const result: TranslationResult = {
         sourceText: agreement.confirmedText,
         translatedText,
@@ -529,6 +568,18 @@ export class TranslationPipeline extends EventEmitter {
       for (const r of this.streamingLockResolvers) r()
       this.streamingLockResolvers = []
     }
+  }
+
+  /**
+   * Count words in text. For CJK text (Japanese/Chinese), count characters
+   * since there are no space-delimited word boundaries.
+   */
+  private countWords(text: string, language: Language): number {
+    if (language === 'ja') {
+      // For Japanese, each character roughly corresponds to a morpheme
+      return text.replace(/\s/g, '').length
+    }
+    return text.trim().split(/\s+/).filter(Boolean).length
   }
 
   /** Resolve the target language for a given source language */

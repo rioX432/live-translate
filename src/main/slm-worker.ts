@@ -6,6 +6,7 @@
  * IPC protocol:
  *   Main → Worker: { type: 'init', modelPath: string, kvCacheQuant?: boolean, modelType?: 'translategemma' | 'hunyuan-mt', draftModelPath?: string }
  *   Main → Worker: { type: 'translate', id: string, text: string, from: string, to: string }
+ *   Main → Worker: { type: 'translate-incremental', id: string, text: string, previousOutput: string, from: string, to: string }
  *   Main → Worker: { type: 'summarize', id: string, transcript: string }
  *   Main → Worker: { type: 'dispose' }
  *   Worker → Main: { type: 'ready' }
@@ -199,6 +200,81 @@ async function handleTranslate(
   }
 }
 
+async function handleTranslateIncremental(
+  id: string,
+  text: string,
+  previousOutput: string,
+  from: string,
+  to: string,
+  translateContext?: {
+    previousSegments?: Array<{ source: string; translated: string; speakerId?: string }>
+    glossary?: Array<{ source: string; target: string }>
+    speakerId?: string
+  }
+): Promise<void> {
+  if (!context) {
+    process.parentPort!.postMessage({
+      type: 'error',
+      id,
+      message: 'Model not initialized'
+    })
+    return
+  }
+
+  try {
+    const { LlamaChatSession } = await import('node-llama-cpp')
+
+    const contextSequence = context.getSequence()
+    const session = new LlamaChatSession({ contextSequence })
+
+    const fromLang = LANG_NAMES[from] ?? from
+    const toLang = LANG_NAMES[to] ?? to
+
+    const contextSection = buildContextPrompt(translateContext)
+
+    // Build prompt with instruction to continue from previous output
+    let prompt: string
+    if (activeModelType === 'hunyuan-mt') {
+      const isChinese = from === 'zh' || to === 'zh'
+      if (isChinese && to !== 'zh') {
+        prompt = `${contextSection}把下面的文本翻译成${toLang}，不要额外解释。\n\n${text}`
+      } else if (isChinese && to === 'zh') {
+        prompt = `${contextSection}把下面的文本翻译成中文，不要额外解释。\n\n${text}`
+      } else {
+        prompt = `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
+      }
+    } else {
+      prompt = `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
+    }
+
+    // Use responsePrefix to force the model to continue from previous output
+    // This implements prefix-constrained decoding for SimulMT consistency
+    const inferenceParams = activeModelType === 'hunyuan-mt'
+      ? { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: 1.05 }
+      : { temperature: 0.1, maxTokens: 512 }
+
+    const response = await session.prompt(prompt, {
+      ...inferenceParams,
+      ...(previousOutput.trim() && { responsePrefix: previousOutput })
+    })
+
+    contextSequence.dispose?.()
+    session.dispose?.()
+
+    process.parentPort!.postMessage({
+      type: 'result',
+      id,
+      text: response.trim()
+    })
+  } catch (err) {
+    process.parentPort!.postMessage({
+      type: 'error',
+      id,
+      message: err instanceof Error ? err.message : String(err)
+    })
+  }
+}
+
 async function handleSummarize(id: string, transcript: string): Promise<void> {
   if (!context) {
     process.parentPort!.postMessage({
@@ -282,6 +358,9 @@ process.parentPort!.on('message', (e: { data: any }) => {
         case 'translate':
           await handleTranslate(msg.id, msg.text, msg.from, msg.to, msg.context)
           break
+        case 'translate-incremental':
+          await handleTranslateIncremental(msg.id, msg.text, msg.previousOutput, msg.from, msg.to, msg.context)
+          break
         case 'summarize':
           await handleSummarize(msg.id, msg.transcript)
           break
@@ -298,7 +377,7 @@ process.parentPort!.on('message', (e: { data: any }) => {
     }
   }
 
-  if (msg.type === 'translate' || msg.type === 'summarize') {
+  if (msg.type === 'translate' || msg.type === 'translate-incremental' || msg.type === 'summarize') {
     // Queue to serialize context access
     requestQueue = requestQueue.then(handleMessage, handleMessage)
   } else {

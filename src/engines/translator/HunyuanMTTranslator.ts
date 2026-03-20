@@ -144,6 +144,40 @@ export class HunyuanMTTranslator implements TranslatorEngine {
     })
   }
 
+  async translateIncremental(
+    text: string,
+    previousOutput: string,
+    from: Language,
+    to: Language,
+    context?: TranslateContext
+  ): Promise<string> {
+    if (!text.trim()) return previousOutput || ''
+    if (from === to) return text
+    if (!this.worker) {
+      throw new Error('[hunyuan-mt] Not initialized')
+    }
+
+    const id = String(this.nextId++)
+
+    return new Promise<string>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id)
+        reject(new Error('Hunyuan-MT incremental translation timed out'))
+      }, TRANSLATE_TIMEOUT_MS)
+
+      this.pending.set(id, { resolve, reject, timer })
+      this.worker!.postMessage({
+        type: 'translate-incremental',
+        id,
+        text,
+        previousOutput,
+        from,
+        to,
+        context
+      })
+    })
+  }
+
   async dispose(): Promise<void> {
     if (this.worker) {
       try {
