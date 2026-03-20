@@ -85,6 +85,9 @@ contextBridge.exposeInMainWorld('api', {
   saveGlossary: (terms: Array<{ source: string; target: string }>) =>
     ipcRenderer.invoke('save-glossary', terms),
 
+  // #243: Platform detection for hiding platform-specific options
+  getPlatform: () => ipcRenderer.invoke('get-platform'),
+
   // Display change notifications (#192)
   onDisplaysChanged: (callback: () => void) => {
     const handler = (): void => callback()

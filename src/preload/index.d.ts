@@ -33,6 +33,7 @@ export interface ElectronAPI {
   saveSubtitleSettings: (settings: Record<string, unknown>) => Promise<void>
   onSubtitleSettingsChanged: (callback: (settings: unknown) => void) => (() => void)
   onDisplaysChanged: (callback: () => void) => (() => void)
+  getPlatform: () => Promise<string>
 }
 
 declare global {

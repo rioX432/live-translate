@@ -59,6 +59,9 @@ function SettingsPanel(): JSX.Element {
   const [newGlossarySource, setNewGlossarySource] = useState('')
   const [newGlossaryTarget, setNewGlossaryTarget] = useState('')
 
+  // #243: Platform detection for hiding macOS-only options
+  const [platform, setPlatform] = useState<string>('darwin')
+
   // Meeting summary (#124)
   const [lastTranscriptPath, setLastTranscriptPath] = useState<string | null>(null)
   const [summaryText, setSummaryText] = useState<string | null>(null)
@@ -118,6 +121,9 @@ function SettingsPanel(): JSX.Element {
         if (sub.position) setSubtitlePosition(sub.position as 'top' | 'bottom')
       }
     })
+
+    // #243: detect platform to hide macOS-only options
+    window.api.getPlatform().then(setPlatform).catch(() => {})
 
     // #54: check for crashed session
     window.api.getCrashedSession().then((session) => {
@@ -472,7 +478,9 @@ function SettingsPanel(): JSX.Element {
         )}
         {!audio.hasVirtualAudioDevice && (
           <div style={{ marginTop: '6px', fontSize: '11px', color: '#94a3b8' }}>
-            To capture Zoom/Teams audio, install BlackHole (free) and select it as the input device
+            {platform === 'win32'
+              ? 'To capture Zoom/Teams audio, enable Stereo Mix in Sound settings or install VB-Audio Virtual Cable'
+              : 'To capture Zoom/Teams audio, install BlackHole (free) and select it as the input device'}
           </div>
         )}
       </Section>
@@ -487,7 +495,9 @@ function SettingsPanel(): JSX.Element {
           aria-label="STT engine"
         >
           <option value="whisper-local">Whisper (whisper.cpp)</option>
-          <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
+          {platform === 'darwin' && (
+            <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
+          )}
           <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
         </select>
         {sttEngine === 'moonshine' && (

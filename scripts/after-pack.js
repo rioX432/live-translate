@@ -5,6 +5,8 @@ const path = require('path')
 const { execSync } = require('child_process')
 
 exports.default = async function afterPack(context) {
+  // macOS-specific fixes: symlinks and rpath for whisper-node-addon
+  // Windows uses .dll and doesn't need these fixes
   if (process.platform !== 'darwin') return
 
   const appOutDir = context.appOutDir

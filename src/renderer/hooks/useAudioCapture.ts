@@ -60,8 +60,8 @@ export function useAudioCapture(): UseAudioCaptureReturn {
           .filter((d) => d.kind === 'audioinput')
           .map((d) => ({ deviceId: d.deviceId, label: d.label || `Microphone ${d.deviceId.slice(0, 6)}` }))
         setDevices(audioInputs)
-        // #125: Detect virtual audio devices (BlackHole, Soundflower, Loopback)
-        const virtualKeywords = ['blackhole', 'soundflower', 'loopback', 'virtual']
+        // #125/#243: Detect virtual audio devices (macOS: BlackHole/Soundflower, Windows: Stereo Mix/VB-Audio)
+        const virtualKeywords = ['blackhole', 'soundflower', 'loopback', 'virtual', 'stereo mix', 'vb-audio', 'voicemeeter']
         const hasVirtual = audioInputs.some((d) =>
           virtualKeywords.some((kw) => d.label.toLowerCase().includes(kw))
         )
