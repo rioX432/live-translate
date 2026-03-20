@@ -11,6 +11,7 @@
     "package": "electron-builder",
     "package:dmg": "electron-vite build && electron-builder --mac dmg",
     "package:win": "electron-vite build && electron-builder --win nsis",
+    "typecheck": "tsc --build",
     "test": "vitest run",
     "test:watch": "vitest"
   },
