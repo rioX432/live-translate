@@ -24,7 +24,7 @@ export interface ElectronAPI {
   searchSessions: (query: string) => Promise<Array<{ sessionId: string; matches: unknown[] }>>
   deleteSession: (id: string) => Promise<{ success: boolean }>
   exportSession: (id: string, format: string) => Promise<{ content?: string; ext?: string; error?: string }>
-  getGgufVariants: () => Promise<Array<{ key: string; label: string; filename: string; sizeMB: number; downloaded: boolean }>>
+  getGgufVariants: (modelSize?: string) => Promise<Array<{ key: string; label: string; filename: string; sizeMB: number; downloaded: boolean }>>
   listPlugins: () => Promise<Array<{ name: string; version: string; engineType: string; engineId: string }>>
   getSessionLogs: () => Promise<Array<{ startedAt: number; endedAt: number; engineMode: string; durationMs: number }>>
   generateSummary: (transcriptPath: string) => Promise<{ summary?: string; error?: string }>

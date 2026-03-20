@@ -43,6 +43,8 @@ export interface AppSettings {
   sessionLogs: SessionLog[]
   /** Enable KV cache quantization (Q8_0) for TranslateGemma to reduce VRAM usage ~50% */
   slmKvCacheQuant: boolean
+  /** TranslateGemma model size: 4B (lighter) or 12B (higher quality) */
+  slmModelSize: '4b' | '12b'
 }
 
 export const store = new Store<AppSettings>({
@@ -67,6 +69,7 @@ export const store = new Store<AppSettings>({
       position: 'bottom'
     },
     sessionLogs: [],
-    slmKvCacheQuant: true
+    slmKvCacheQuant: true,
+    slmModelSize: '4b'
   }
 })

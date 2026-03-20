@@ -36,7 +36,10 @@ export interface GGUFVariant {
   label: string
 }
 
-export const GGUF_VARIANTS: Record<string, GGUFVariant> = {
+/** Model size identifier for TranslateGemma */
+export type SLMModelSize = '4b' | '12b'
+
+export const GGUF_VARIANTS_4B: Record<string, GGUFVariant> = {
   'Q4_K_M': {
     filename: 'translategemma-4b-it-Q4_K_M.gguf',
     url: 'https://huggingface.co/google/translategemma-4b-it-GGUF/resolve/main/translategemma-4b-it-Q4_K_M.gguf',
@@ -56,6 +59,35 @@ export const GGUF_VARIANTS: Record<string, GGUFVariant> = {
     label: 'Q2_K (Smallest, ~1.4GB)'
   }
 }
+
+export const GGUF_VARIANTS_12B: Record<string, GGUFVariant> = {
+  'Q4_K_M': {
+    filename: 'translategemma-12b-it-Q4_K_M.gguf',
+    url: 'https://huggingface.co/bullerwins/translategemma-12b-it-GGUF/resolve/main/translategemma-12b-it-Q4_K_M.gguf',
+    sizeMB: 7300,
+    label: 'Q4_K_M (Recommended, ~7.3GB)'
+  },
+  'Q3_K_L': {
+    filename: 'translategemma-12b-it-Q3_K_L.gguf',
+    url: 'https://huggingface.co/bullerwins/translategemma-12b-it-GGUF/resolve/main/translategemma-12b-it-Q3_K_L.gguf',
+    sizeMB: 6480,
+    label: 'Q3_K_L (Smallest, ~6.5GB)'
+  },
+  'Q8_0': {
+    filename: 'translategemma-12b-it-Q8_0.gguf',
+    url: 'https://huggingface.co/bullerwins/translategemma-12b-it-GGUF/resolve/main/translategemma-12b-it-Q8_0.gguf',
+    sizeMB: 12500,
+    label: 'Q8_0 (Best quality, ~12.5GB)'
+  }
+}
+
+/** Get GGUF variants for the given model size */
+export function getGGUFVariants(modelSize: SLMModelSize): Record<string, GGUFVariant> {
+  return modelSize === '12b' ? GGUF_VARIANTS_12B : GGUF_VARIANTS_4B
+}
+
+/** @deprecated Use getGGUFVariants() instead. Kept for backward compatibility. */
+export const GGUF_VARIANTS: Record<string, GGUFVariant> = GGUF_VARIANTS_4B
 
 // GGUF download lock uses shared activeDownloads map
 

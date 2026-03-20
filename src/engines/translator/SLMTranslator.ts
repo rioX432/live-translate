@@ -1,7 +1,8 @@
 import { utilityProcess } from 'electron'
 import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
-import { getGGUFDir, downloadGGUF, GGUF_VARIANTS } from '../model-downloader'
+import { getGGUFDir, downloadGGUF, getGGUFVariants } from '../model-downloader'
+import type { SLMModelSize } from '../model-downloader'
 
 const TRANSLATE_TIMEOUT_MS = 30_000
 
@@ -13,7 +14,7 @@ interface PendingRequest {
 
 export class SLMTranslator implements TranslatorEngine {
   readonly id = 'slm-translate'
-  readonly name = 'TranslateGemma 4B (Offline)'
+  readonly name: string
   readonly isOffline = true
 
   private worker: Electron.UtilityProcess | null = null
@@ -21,24 +22,28 @@ export class SLMTranslator implements TranslatorEngine {
   private nextId = 0
   private onProgress?: (message: string) => void
   private variant: string
+  private modelSize: SLMModelSize
   private kvCacheQuant: boolean
 
-  constructor(options?: { onProgress?: (message: string) => void; variant?: string; kvCacheQuant?: boolean }) {
+  constructor(options?: { onProgress?: (message: string) => void; variant?: string; modelSize?: SLMModelSize; kvCacheQuant?: boolean }) {
     this.onProgress = options?.onProgress
+    this.modelSize = options?.modelSize ?? '4b'
     this.variant = options?.variant ?? 'Q4_K_M'
     this.kvCacheQuant = options?.kvCacheQuant ?? true
+    this.name = `TranslateGemma ${this.modelSize.toUpperCase()} (Offline)`
   }
 
   async initialize(): Promise<void> {
     if (this.worker) return
 
     // Download model if needed
-    const variantConfig = GGUF_VARIANTS[this.variant] ?? GGUF_VARIANTS['Q4_K_M']!
+    const variants = getGGUFVariants(this.modelSize)
+    const variantConfig = variants[this.variant] ?? variants['Q4_K_M']!
     const modelPath = join(getGGUFDir(), variantConfig.filename)
     await downloadGGUF(variantConfig.filename, variantConfig.url, this.onProgress, variantConfig.sha256)
 
     // Spawn UtilityProcess
-    this.onProgress?.('Starting TranslateGemma worker...')
+    this.onProgress?.(`Starting TranslateGemma ${this.modelSize.toUpperCase()} worker...`)
     const workerPath = join(__dirname, 'slm-worker.js')
 
     this.worker = utilityProcess.fork(workerPath)
@@ -70,7 +75,7 @@ export class SLMTranslator implements TranslatorEngine {
         if (msg.type === 'ready') {
           clearTimeout(timeout)
           this.worker?.removeListener('message', initHandler)
-          this.onProgress?.('TranslateGemma model loaded')
+          this.onProgress?.(`TranslateGemma ${this.modelSize.toUpperCase()} model loaded`)
           resolve()
         } else if (msg.type === 'error') {
           clearTimeout(timeout)
