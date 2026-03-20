@@ -1,9 +1,10 @@
 /**
- * UtilityProcess worker for TranslateGemma 4B inference via node-llama-cpp.
+ * UtilityProcess worker for SLM inference via node-llama-cpp.
+ * Supports TranslateGemma and Hunyuan-MT models.
  * Runs in a separate process to avoid blocking the main process.
  *
  * IPC protocol:
- *   Main → Worker: { type: 'init', modelPath: string, kvCacheQuant?: boolean }
+ *   Main → Worker: { type: 'init', modelPath: string, kvCacheQuant?: boolean, modelType?: 'translategemma' | 'hunyuan-mt' }
  *   Main → Worker: { type: 'translate', id: string, text: string, from: string, to: string }
  *   Main → Worker: { type: 'summarize', id: string, transcript: string }
  *   Main → Worker: { type: 'dispose' }
@@ -11,6 +12,8 @@
  *   Worker → Main: { type: 'result', id: string, text: string }
  *   Worker → Main: { type: 'error', id?: string, message: string }
  */
+
+type ModelType = 'translategemma' | 'hunyuan-mt'
 
 const LANG_NAMES: Record<string, string> = {
   ja: 'Japanese',
@@ -21,8 +24,10 @@ let llama: any = null
 let model: any = null
 let context: any = null
 let requestQueue: Promise<void> = Promise.resolve()
+let activeModelType: ModelType = 'translategemma'
 
-async function handleInit(modelPath: string, kvCacheQuant?: boolean): Promise<void> {
+async function handleInit(modelPath: string, kvCacheQuant?: boolean, modelType?: ModelType): Promise<void> {
+  activeModelType = modelType ?? 'translategemma'
   const { getLlama } = await import('node-llama-cpp')
   llama = await getLlama({ gpu: 'auto' })
   model = await llama.loadModel({ modelPath })
@@ -101,14 +106,32 @@ async function handleTranslate(
     const fromLang = LANG_NAMES[from] ?? from
     const toLang = LANG_NAMES[to] ?? to
 
-    // Build context-enhanced prompt
-    const contextSection = buildContextPrompt(translateContext)
-    const prompt = `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
+    // Build prompt based on model type
+    let prompt: string
+    let inferenceParams: { temperature: number; maxTokens: number; topK?: number; topP?: number; repeatPenalty?: number }
 
-    const response = await session.prompt(prompt, {
-      temperature: 0.1,
-      maxTokens: 512
-    })
+    if (activeModelType === 'hunyuan-mt') {
+      // Hunyuan-MT uses a specific prompt template:
+      // Chinese ↔ Other: Chinese prompt; Other ↔ Other: English prompt
+      const contextSection = buildContextPrompt(translateContext)
+      const isChinese = from === 'zh' || to === 'zh'
+      if (isChinese && to !== 'zh') {
+        prompt = `${contextSection}把下面的文本翻译成${toLang}，不要额外解释。\n\n${text}`
+      } else if (isChinese && to === 'zh') {
+        prompt = `${contextSection}把下面的文本翻译成中文，不要额外解释。\n\n${text}`
+      } else {
+        prompt = `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
+      }
+      // Hunyuan-MT recommended parameters
+      inferenceParams = { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: 1.05 }
+    } else {
+      // TranslateGemma prompt
+      const contextSection = buildContextPrompt(translateContext)
+      prompt = `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
+      inferenceParams = { temperature: 0.1, maxTokens: 512 }
+    }
+
+    const response = await session.prompt(prompt, inferenceParams)
 
     // Clean up the session context to free memory
     session.dispose?.()
@@ -196,7 +219,7 @@ process.parentPort!.on('message', (e: { data: any }) => {
     try {
       switch (msg.type) {
         case 'init':
-          await handleInit(msg.modelPath, msg.kvCacheQuant)
+          await handleInit(msg.modelPath, msg.kvCacheQuant, msg.modelType)
           break
         case 'translate':
           await handleTranslate(msg.id, msg.text, msg.from, msg.to, msg.context)
