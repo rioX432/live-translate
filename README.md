@@ -4,6 +4,7 @@ Real-time speech translation overlay for presentations and meetings.
 
 Bidirectional JA↔EN translation with transparent subtitles overlaid on any display. Local-first, GPU-accelerated, free.
 
+[![CI](https://github.com/rioX432/live-translate/actions/workflows/ci.yml/badge.svg)](https://github.com/rioX432/live-translate/actions/workflows/ci.yml)
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey)](https://github.com/rioX432/live-translate)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
