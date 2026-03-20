@@ -19,8 +19,8 @@ import { HunyuanMT15Translator } from '../engines/translator/HunyuanMT15Translat
 import { ANETranslator } from '../engines/translator/ANETranslator'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { detectGpu } from '../engines/gpu-detector'
-import { isGGUFDownloaded, getGGUFVariants, getHunyuanMTVariants, getHunyuanMT15Variants } from '../engines/model-downloader'
-import type { SLMModelSize } from '../engines/model-downloader'
+import { isGGUFDownloaded, getGGUFVariants, getHunyuanMTVariants, getHunyuanMT15Variants, getWhisperVariants, isModelDownloaded as isWhisperModelDownloaded } from '../engines/model-downloader'
+import type { SLMModelSize, WhisperVariant } from '../engines/model-downloader'
 import { listPlugins, discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
 import * as SessionManager from '../logger/SessionManager'
@@ -141,7 +141,8 @@ function initPipeline(): void {
 
   // Register STT engines
   pipeline.registerSTT('whisper-local', () => new WhisperLocalEngine({
-    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
+    modelVariant: (store.get('whisperVariant') as WhisperVariant) || undefined
   }))
   // mlx-whisper is Apple Silicon only — skip registration on other platforms
   if (process.platform === 'darwin') {
@@ -540,7 +541,8 @@ ipcMain.handle('get-settings', () => {
     slmSpeculativeDecoding: store.get('slmSpeculativeDecoding'),
     glossaryTerms: store.get('glossaryTerms') || [],
     simulMtEnabled: store.get('simulMtEnabled'),
-    simulMtWaitK: store.get('simulMtWaitK')
+    simulMtWaitK: store.get('simulMtWaitK'),
+    whisperVariant: store.get('whisperVariant')
   }
 })
 
@@ -675,6 +677,19 @@ ipcMain.handle('get-hunyuan-mt-15-variants', () => {
     filename: v.filename,
     sizeMB: v.sizeMB,
     downloaded: isGGUFDownloaded(v.filename)
+  }))
+})
+
+// #261: Whisper model variant status
+ipcMain.handle('get-whisper-variants', () => {
+  const variants = getWhisperVariants()
+  return Object.entries(variants).map(([key, v]) => ({
+    key,
+    label: v.label,
+    description: v.description,
+    filename: v.filename,
+    sizeMB: v.sizeMB,
+    downloaded: isWhisperModelDownloaded(key as WhisperVariant)
   }))
 })
 

@@ -36,6 +36,7 @@ function SettingsPanel(): JSX.Element {
   const [isStarting, setIsStarting] = useState(false)
 
   const [sttEngine, setSttEngine] = useState<'whisper-local' | 'mlx-whisper' | 'moonshine'>('whisper-local')
+  const [whisperVariant, setWhisperVariant] = useState<'kotoba-v2.0' | 'large-v3-turbo'>('kotoba-v2.0')
 
   const [subtitleFontSize, setSubtitleFontSize] = useState(30)
   const [subtitleSourceColor, setSubtitleSourceColor] = useState('#ffffff')
@@ -108,6 +109,7 @@ function SettingsPanel(): JSX.Element {
       if (s.microsoftRegion) setMicrosoftRegion(s.microsoftRegion as string)
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
       if (s.sttEngine) setSttEngine(s.sttEngine as 'whisper-local' | 'mlx-whisper' | 'moonshine')
+      if (s.whisperVariant) setWhisperVariant(s.whisperVariant as 'kotoba-v2.0' | 'large-v3-turbo')
       if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(s.slmKvCacheQuant as boolean)
       if (s.slmModelSize) setSlmModelSize(s.slmModelSize as '4b' | '12b')
       if (s.slmSpeculativeDecoding !== undefined) setSlmSpeculativeDecoding(s.slmSpeculativeDecoding as boolean)
@@ -244,6 +246,7 @@ function SettingsPanel(): JSX.Element {
         selectedMicrophone: audio.selectedDevice,
         selectedDisplay,
         sttEngine,
+        whisperVariant,
         slmKvCacheQuant,
         slmModelSize,
         slmSpeculativeDecoding,
@@ -459,7 +462,10 @@ function SettingsPanel(): JSX.Element {
   const sttDisplayName = (): string => {
     switch (sttEngine) {
       case 'mlx-whisper': return 'mlx-whisper (Apple Silicon)'
-      case 'whisper-local': return 'Whisper (whisper.cpp)'
+      case 'whisper-local':
+        return whisperVariant === 'large-v3-turbo'
+          ? 'Whisper (large-v3-turbo)'
+          : 'Whisper (kotoba-v2.0)'
       case 'moonshine': return 'Moonshine AI'
       default: return sttEngine
     }
@@ -628,6 +634,28 @@ function SettingsPanel(): JSX.Element {
               )}
               <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
             </select>
+            {sttEngine === 'whisper-local' && (
+              <div style={{ marginTop: '8px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>
+                  Whisper Model
+                </div>
+                <select
+                  value={whisperVariant}
+                  onChange={(e) => setWhisperVariant(e.target.value as 'kotoba-v2.0' | 'large-v3-turbo')}
+                  style={selectStyle}
+                  disabled={isRunning || isStarting}
+                  aria-label="Whisper model variant"
+                >
+                  <option value="kotoba-v2.0">Kotoba Whisper v2.0 (Japanese-optimized, ~540MB)</option>
+                  <option value="large-v3-turbo">Large v3 Turbo (Multilingual, 6x faster, ~600MB)</option>
+                </select>
+                {whisperVariant === 'large-v3-turbo' && (
+                  <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+                    OpenAI large-v3-turbo: 809M params, 4 decoder layers, within 1-2% WER of large-v3.
+                  </div>
+                )}
+              </div>
+            )}
             {sttEngine === 'moonshine' && (
               <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
                 Japanese accuracy is unverified. If results are poor, switch to Whisper.

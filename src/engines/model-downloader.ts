@@ -8,11 +8,48 @@ export const MODEL_FILENAME = 'ggml-kotoba-whisper-v2.0-q5_0.bin'
 export const MODEL_URL =
   'https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0-ggml/resolve/main/ggml-kotoba-whisper-v2.0-q5_0.bin'
 
+/** Whisper model variant identifier */
+export type WhisperVariant = 'kotoba-v2.0' | 'large-v3-turbo'
+
+/** Whisper model variant configuration */
+export interface WhisperVariantConfig {
+  filename: string
+  url: string
+  sizeMB: number
+  label: string
+  description: string
+}
+
+/** Available Whisper model variants for local STT */
+export const WHISPER_VARIANTS: Record<WhisperVariant, WhisperVariantConfig> = {
+  'kotoba-v2.0': {
+    filename: 'ggml-kotoba-whisper-v2.0-q5_0.bin',
+    url: 'https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0-ggml/resolve/main/ggml-kotoba-whisper-v2.0-q5_0.bin',
+    sizeMB: 540,
+    label: 'Kotoba Whisper v2.0 (Default)',
+    description: 'Optimized for Japanese, ~540MB'
+  },
+  'large-v3-turbo': {
+    filename: 'ggml-large-v3-turbo-q5_0.bin',
+    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin',
+    sizeMB: 600,
+    label: 'Large v3 Turbo (OpenAI)',
+    description: 'Multilingual, 6x faster than large-v3, ~600MB'
+  }
+}
+
+/** Get available Whisper variants */
+export function getWhisperVariants(): Record<WhisperVariant, WhisperVariantConfig> {
+  return WHISPER_VARIANTS
+}
+
 // Global download lock — serializes all model downloads to prevent disk corruption (#208)
 const activeDownloads = new Map<string, Promise<string>>()
 
-export function getModelPath(): string {
-  return join(getModelsDir(), MODEL_FILENAME)
+export function getModelPath(variant?: WhisperVariant): string {
+  const config = variant ? WHISPER_VARIANTS[variant] : null
+  const filename = config ? config.filename : MODEL_FILENAME
+  return join(getModelsDir(), filename)
 }
 
 export function getModelsDir(): string {
@@ -23,8 +60,8 @@ export function getModelsDir(): string {
   return dir
 }
 
-export function isModelDownloaded(): boolean {
-  return existsSync(getModelPath())
+export function isModelDownloaded(variant?: WhisperVariant): boolean {
+  return existsSync(getModelPath(variant))
 }
 
 /** GGUF model variant configuration */
@@ -309,25 +346,32 @@ const MAX_RETRIES = 3
 const RETRY_DELAYS = [3_000, 10_000, 30_000]
 
 export async function downloadModel(
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  variant?: WhisperVariant
 ): Promise<string> {
-  const modelPath = getModelPath()
+  const variantConfig = variant ? WHISPER_VARIANTS[variant] : null
+  const modelPath = getModelPath(variant)
+  const filename = variantConfig ? variantConfig.filename : MODEL_FILENAME
+  const url = variantConfig ? variantConfig.url : MODEL_URL
+  const label = variantConfig
+    ? `Whisper ${variantConfig.label} (~${variantConfig.sizeMB}MB)`
+    : 'Whisper model (~540MB)'
 
   if (existsSync(modelPath)) {
     return modelPath
   }
 
   // Serialize downloads via shared lock (#208)
-  if (activeDownloads.has(MODEL_FILENAME)) {
+  if (activeDownloads.has(filename)) {
     onProgress?.('Waiting for model download in progress...')
-    return activeDownloads.get(MODEL_FILENAME)!
+    return activeDownloads.get(filename)!
   }
 
-  const downloadPromise = doDownloadWithResume(modelPath, MODEL_URL, 'Whisper model (~540MB)', onProgress)
-  activeDownloads.set(MODEL_FILENAME, downloadPromise)
+  const downloadPromise = doDownloadWithResume(modelPath, url, label, onProgress)
+  activeDownloads.set(filename, downloadPromise)
   try {
     return await downloadPromise
   } finally {
-    activeDownloads.delete(MODEL_FILENAME)
+    activeDownloads.delete(filename)
   }
 }

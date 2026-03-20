@@ -88,6 +88,9 @@ contextBridge.exposeInMainWorld('api', {
   // #238: Check if draft model (4B) is available for speculative decoding
   isDraftModelAvailable: () => ipcRenderer.invoke('is-draft-model-available'),
 
+  // #261: Whisper model variant info
+  getWhisperVariants: () => ipcRenderer.invoke('get-whisper-variants'),
+
   // #243: Platform detection for hiding platform-specific options
   getPlatform: () => ipcRenderer.invoke('get-platform'),
 
