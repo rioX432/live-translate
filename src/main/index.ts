@@ -157,7 +157,8 @@ function initPipeline(): void {
   pipeline.registerTranslator('slm-translate', () => new SLMTranslator({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
     kvCacheQuant: store.get('slmKvCacheQuant'),
-    modelSize: store.get('slmModelSize')
+    modelSize: store.get('slmModelSize'),
+    speculativeDecoding: store.get('slmSpeculativeDecoding')
   }))
   pipeline.registerTranslator('hunyuan-mt', () => new HunyuanMTTranslator({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
@@ -171,7 +172,8 @@ function initPipeline(): void {
     new SLMTranslator({
       onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
       kvCacheQuant: store.get('slmKvCacheQuant'),
-      modelSize: store.get('slmModelSize')
+      modelSize: store.get('slmModelSize'),
+      speculativeDecoding: store.get('slmSpeculativeDecoding')
     })
   ))
   // Auto-register discovered plugins (#145)
@@ -516,6 +518,7 @@ ipcMain.handle('get-settings', () => {
     subtitleSettings: store.get('subtitleSettings'),
     slmKvCacheQuant: store.get('slmKvCacheQuant'),
     slmModelSize: store.get('slmModelSize'),
+    slmSpeculativeDecoding: store.get('slmSpeculativeDecoding'),
     glossaryTerms: store.get('glossaryTerms') || []
   }
 })
@@ -621,6 +624,13 @@ ipcMain.handle('get-gguf-variants', (_event, modelSize?: SLMModelSize) => {
     sizeMB: v.sizeMB,
     downloaded: isGGUFDownloaded(v.filename)
   }))
+})
+
+// #238: Check if draft model (4B) is available for speculative decoding
+ipcMain.handle('is-draft-model-available', () => {
+  const draftVariants = getGGUFVariants('4b')
+  const draftVariantConfig = draftVariants['Q4_K_M']
+  return draftVariantConfig ? isGGUFDownloaded(draftVariantConfig.filename) : false
 })
 
 // #234: Hunyuan-MT GGUF model status

@@ -4,7 +4,7 @@
  * Runs in a separate process to avoid blocking the main process.
  *
  * IPC protocol:
- *   Main → Worker: { type: 'init', modelPath: string, kvCacheQuant?: boolean, modelType?: 'translategemma' | 'hunyuan-mt' }
+ *   Main → Worker: { type: 'init', modelPath: string, kvCacheQuant?: boolean, modelType?: 'translategemma' | 'hunyuan-mt', draftModelPath?: string }
  *   Main → Worker: { type: 'translate', id: string, text: string, from: string, to: string }
  *   Main → Worker: { type: 'summarize', id: string, transcript: string }
  *   Main → Worker: { type: 'dispose' }
@@ -23,10 +23,18 @@ const LANG_NAMES: Record<string, string> = {
 let llama: any = null
 let model: any = null
 let context: any = null
+let draftModel: any = null
+let draftContext: any = null
+let speculativeEnabled = false
 let requestQueue: Promise<void> = Promise.resolve()
 let activeModelType: ModelType = 'translategemma'
 
-async function handleInit(modelPath: string, kvCacheQuant?: boolean, modelType?: ModelType): Promise<void> {
+async function handleInit(
+  modelPath: string,
+  kvCacheQuant?: boolean,
+  modelType?: ModelType,
+  draftModelPath?: string
+): Promise<void> {
   activeModelType = modelType ?? 'translategemma'
   const { getLlama } = await import('node-llama-cpp')
   llama = await getLlama({ gpu: 'auto' })
@@ -38,6 +46,26 @@ async function handleInit(modelPath: string, kvCacheQuant?: boolean, modelType?:
     contextOptions.experimentalKvCacheValueType = 'Q8_0'
   }
   context = await model.createContext(contextOptions)
+
+  // Load draft model for speculative decoding if provided
+  if (draftModelPath) {
+    try {
+      draftModel = await llama.loadModel({ modelPath: draftModelPath })
+      const draftContextOptions: Record<string, unknown> = {}
+      if (kvCacheQuant) {
+        draftContextOptions.experimentalKvCacheKeyType = 'Q8_0'
+        draftContextOptions.experimentalKvCacheValueType = 'Q8_0'
+      }
+      draftContext = await draftModel.createContext(draftContextOptions)
+      speculativeEnabled = true
+      console.log('[slm-worker] Speculative decoding enabled with draft model')
+    } catch (err) {
+      console.error('[slm-worker] Failed to load draft model, falling back to standard decoding:', err)
+      draftModel = null
+      draftContext = null
+      speculativeEnabled = false
+    }
+  }
 
   process.parentPort!.postMessage({ type: 'ready' })
 }
@@ -98,10 +126,24 @@ async function handleTranslate(
   }
 
   try {
-    const { LlamaChatSession } = await import('node-llama-cpp')
-    const session = new LlamaChatSession({
-      contextSequence: context.getSequence()
-    })
+    const { LlamaChatSession, DraftSequenceTokenPredictor } = await import('node-llama-cpp')
+
+    // Create context sequence, optionally with speculative decoding
+    let contextSequence: any
+    if (speculativeEnabled && draftContext) {
+      const draftSequence = draftContext.getSequence()
+      contextSequence = context.getSequence({
+        tokenPredictor: new DraftSequenceTokenPredictor(draftSequence, {
+          minTokens: 0,
+          maxTokens: 16,
+          minConfidence: 0.6
+        })
+      })
+    } else {
+      contextSequence = context.getSequence()
+    }
+
+    const session = new LlamaChatSession({ contextSequence })
 
     const fromLang = LANG_NAMES[from] ?? from
     const toLang = LANG_NAMES[to] ?? to
@@ -133,7 +175,14 @@ async function handleTranslate(
 
     const response = await session.prompt(prompt, inferenceParams)
 
+    // Log speculative decoding stats for debugging
+    if (speculativeEnabled && contextSequence.tokenPredictions) {
+      const stats = contextSequence.tokenPredictions
+      console.log(`[slm-worker] Speculative stats — validated: ${stats.validated}, refuted: ${stats.refuted}`)
+    }
+
     // Clean up the session context to free memory
+    contextSequence.dispose?.()
     session.dispose?.()
 
     process.parentPort!.postMessage({
@@ -198,6 +247,15 @@ ${transcript}`
 }
 
 async function handleDispose(): Promise<void> {
+  if (draftContext) {
+    await draftContext.dispose?.()
+    draftContext = null
+  }
+  if (draftModel) {
+    await draftModel.dispose?.()
+    draftModel = null
+  }
+  speculativeEnabled = false
   if (context) {
     await context.dispose?.()
     context = null
@@ -219,7 +277,7 @@ process.parentPort!.on('message', (e: { data: any }) => {
     try {
       switch (msg.type) {
         case 'init':
-          await handleInit(msg.modelPath, msg.kvCacheQuant, msg.modelType)
+          await handleInit(msg.modelPath, msg.kvCacheQuant, msg.modelType, msg.draftModelPath)
           break
         case 'translate':
           await handleTranslate(msg.id, msg.text, msg.from, msg.to, msg.context)

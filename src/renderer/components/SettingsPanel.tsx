@@ -54,6 +54,10 @@ function SettingsPanel(): JSX.Element {
   // Model size (#236)
   const [slmModelSize, setSlmModelSize] = useState<'4b' | '12b'>('4b')
 
+  // Speculative decoding (#238)
+  const [slmSpeculativeDecoding, setSlmSpeculativeDecoding] = useState(false)
+  const [draftModelAvailable, setDraftModelAvailable] = useState(false)
+
   // Glossary (#240)
   const [glossaryTerms, setGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
   const [newGlossarySource, setNewGlossarySource] = useState('')
@@ -111,6 +115,7 @@ function SettingsPanel(): JSX.Element {
       if (s.sttEngine) setSttEngine(s.sttEngine as 'whisper-local' | 'mlx-whisper' | 'moonshine')
       if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(s.slmKvCacheQuant as boolean)
       if (s.slmModelSize) setSlmModelSize(s.slmModelSize as '4b' | '12b')
+      if (s.slmSpeculativeDecoding !== undefined) setSlmSpeculativeDecoding(s.slmSpeculativeDecoding as boolean)
       if (s.glossaryTerms) setGlossaryTerms(s.glossaryTerms as Array<{ source: string; target: string }>)
       if (s.subtitleSettings) {
         const sub = s.subtitleSettings as Record<string, unknown>
@@ -143,6 +148,11 @@ function SettingsPanel(): JSX.Element {
   useEffect(() => {
     window.api.detectGpu().then(setGpuInfo).catch(() => setGpuInfo({ hasGpu: false, gpuNames: [] }))
   }, [])
+
+  // Check if 4B draft model is available for speculative decoding (#238)
+  useEffect(() => {
+    window.api.isDraftModelAvailable().then(setDraftModelAvailable).catch(() => setDraftModelAvailable(false))
+  }, [slmModelSize])
 
   // Load displays and listen for display changes (#192)
   useEffect(() => {
@@ -215,7 +225,8 @@ function SettingsPanel(): JSX.Element {
         selectedDisplay,
         sttEngine,
         slmKvCacheQuant,
-        slmModelSize
+        slmModelSize,
+        slmSpeculativeDecoding
       }), 10_000, 'saveSettings')
 
       // Resolve auto mode to concrete engine
@@ -687,6 +698,29 @@ function SettingsPanel(): JSX.Element {
                 </div>
               </div>
             </label>
+            {slmModelSize === '12b' && (
+              <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
+                <input
+                  type="checkbox"
+                  checked={slmSpeculativeDecoding}
+                  onChange={(e) => setSlmSpeculativeDecoding(e.target.checked)}
+                  disabled={isRunning || isStarting || !draftModelAvailable}
+                />
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: '12px' }}>
+                    Speculative decoding (4B draft + 12B verify)
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    2-3x throughput with identical output quality. Requires both models in VRAM (~10GB).
+                  </div>
+                  {!draftModelAvailable && (
+                    <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
+                      Download the 4B model first (select 4B, start once, then switch back to 12B)
+                    </div>
+                  )}
+                </div>
+              </label>
+            )}
           </>
         )}
         <label style={radioLabelStyle}>

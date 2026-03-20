@@ -48,6 +48,8 @@ export interface AppSettings {
   slmModelSize: '4b' | '12b'
   /** User-defined glossary for fixed translation of specific terms */
   glossaryTerms: GlossaryEntry[]
+  /** Enable speculative decoding: 4B draft model + 12B verifier for 2-3x throughput */
+  slmSpeculativeDecoding: boolean
 }
 
 export const store = new Store<AppSettings>({
@@ -74,6 +76,7 @@ export const store = new Store<AppSettings>({
     sessionLogs: [],
     slmKvCacheQuant: true,
     slmModelSize: '4b',
-    glossaryTerms: []
+    glossaryTerms: [],
+    slmSpeculativeDecoding: false
   }
 })
