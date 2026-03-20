@@ -96,10 +96,20 @@ export interface E2ETranslationEngine {
   dispose(): Promise<void>
 }
 
+/** A glossary entry mapping a source term to its fixed translation */
+export interface GlossaryEntry {
+  source: string
+  target: string
+}
+
 /** Context passed to translators that support context-aware translation */
 export interface TranslateContext {
   /** Previous confirmed translation segments for coherence */
-  previousSegments: Array<{ source: string; translated: string }>
+  previousSegments: Array<{ source: string; translated: string; speakerId?: string }>
+  /** Glossary terms that must use fixed translations */
+  glossary?: GlossaryEntry[]
+  /** Current speaker identifier for style adaptation */
+  speakerId?: string
 }
 
 /** Pipeline mode */

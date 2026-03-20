@@ -37,11 +37,51 @@ async function handleInit(modelPath: string, kvCacheQuant?: boolean): Promise<vo
   process.parentPort!.postMessage({ type: 'ready' })
 }
 
+/** Build context sections for the translation prompt */
+function buildContextPrompt(ctx?: {
+  previousSegments?: Array<{ source: string; translated: string; speakerId?: string }>
+  glossary?: Array<{ source: string; target: string }>
+  speakerId?: string
+}): string {
+  if (!ctx) return ''
+
+  const parts: string[] = []
+
+  // Glossary terms
+  if (ctx.glossary && ctx.glossary.length > 0) {
+    const entries = ctx.glossary.map((g) => `  "${g.source}" → "${g.target}"`).join('\n')
+    parts.push(`Use these fixed translations for specific terms:\n${entries}`)
+  }
+
+  // Previous segments for coherence
+  if (ctx.previousSegments && ctx.previousSegments.length > 0) {
+    const history = ctx.previousSegments
+      .map((s) => {
+        const speaker = s.speakerId ? ` [${s.speakerId}]` : ''
+        return `  ${s.source}${speaker} → ${s.translated}`
+      })
+      .join('\n')
+    parts.push(`Previous translations for context:\n${history}`)
+  }
+
+  // Speaker hint
+  if (ctx.speakerId) {
+    parts.push(`Current speaker: ${ctx.speakerId}. Maintain consistent style for this speaker.`)
+  }
+
+  return parts.length > 0 ? parts.join('\n\n') + '\n\n' : ''
+}
+
 async function handleTranslate(
   id: string,
   text: string,
   from: string,
-  to: string
+  to: string,
+  translateContext?: {
+    previousSegments?: Array<{ source: string; translated: string; speakerId?: string }>
+    glossary?: Array<{ source: string; target: string }>
+    speakerId?: string
+  }
 ): Promise<void> {
   if (!context) {
     process.parentPort!.postMessage({
@@ -61,8 +101,9 @@ async function handleTranslate(
     const fromLang = LANG_NAMES[from] ?? from
     const toLang = LANG_NAMES[to] ?? to
 
-    // TranslateGemma optimized prompt format
-    const prompt = `Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
+    // Build context-enhanced prompt
+    const contextSection = buildContextPrompt(translateContext)
+    const prompt = `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
 
     const response = await session.prompt(prompt, {
       temperature: 0.1,
@@ -158,7 +199,7 @@ process.parentPort!.on('message', (e: { data: any }) => {
           await handleInit(msg.modelPath, msg.kvCacheQuant)
           break
         case 'translate':
-          await handleTranslate(msg.id, msg.text, msg.from, msg.to)
+          await handleTranslate(msg.id, msg.text, msg.from, msg.to, msg.context)
           break
         case 'summarize':
           await handleSummarize(msg.id, msg.transcript)

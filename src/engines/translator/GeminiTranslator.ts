@@ -1,4 +1,4 @@
-import type { TranslatorEngine, Language } from '../types'
+import type { TranslatorEngine, Language, TranslateContext } from '../types'
 
 const GEMINI_API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
@@ -32,11 +32,28 @@ export class GeminiTranslator implements TranslatorEngine {
     this.initialized = true
   }
 
-  async translate(text: string, from: Language, to: Language): Promise<string> {
+  async translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string> {
     if (!text.trim()) return ''
     if (from === to) return text
 
-    const prompt = `Translate the following ${LANG_NAMES[from]} text to ${LANG_NAMES[to]}. Output ONLY the translated text, nothing else.\n\n${text}`
+    // Build context-enhanced prompt
+    const contextParts: string[] = []
+    if (context?.glossary && context.glossary.length > 0) {
+      const entries = context.glossary.map((g) => `  "${g.source}" → "${g.target}"`).join('\n')
+      contextParts.push(`Use these fixed translations for specific terms:\n${entries}`)
+    }
+    if (context?.previousSegments && context.previousSegments.length > 0) {
+      const history = context.previousSegments
+        .map((s) => `  ${s.source} → ${s.translated}`)
+        .join('\n')
+      contextParts.push(`Previous translations for context:\n${history}`)
+    }
+    if (context?.speakerId) {
+      contextParts.push(`Current speaker: ${context.speakerId}. Maintain consistent style.`)
+    }
+    const contextSection = contextParts.length > 0 ? contextParts.join('\n\n') + '\n\n' : ''
+
+    const prompt = `${contextSection}Translate the following ${LANG_NAMES[from]} text to ${LANG_NAMES[to]}. Output ONLY the translated text, nothing else.\n\n${text}`
 
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), this.timeoutMs)

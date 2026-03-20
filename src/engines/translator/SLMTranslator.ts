@@ -120,7 +120,7 @@ export class SLMTranslator implements TranslatorEngine {
     })
   }
 
-  async translate(text: string, from: Language, to: Language, _context?: TranslateContext): Promise<string> {
+  async translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string> {
     if (!text.trim()) return ''
     if (from === to) return text
     if (!this.worker) {
@@ -136,7 +136,7 @@ export class SLMTranslator implements TranslatorEngine {
       }, TRANSLATE_TIMEOUT_MS)
 
       this.pending.set(id, { resolve, reject, timer })
-      this.worker!.postMessage({ type: 'translate', id, text, from, to })
+      this.worker!.postMessage({ type: 'translate', id, text, from, to, context })
     })
   }
 

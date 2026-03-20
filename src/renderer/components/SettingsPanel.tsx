@@ -54,6 +54,11 @@ function SettingsPanel(): JSX.Element {
   // Model size (#236)
   const [slmModelSize, setSlmModelSize] = useState<'4b' | '12b'>('4b')
 
+  // Glossary (#240)
+  const [glossaryTerms, setGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
+  const [newGlossarySource, setNewGlossarySource] = useState('')
+  const [newGlossaryTarget, setNewGlossaryTarget] = useState('')
+
   // Meeting summary (#124)
   const [lastTranscriptPath, setLastTranscriptPath] = useState<string | null>(null)
   const [summaryText, setSummaryText] = useState<string | null>(null)
@@ -103,6 +108,7 @@ function SettingsPanel(): JSX.Element {
       if (s.sttEngine) setSttEngine(s.sttEngine as 'whisper-local' | 'mlx-whisper' | 'moonshine')
       if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(s.slmKvCacheQuant as boolean)
       if (s.slmModelSize) setSlmModelSize(s.slmModelSize as '4b' | '12b')
+      if (s.glossaryTerms) setGlossaryTerms(s.glossaryTerms as Array<{ source: string; target: string }>)
       if (s.subtitleSettings) {
         const sub = s.subtitleSettings as Record<string, unknown>
         if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
@@ -742,6 +748,95 @@ function SettingsPanel(): JSX.Element {
           />
         </Section>
       )}
+
+      {/* Glossary (#240) */}
+      <Section label="Translation Glossary">
+        <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>
+          Define fixed translations for specific terms. These are injected into LLM-based translators (Gemini, TranslateGemma).
+        </div>
+        {glossaryTerms.length > 0 && (
+          <div style={{ marginBottom: '8px' }}>
+            {glossaryTerms.map((term, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  padding: '4px 0',
+                  borderBottom: '1px solid #1e293b',
+                  fontSize: '12px'
+                }}
+              >
+                <span style={{ flex: 1, color: '#e2e8f0' }}>{term.source}</span>
+                <span style={{ color: '#64748b' }}>&rarr;</span>
+                <span style={{ flex: 1, color: '#93c5fd' }}>{term.target}</span>
+                <button
+                  onClick={() => {
+                    const updated = glossaryTerms.filter((_, i) => i !== idx)
+                    setGlossaryTerms(updated)
+                    window.api.saveGlossary(updated)
+                  }}
+                  disabled={isRunning}
+                  style={{
+                    padding: '2px 6px',
+                    fontSize: '11px',
+                    background: '#334155',
+                    color: '#ef4444',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: isRunning ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+          <input
+            type="text"
+            value={newGlossarySource}
+            onChange={(e) => setNewGlossarySource(e.target.value)}
+            placeholder="Source term"
+            style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
+            disabled={isRunning}
+          />
+          <input
+            type="text"
+            value={newGlossaryTarget}
+            onChange={(e) => setNewGlossaryTarget(e.target.value)}
+            placeholder="Translation"
+            style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
+            disabled={isRunning}
+          />
+          <button
+            onClick={() => {
+              if (!newGlossarySource.trim() || !newGlossaryTarget.trim()) return
+              const updated = [...glossaryTerms, { source: newGlossarySource.trim(), target: newGlossaryTarget.trim() }]
+              setGlossaryTerms(updated)
+              window.api.saveGlossary(updated)
+              setNewGlossarySource('')
+              setNewGlossaryTarget('')
+            }}
+            disabled={isRunning || !newGlossarySource.trim() || !newGlossaryTarget.trim()}
+            style={{
+              padding: '8px 12px',
+              fontSize: '12px',
+              fontWeight: 600,
+              background: '#334155',
+              color: '#e2e8f0',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: (isRunning || !newGlossarySource.trim() || !newGlossaryTarget.trim()) ? 'not-allowed' : 'pointer',
+              whiteSpace: 'nowrap'
+            }}
+          >
+            Add
+          </button>
+        </div>
+      </Section>
 
       {/* Subtitle Appearance (#118) */}
       <Section label="Subtitle Appearance">

@@ -1,4 +1,5 @@
 import Store from 'electron-store'
+import type { GlossaryEntry } from '../engines/types'
 
 export interface QuotaRecord {
   monthKey: string
@@ -45,6 +46,8 @@ export interface AppSettings {
   slmKvCacheQuant: boolean
   /** TranslateGemma model size: 4B (lighter) or 12B (higher quality) */
   slmModelSize: '4b' | '12b'
+  /** User-defined glossary for fixed translation of specific terms */
+  glossaryTerms: GlossaryEntry[]
 }
 
 export const store = new Store<AppSettings>({
@@ -70,6 +73,7 @@ export const store = new Store<AppSettings>({
     },
     sessionLogs: [],
     slmKvCacheQuant: true,
-    slmModelSize: '4b'
+    slmModelSize: '4b',
+    glossaryTerms: []
   }
 })
