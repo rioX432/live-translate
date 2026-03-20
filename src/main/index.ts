@@ -140,9 +140,12 @@ function initPipeline(): void {
   pipeline.registerSTT('whisper-local', () => new WhisperLocalEngine({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
-  pipeline.registerSTT('mlx-whisper', () => new MlxWhisperEngine({
-    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
-  }))
+  // mlx-whisper is Apple Silicon only — skip registration on other platforms
+  if (process.platform === 'darwin') {
+    pipeline.registerSTT('mlx-whisper', () => new MlxWhisperEngine({
+      onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+    }))
+  }
   pipeline.registerSTT('moonshine', () => new MoonshineEngine({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
@@ -639,6 +642,9 @@ ipcMain.handle('list-plugins', () => listPlugins())
 ipcMain.handle('detect-gpu', async () => {
   return detectGpu()
 })
+
+// #243: Platform info for renderer to hide platform-specific options
+ipcMain.handle('get-platform', () => process.platform)
 
 // #116: Get session usage logs for feedback collection
 ipcMain.handle('get-session-logs', () => {

@@ -13,23 +13,27 @@ if (!fs.existsSync(addonDist)) {
   process.exit(0)
 }
 
-// Fix 1: Create symlinks for platform naming
-const symlinkMappings = [
-  { from: 'mac-arm64', to: 'darwin-arm64' },
-  { from: 'mac-x64', to: 'darwin-x64' }
-]
+// Fix 1: Create symlinks for platform naming (macOS only)
+if (process.platform === 'darwin') {
+  const symlinkMappings = [
+    { from: 'mac-arm64', to: 'darwin-arm64' },
+    { from: 'mac-x64', to: 'darwin-x64' }
+  ]
 
-for (const { from, to } of symlinkMappings) {
-  const source = path.join(addonDist, from)
-  const target = path.join(addonDist, to)
+  for (const { from, to } of symlinkMappings) {
+    const source = path.join(addonDist, from)
+    const target = path.join(addonDist, to)
 
-  if (fs.existsSync(source) && !fs.existsSync(target)) {
-    fs.symlinkSync(from, target, 'dir')
-    console.log(`[fix-whisper-addon] Created symlink: ${to} -> ${from}`)
+    if (fs.existsSync(source) && !fs.existsSync(target)) {
+      fs.symlinkSync(from, target, 'dir')
+      console.log(`[fix-whisper-addon] Created symlink: ${to} -> ${from}`)
+    }
   }
+} else {
+  console.log('[fix-whisper-addon] Skipping symlinks on non-macOS platform')
 }
 
-// Fix 2: Add rpath for dylib loading on macOS
+// Fix 2: Add rpath for dylib loading (macOS only)
 if (process.platform === 'darwin') {
   const archDir = process.arch === 'arm64' ? 'mac-arm64' : 'mac-x64'
   const addonDir = path.join(addonDist, archDir)
