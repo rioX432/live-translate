@@ -19,6 +19,12 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('interim-result', handler)
     return () => ipcRenderer.off('interim-result', handler)
   },
+  // Draft result from hybrid translation (#235)
+  onDraftResult: (callback: (data: unknown) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: unknown): void => callback(data)
+    ipcRenderer.on('draft-result', handler)
+    return () => ipcRenderer.off('draft-result', handler)
+  },
 
   // Status updates from main process
   onStatusUpdate: (callback: (message: string) => void) => {

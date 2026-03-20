@@ -13,6 +13,7 @@ import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { ApiRotationController } from '../engines/translator/ApiRotationController'
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
+import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { detectGpu } from '../engines/gpu-detector'
 import { isGGUFDownloaded, getGGUFVariants } from '../engines/model-downloader'
 import type { SLMModelSize } from '../engines/model-downloader'
@@ -154,6 +155,17 @@ function initPipeline(): void {
     kvCacheQuant: store.get('slmKvCacheQuant'),
     modelSize: store.get('slmModelSize')
   }))
+  // Hybrid translator: OPUS-MT instant draft + TranslateGemma refinement (#235)
+  pipeline.registerTranslator('hybrid', () => new HybridTranslator(
+    new OpusMTTranslator({
+      onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+    }),
+    new SLMTranslator({
+      onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
+      kvCacheQuant: store.get('slmKvCacheQuant'),
+      modelSize: store.get('slmModelSize')
+    })
+  ))
   // Auto-register discovered plugins (#145)
   for (const plugin of discoverPlugins()) {
     const { manifest } = plugin
@@ -180,6 +192,12 @@ function initPipeline(): void {
   pipeline.on('interim-result', (result: TranslationResult) => {
     subtitleWindow?.webContents.send('interim-result', result)
     mainWindow?.webContents.send('interim-result', result)
+  })
+
+  // Forward draft results from hybrid translation (#235)
+  pipeline.on('draft-result', (result: TranslationResult) => {
+    subtitleWindow?.webContents.send('draft-result', result)
+    mainWindow?.webContents.send('draft-result', result)
   })
 
   pipeline.on('error', (err: Error) => {

@@ -9,6 +9,8 @@ interface SubtitleLine {
   opacity: number
   isInterim?: boolean
   speakerId?: string
+  /** Whether this line is a draft from hybrid translation, pending refinement */
+  isDraft?: boolean
 }
 
 interface SubtitleConfig {
@@ -30,6 +32,7 @@ const DEFAULT_CONFIG: SubtitleConfig = {
 const MAX_LINES = 3
 const FADE_DURATION_MS = 8000
 const INTERIM_LINE_ID = -1
+const DRAFT_LINE_ID = -2
 
 function SubtitleOverlay(): JSX.Element {
   const [lines, setLines] = useState<SubtitleLine[]>([])
@@ -56,12 +59,12 @@ function SubtitleOverlay(): JSX.Element {
     const unsubscribeResult = window.api.onTranslationResult((data) => {
       const result = data as Omit<SubtitleLine, 'id' | 'opacity'>
       setLines((prev) => {
-        // Remove any interim line, add the final result
-        const withoutInterim = prev.filter((l) => l.id !== INTERIM_LINE_ID)
+        // Remove any interim or draft line, add the final result
+        const cleaned = prev.filter((l) => l.id !== INTERIM_LINE_ID && l.id !== DRAFT_LINE_ID)
         if (nextLineIdRef.current >= Number.MAX_SAFE_INTEGER - 1000) {
           nextLineIdRef.current = 1
         }
-        const updated = [...withoutInterim, { ...result, id: nextLineIdRef.current++, opacity: 1 }]
+        const updated = [...cleaned, { ...result, id: nextLineIdRef.current++, opacity: 1 }]
         return updated.slice(-MAX_LINES)
       })
     })
@@ -82,14 +85,30 @@ function SubtitleOverlay(): JSX.Element {
       })
     })
 
+    // Draft results from hybrid translation (#235) — show immediately with dimmed style
+    const unsubscribeDraft = window.api.onDraftResult((data) => {
+      const result = data as Omit<SubtitleLine, 'id' | 'opacity' | 'isDraft'>
+      setLines((prev) => {
+        const withoutDraft = prev.filter((l) => l.id !== DRAFT_LINE_ID)
+        const draftLine: SubtitleLine = {
+          ...result,
+          id: DRAFT_LINE_ID,
+          opacity: 1,
+          isDraft: true
+        }
+        const updated = [...withoutDraft, draftLine]
+        return updated.slice(-MAX_LINES)
+      })
+    })
+
     // Fade old lines
     fadeTimerRef.current = setInterval(() => {
       setLines((prev) => {
         if (prev.length === 0) return prev
         return prev
           .map((line) => {
-            // Don't fade interim lines
-            if (line.isInterim) return line
+            // Don't fade interim or draft lines
+            if (line.isInterim || line.isDraft) return line
             const age = Date.now() - line.timestamp
             if (age > FADE_DURATION_MS) {
               return { ...line, opacity: Math.max(0, 1 - (age - FADE_DURATION_MS) / 2000) }
@@ -103,6 +122,7 @@ function SubtitleOverlay(): JSX.Element {
     return () => {
       unsubscribeResult?.()
       unsubscribeInterim?.()
+      unsubscribeDraft?.()
       if (fadeTimerRef.current) clearInterval(fadeTimerRef.current)
     }
   }, [])
@@ -127,28 +147,30 @@ function SubtitleOverlay(): JSX.Element {
         <div
           key={line.id}
           style={{
-            background: line.isInterim
+            background: (line.isInterim || line.isDraft)
               ? `rgba(0, 0, 0, ${Math.max(0, config.backgroundOpacity - 13) / 100})`
               : `rgba(0, 0, 0, ${config.backgroundOpacity / 100})`,
             borderRadius: '10px',
             padding: '10px 20px',
             marginBottom: '6px',
             opacity: line.opacity,
-            transition: 'opacity 0.5s ease-out',
+            transition: 'opacity 0.3s ease-out',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
             borderLeft: `4px solid ${
               line.isInterim
                 ? '#94a3b8'
-                : line.sourceLanguage === 'ja'
-                  ? '#4ade80'
-                  : '#60a5fa'
+                : line.isDraft
+                  ? '#f59e0b'
+                  : line.sourceLanguage === 'ja'
+                    ? '#4ade80'
+                    : '#60a5fa'
             }`
           }}
         >
           <div
             style={{
-              color: line.isInterim ? '#cbd5e1' : config.sourceTextColor,
+              color: line.isInterim ? '#cbd5e1' : line.isDraft ? '#d4d4d8' : config.sourceTextColor,
               fontSize: `${config.fontSize}px`,
               fontWeight: 600,
               lineHeight: 1.4,
@@ -166,7 +188,7 @@ function SubtitleOverlay(): JSX.Element {
           {line.translatedText && (
             <div
               style={{
-                color: line.isInterim ? '#94a3b8' : config.translatedTextColor,
+                color: line.isInterim ? '#94a3b8' : line.isDraft ? '#a1a1aa' : config.translatedTextColor,
                 fontSize: `${translatedFontSize}px`,
                 fontWeight: 600,
                 lineHeight: 1.4,
