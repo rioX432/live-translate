@@ -3,7 +3,7 @@
  * Runs in a separate process to avoid blocking the main process.
  *
  * IPC protocol:
- *   Main → Worker: { type: 'init', modelPath: string }
+ *   Main → Worker: { type: 'init', modelPath: string, kvCacheQuant?: boolean }
  *   Main → Worker: { type: 'translate', id: string, text: string, from: string, to: string }
  *   Main → Worker: { type: 'summarize', id: string, transcript: string }
  *   Main → Worker: { type: 'dispose' }
@@ -22,11 +22,17 @@ let model: any = null
 let context: any = null
 let requestQueue: Promise<void> = Promise.resolve()
 
-async function handleInit(modelPath: string): Promise<void> {
+async function handleInit(modelPath: string, kvCacheQuant?: boolean): Promise<void> {
   const { getLlama } = await import('node-llama-cpp')
   llama = await getLlama({ gpu: 'auto' })
   model = await llama.loadModel({ modelPath })
-  context = await model.createContext()
+
+  const contextOptions: Record<string, unknown> = {}
+  if (kvCacheQuant) {
+    contextOptions.experimentalKvCacheKeyType = 'Q8_0'
+    contextOptions.experimentalKvCacheValueType = 'Q8_0'
+  }
+  context = await model.createContext(contextOptions)
 
   process.parentPort!.postMessage({ type: 'ready' })
 }
@@ -149,7 +155,7 @@ process.parentPort!.on('message', (e: { data: any }) => {
     try {
       switch (msg.type) {
         case 'init':
-          await handleInit(msg.modelPath)
+          await handleInit(msg.modelPath, msg.kvCacheQuant)
           break
         case 'translate':
           await handleTranslate(msg.id, msg.text, msg.from, msg.to)

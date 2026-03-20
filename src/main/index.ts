@@ -149,7 +149,8 @@ function initPipeline(): void {
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
   }))
   pipeline.registerTranslator('slm-translate', () => new SLMTranslator({
-    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
+    kvCacheQuant: store.get('slmKvCacheQuant')
   }))
   // Auto-register discovered plugins (#145)
   for (const plugin of discoverPlugins()) {
@@ -480,7 +481,8 @@ ipcMain.handle('get-settings', () => {
     sttEngine: store.get('sttEngine'),
     selectedMicrophone: store.get('selectedMicrophone'),
     selectedDisplay: store.get('selectedDisplay'),
-    subtitleSettings: store.get('subtitleSettings')
+    subtitleSettings: store.get('subtitleSettings'),
+    slmKvCacheQuant: store.get('slmKvCacheQuant')
   }
 })
 
@@ -531,7 +533,8 @@ ipcMain.handle('generate-summary', async (_event, transcriptPath: string) => {
 
     // Use SLM translator for summarization
     const slm = new SLMTranslator({
-      onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+      onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
+      kvCacheQuant: store.get('slmKvCacheQuant')
     })
 
     try {
