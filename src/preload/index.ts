@@ -85,6 +85,9 @@ contextBridge.exposeInMainWorld('api', {
   saveGlossary: (terms: Array<{ source: string; target: string }>) =>
     ipcRenderer.invoke('save-glossary', terms),
 
+  // #238: Check if draft model (4B) is available for speculative decoding
+  isDraftModelAvailable: () => ipcRenderer.invoke('is-draft-model-available'),
+
   // #243: Platform detection for hiding platform-specific options
   getPlatform: () => ipcRenderer.invoke('get-platform'),
 
