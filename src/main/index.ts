@@ -15,10 +15,11 @@ import { ApiRotationController } from '../engines/translator/ApiRotationControll
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
+import { HunyuanMT15Translator } from '../engines/translator/HunyuanMT15Translator'
 import { ANETranslator } from '../engines/translator/ANETranslator'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { detectGpu } from '../engines/gpu-detector'
-import { isGGUFDownloaded, getGGUFVariants, getHunyuanMTVariants } from '../engines/model-downloader'
+import { isGGUFDownloaded, getGGUFVariants, getHunyuanMTVariants, getHunyuanMT15Variants } from '../engines/model-downloader'
 import type { SLMModelSize } from '../engines/model-downloader'
 import { listPlugins, discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
@@ -166,6 +167,10 @@ function initPipeline(): void {
     speculativeDecoding: store.get('slmSpeculativeDecoding')
   }))
   pipeline.registerTranslator('hunyuan-mt', () => new HunyuanMTTranslator({
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
+    kvCacheQuant: store.get('slmKvCacheQuant')
+  }))
+  pipeline.registerTranslator('hunyuan-mt-15', () => new HunyuanMT15Translator({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
     kvCacheQuant: store.get('slmKvCacheQuant')
   }))
@@ -652,6 +657,18 @@ ipcMain.handle('is-draft-model-available', () => {
 // #234: Hunyuan-MT GGUF model status
 ipcMain.handle('get-hunyuan-mt-variants', () => {
   const variants = getHunyuanMTVariants()
+  return Object.entries(variants).map(([key, v]) => ({
+    key,
+    label: v.label,
+    filename: v.filename,
+    sizeMB: v.sizeMB,
+    downloaded: isGGUFDownloaded(v.filename)
+  }))
+})
+
+// #259: HY-MT1.5-1.8B GGUF model status
+ipcMain.handle('get-hunyuan-mt-15-variants', () => {
+  const variants = getHunyuanMT15Variants()
   return Object.entries(variants).map(([key, v]) => ({
     key,
     label: v.label,
