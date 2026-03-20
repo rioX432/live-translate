@@ -14,11 +14,89 @@
  *   Worker → Main: { type: 'error', id?: string, message: string }
  */
 
-type ModelType = 'translategemma' | 'hunyuan-mt'
+type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15'
 
 const LANG_NAMES: Record<string, string> = {
   ja: 'Japanese',
-  en: 'English'
+  en: 'English',
+  zh: 'Chinese',
+  'zh-Hant': 'Traditional Chinese',
+  fr: 'French',
+  de: 'German',
+  es: 'Spanish',
+  pt: 'Portuguese',
+  ru: 'Russian',
+  ko: 'Korean',
+  ar: 'Arabic',
+  th: 'Thai',
+  vi: 'Vietnamese',
+  id: 'Indonesian',
+  ms: 'Malay',
+  tr: 'Turkish',
+  it: 'Italian',
+  pl: 'Polish',
+  nl: 'Dutch',
+  cs: 'Czech',
+  uk: 'Ukrainian',
+  hi: 'Hindi',
+  tl: 'Filipino',
+  km: 'Khmer',
+  my: 'Burmese',
+  fa: 'Persian',
+  gu: 'Gujarati',
+  ur: 'Urdu',
+  te: 'Telugu',
+  mr: 'Marathi',
+  he: 'Hebrew',
+  bn: 'Bengali',
+  ta: 'Tamil',
+  bo: 'Tibetan',
+  kk: 'Kazakh',
+  mn: 'Mongolian',
+  ug: 'Uyghur',
+  yue: 'Cantonese'
+}
+
+/** Chinese language names used by HY-MT1.5 prompt template */
+const LANG_NAMES_ZH: Record<string, string> = {
+  ja: '日语',
+  en: '英语',
+  zh: '中文',
+  'zh-Hant': '繁体中文',
+  fr: '法语',
+  de: '德语',
+  es: '西班牙语',
+  pt: '葡萄牙语',
+  ru: '俄语',
+  ko: '韩语',
+  ar: '阿拉伯语',
+  th: '泰语',
+  vi: '越南语',
+  id: '印尼语',
+  ms: '马来语',
+  tr: '土耳其语',
+  it: '意大利语',
+  pl: '波兰语',
+  nl: '荷兰语',
+  cs: '捷克语',
+  uk: '乌克兰语',
+  hi: '印地语',
+  tl: '菲律宾语',
+  km: '高棉语',
+  my: '缅甸语',
+  fa: '波斯语',
+  gu: '古吉拉特语',
+  ur: '乌尔都语',
+  te: '泰卢固语',
+  mr: '马拉地语',
+  he: '希伯来语',
+  bn: '孟加拉语',
+  ta: '泰米尔语',
+  bo: '藏语',
+  kk: '哈萨克语',
+  mn: '蒙古语',
+  ug: '维吾尔语',
+  yue: '粤语'
 }
 
 let llama: any = null
@@ -171,7 +249,20 @@ async function handleTranslate(
     let prompt: string
     let inferenceParams: { temperature: number; maxTokens: number; topK?: number; topP?: number; repeatPenalty?: number }
 
-    if (activeModelType === 'hunyuan-mt') {
+    if (activeModelType === 'hunyuan-mt-15') {
+      // HY-MT1.5 uses the official Tencent prompt template:
+      // Chinese ↔ Other: Chinese prompt; Other ↔ Other: English prompt
+      const contextSection = buildContextPrompt(translateContext)
+      const isChinese = from === 'zh' || from === 'zh-Hant' || to === 'zh' || to === 'zh-Hant'
+      if (isChinese) {
+        const targetZh = LANG_NAMES_ZH[to] ?? to
+        prompt = `${contextSection}将以下文本翻译为${targetZh}，注意只需要输出翻译后的结果，不要额外解释：\n\n${text}`
+      } else {
+        prompt = `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
+      }
+      // HY-MT1.5 recommended parameters (same as Hunyuan-MT)
+      inferenceParams = { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: 1.05 }
+    } else if (activeModelType === 'hunyuan-mt') {
       // Hunyuan-MT uses a specific prompt template:
       // Chinese ↔ Other: Chinese prompt; Other ↔ Other: English prompt
       const contextSection = buildContextPrompt(translateContext)
@@ -252,7 +343,15 @@ async function handleTranslateIncremental(
 
     // Build prompt with instruction to continue from previous output
     let prompt: string
-    if (activeModelType === 'hunyuan-mt') {
+    if (activeModelType === 'hunyuan-mt-15') {
+      const isChinese = from === 'zh' || from === 'zh-Hant' || to === 'zh' || to === 'zh-Hant'
+      if (isChinese) {
+        const targetZh = LANG_NAMES_ZH[to] ?? to
+        prompt = `${contextSection}将以下文本翻译为${targetZh}，注意只需要输出翻译后的结果，不要额外解释：\n\n${text}`
+      } else {
+        prompt = `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
+      }
+    } else if (activeModelType === 'hunyuan-mt') {
       const isChinese = from === 'zh' || to === 'zh'
       if (isChinese && to !== 'zh') {
         prompt = `${contextSection}把下面的文本翻译成${toLang}，不要额外解释。\n\n${text}`
@@ -267,7 +366,7 @@ async function handleTranslateIncremental(
 
     // Use responsePrefix to force the model to continue from previous output
     // This implements prefix-constrained decoding for SimulMT consistency
-    const inferenceParams = activeModelType === 'hunyuan-mt'
+    const inferenceParams = (activeModelType === 'hunyuan-mt' || activeModelType === 'hunyuan-mt-15')
       ? { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: 1.05 }
       : { temperature: 0.1, maxTokens: 512 }
 

@@ -66,6 +66,33 @@ export function getHunyuanMTVariants(): Record<string, GGUFVariant> {
   return HUNYUAN_MT_VARIANTS
 }
 
+/** HY-MT1.5-1.8B GGUF variants (official Tencent quantizations) */
+export const HUNYUAN_MT_15_VARIANTS: Record<string, GGUFVariant> = {
+  'Q4_K_M': {
+    filename: 'HY-MT1.5-1.8B-Q4_K_M.gguf',
+    url: 'https://huggingface.co/tencent/HY-MT1.5-1.8B-GGUF/resolve/main/HY-MT1.5-1.8B-Q4_K_M.gguf',
+    sizeMB: 1130,
+    label: 'Q4_K_M (Recommended, ~1.1GB)'
+  },
+  'Q6_K': {
+    filename: 'HY-MT1.5-1.8B-Q6_K.gguf',
+    url: 'https://huggingface.co/tencent/HY-MT1.5-1.8B-GGUF/resolve/main/HY-MT1.5-1.8B-Q6_K.gguf',
+    sizeMB: 1470,
+    label: 'Q6_K (Balanced, ~1.5GB)'
+  },
+  'Q8_0': {
+    filename: 'HY-MT1.5-1.8B-Q8_0.gguf',
+    url: 'https://huggingface.co/tencent/HY-MT1.5-1.8B-GGUF/resolve/main/HY-MT1.5-1.8B-Q8_0.gguf',
+    sizeMB: 1910,
+    label: 'Q8_0 (Best quality, ~1.9GB)'
+  }
+}
+
+/** Get HY-MT1.5-1.8B GGUF variants */
+export function getHunyuanMT15Variants(): Record<string, GGUFVariant> {
+  return HUNYUAN_MT_15_VARIANTS
+}
+
 export const GGUF_VARIANTS_4B: Record<string, GGUFVariant> = {
   'Q4_K_M': {
     filename: 'translategemma-4b-it.Q4_K_M.gguf',

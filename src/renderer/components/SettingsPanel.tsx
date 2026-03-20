@@ -10,7 +10,7 @@ function withIpcTimeout<T>(promise: Promise<T>, ms: number, label: string): Prom
   return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
 }
 
-type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-ct2-opus' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-ane' | 'offline-hybrid'
+type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-ct2-opus' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-hunyuan-mt-15' | 'offline-ane' | 'offline-hybrid'
 
 interface DisplayInfo {
   id: number
@@ -258,7 +258,7 @@ function SettingsPanel(): JSX.Element {
         if (hasKeys) {
           resolvedMode = 'rotation'
         } else if (gpuInfo?.hasGpu) {
-          resolvedMode = 'offline-slm'
+          resolvedMode = 'offline-hunyuan-mt-15'
         } else {
           resolvedMode = 'offline-opus'
         }
@@ -320,6 +320,12 @@ function SettingsPanel(): JSX.Element {
           mode: 'cascade' as const,
           sttEngineId: sttEngine,
           translatorEngineId: 'hunyuan-mt'
+        }
+      } else if (resolvedMode === 'offline-hunyuan-mt-15') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: sttEngine,
+          translatorEngineId: 'hunyuan-mt-15'
         }
       } else if (resolvedMode === 'offline-ane') {
         config = {
@@ -436,6 +442,7 @@ function SettingsPanel(): JSX.Element {
     switch (engineMode) {
       case 'offline-hybrid': return 'Hybrid (OPUS-MT + TranslateGemma)'
       case 'offline-slm': return 'TranslateGemma'
+      case 'offline-hunyuan-mt-15': return 'HY-MT1.5-1.8B'
       case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B'
       case 'offline-opus': return 'OPUS-MT'
       case 'offline-ct2-opus': return 'OPUS-MT (CTranslate2)'
@@ -459,7 +466,7 @@ function SettingsPanel(): JSX.Element {
   }
 
   // Does the current engine use SLM options?
-  const showSlmOptions = ['offline-slm', 'offline-hunyuan-mt', 'offline-hybrid'].includes(engineMode)
+  const showSlmOptions = ['offline-slm', 'offline-hunyuan-mt', 'offline-hunyuan-mt-15', 'offline-hybrid'].includes(engineMode)
 
   return (
     <div style={containerStyle}>
@@ -657,6 +664,19 @@ function SettingsPanel(): JSX.Element {
               <div>
                 <div style={{ fontWeight: 500 }}>TranslateGemma</div>
                 <div style={{ fontSize: '12px', color: '#94a3b8' }}>GPU-accelerated offline translation</div>
+              </div>
+            </label>
+            <label style={radioLabelStyle}>
+              <input
+                type="radio"
+                name="engine"
+                checked={engineMode === 'offline-hunyuan-mt-15'}
+                onChange={() => setEngineMode('offline-hunyuan-mt-15')}
+                disabled={isRunning || isStarting}
+              />
+              <div>
+                <div style={{ fontWeight: 500 }}>HY-MT1.5-1.8B (Recommended)</div>
+                <div style={{ fontSize: '12px', color: '#94a3b8' }}>36 languages, ~1.1GB — fast and lightweight</div>
               </div>
             </label>
             <label style={radioLabelStyle}>
