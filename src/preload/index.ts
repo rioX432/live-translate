@@ -51,7 +51,7 @@ contextBridge.exposeInMainWorld('api', {
   exportSession: (id: string, format: string) => ipcRenderer.invoke('export-session', id, format),
 
   // GGUF model management (#133)
-  getGgufVariants: () => ipcRenderer.invoke('get-gguf-variants'),
+  getGgufVariants: (modelSize?: string) => ipcRenderer.invoke('get-gguf-variants', modelSize),
 
   // Plugin management (#127)
   listPlugins: () => ipcRenderer.invoke('list-plugins'),

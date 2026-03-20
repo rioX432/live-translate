@@ -51,6 +51,9 @@ function SettingsPanel(): JSX.Element {
   // KV cache quantization (#237)
   const [slmKvCacheQuant, setSlmKvCacheQuant] = useState(true)
 
+  // Model size (#236)
+  const [slmModelSize, setSlmModelSize] = useState<'4b' | '12b'>('4b')
+
   // Meeting summary (#124)
   const [lastTranscriptPath, setLastTranscriptPath] = useState<string | null>(null)
   const [summaryText, setSummaryText] = useState<string | null>(null)
@@ -99,6 +102,7 @@ function SettingsPanel(): JSX.Element {
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
       if (s.sttEngine) setSttEngine(s.sttEngine as 'whisper-local' | 'mlx-whisper' | 'moonshine')
       if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(s.slmKvCacheQuant as boolean)
+      if (s.slmModelSize) setSlmModelSize(s.slmModelSize as '4b' | '12b')
       if (s.subtitleSettings) {
         const sub = s.subtitleSettings as Record<string, unknown>
         if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
@@ -198,7 +202,8 @@ function SettingsPanel(): JSX.Element {
         selectedMicrophone: audio.selectedDevice,
         selectedDisplay,
         sttEngine,
-        slmKvCacheQuant
+        slmKvCacheQuant,
+        slmModelSize
       }), 10_000, 'saveSettings')
 
       // Resolve auto mode to concrete engine
@@ -582,8 +587,8 @@ function SettingsPanel(): JSX.Element {
             disabled={isRunning || isStarting}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>TranslateGemma 4B</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, GPU-accelerated, ~2.6GB model download</div>
+            <div style={{ fontWeight: 500 }}>TranslateGemma</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN, GPU-accelerated offline translation</div>
             {engineMode === 'offline-slm' && gpuInfo && !gpuInfo.hasGpu && (
               <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
                 No GPU detected — translation may be slow on CPU-only systems
@@ -592,20 +597,51 @@ function SettingsPanel(): JSX.Element {
           </div>
         </label>
         {engineMode === 'offline-slm' && (
-          <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
-            <input
-              type="checkbox"
-              checked={slmKvCacheQuant}
-              onChange={(e) => setSlmKvCacheQuant(e.target.checked)}
-              disabled={isRunning || isStarting}
-            />
-            <div>
-              <div style={{ fontWeight: 500, fontSize: '12px' }}>KV cache quantization (Q8_0)</div>
-              <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                Reduces VRAM usage ~50% with negligible quality impact
-              </div>
+          <>
+            <div style={{ paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '2px' }}>Model Size</div>
+              <label style={radioLabelStyle}>
+                <input
+                  type="radio"
+                  name="slm-model-size"
+                  checked={slmModelSize === '4b'}
+                  onChange={() => setSlmModelSize('4b')}
+                  disabled={isRunning || isStarting}
+                />
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: '12px' }}>4B (Faster, ~2.6GB)</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>Good quality, runs on most GPUs</div>
+                </div>
+              </label>
+              <label style={radioLabelStyle}>
+                <input
+                  type="radio"
+                  name="slm-model-size"
+                  checked={slmModelSize === '12b'}
+                  onChange={() => setSlmModelSize('12b')}
+                  disabled={isRunning || isStarting}
+                />
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: '12px' }}>12B (Higher quality, ~7.3GB)</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>Best offline quality, requires M3 Pro+ or 8GB+ VRAM</div>
+                </div>
+              </label>
             </div>
-          </label>
+            <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
+              <input
+                type="checkbox"
+                checked={slmKvCacheQuant}
+                onChange={(e) => setSlmKvCacheQuant(e.target.checked)}
+                disabled={isRunning || isStarting}
+              />
+              <div>
+                <div style={{ fontWeight: 500, fontSize: '12px' }}>KV cache quantization (Q8_0)</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                  Reduces VRAM usage ~50% with negligible quality impact
+                </div>
+              </div>
+            </label>
+          </>
         )}
       </Section>
 

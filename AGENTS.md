@@ -29,7 +29,7 @@ npm install          # Install deps (postinstall fixes whisper-node-addon)
 - whisper-node-addon (whisper.cpp native binding)
 - mlx-whisper (Python subprocess bridge, Apple Silicon)
 - Moonshine AI (ONNX via @huggingface/transformers)
-- node-llama-cpp (TranslateGemma 4B, meeting summaries, UtilityProcess)
+- node-llama-cpp (TranslateGemma 4B/12B, meeting summaries, UtilityProcess)
 - @ricky0123/vad-web (Silero VAD)
 - Multiple translation backends (Google, DeepL, Azure, Gemini, OPUS-MT, TranslateGemma)
 - Local Agreement algorithm for streaming subtitle display
@@ -65,7 +65,7 @@ live-translate/
 │   │       ├── GeminiTranslator.ts
 │   │       ├── MicrosoftTranslator.ts
 │   │       ├── OpusMTTranslator.ts
-│   │       ├── SLMTranslator.ts         # TranslateGemma 4B (UtilityProcess)
+│   │       ├── SLMTranslator.ts         # TranslateGemma 4B/12B (UtilityProcess)
 │   │       └── ApiRotationController.ts # Multi-provider rotation
 │   ├── pipeline/
 │   │   ├── TranslationPipeline.ts  # Orchestration, streaming, auto-recovery

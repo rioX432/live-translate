@@ -14,7 +14,8 @@ import { ApiRotationController } from '../engines/translator/ApiRotationControll
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { detectGpu } from '../engines/gpu-detector'
-import { isGGUFDownloaded, GGUF_VARIANTS } from '../engines/model-downloader'
+import { isGGUFDownloaded, getGGUFVariants } from '../engines/model-downloader'
+import type { SLMModelSize } from '../engines/model-downloader'
 import { listPlugins, discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
 import * as SessionManager from '../logger/SessionManager'
@@ -150,7 +151,8 @@ function initPipeline(): void {
   }))
   pipeline.registerTranslator('slm-translate', () => new SLMTranslator({
     onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant')
+    kvCacheQuant: store.get('slmKvCacheQuant'),
+    modelSize: store.get('slmModelSize')
   }))
   // Auto-register discovered plugins (#145)
   for (const plugin of discoverPlugins()) {
@@ -482,7 +484,8 @@ ipcMain.handle('get-settings', () => {
     selectedMicrophone: store.get('selectedMicrophone'),
     selectedDisplay: store.get('selectedDisplay'),
     subtitleSettings: store.get('subtitleSettings'),
-    slmKvCacheQuant: store.get('slmKvCacheQuant')
+    slmKvCacheQuant: store.get('slmKvCacheQuant'),
+    slmModelSize: store.get('slmModelSize')
   }
 })
 
@@ -534,7 +537,8 @@ ipcMain.handle('generate-summary', async (_event, transcriptPath: string) => {
     // Use SLM translator for summarization
     const slm = new SLMTranslator({
       onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
-      kvCacheQuant: store.get('slmKvCacheQuant')
+      kvCacheQuant: store.get('slmKvCacheQuant'),
+      modelSize: store.get('slmModelSize')
     })
 
     try {
@@ -568,8 +572,9 @@ ipcMain.handle('export-session', (_event, id: string, format: 'text' | 'srt' | '
 })
 
 // #133: GGUF model status
-ipcMain.handle('get-gguf-variants', () => {
-  return Object.entries(GGUF_VARIANTS).map(([key, v]) => ({
+ipcMain.handle('get-gguf-variants', (_event, modelSize?: SLMModelSize) => {
+  const variants = getGGUFVariants(modelSize ?? store.get('slmModelSize'))
+  return Object.entries(variants).map(([key, v]) => ({
     key,
     label: v.label,
     filename: v.filename,
