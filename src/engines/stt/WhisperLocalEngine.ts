@@ -1,27 +1,33 @@
 import { transcribe } from '@kutalia/whisper-node-addon'
 import { getModelPath, isModelDownloaded, downloadModel } from '../model-downloader'
+import type { WhisperVariant } from '../model-downloader'
 import { filterWhisperHallucination } from '../../pipeline/whisper-filter'
 import type { STTEngine, STTResult, Language } from '../types'
 
 export class WhisperLocalEngine implements STTEngine {
   readonly id = 'whisper-local'
-  readonly name = 'Whisper Local (kotoba-whisper-v2.0)'
+  readonly name: string
   readonly isOffline = true
 
   private modelPath = ''
   private onProgress?: (message: string) => void
   private processing = false
+  private modelVariant?: WhisperVariant
 
-  constructor(options?: { onProgress?: (message: string) => void }) {
+  constructor(options?: { onProgress?: (message: string) => void; modelVariant?: WhisperVariant }) {
     this.onProgress = options?.onProgress
+    this.modelVariant = options?.modelVariant
+    this.name = this.modelVariant === 'large-v3-turbo'
+      ? 'Whisper Local (large-v3-turbo)'
+      : 'Whisper Local (kotoba-whisper-v2.0)'
   }
 
   async initialize(): Promise<void> {
     if (this.modelPath) return
-    if (!isModelDownloaded()) {
-      this.modelPath = await downloadModel(this.onProgress)
+    if (!isModelDownloaded(this.modelVariant)) {
+      this.modelPath = await downloadModel(this.onProgress, this.modelVariant)
     } else {
-      this.modelPath = getModelPath()
+      this.modelPath = getModelPath(this.modelVariant)
     }
   }
 

@@ -54,6 +54,8 @@ export interface AppSettings {
   simulMtEnabled: boolean
   /** Wait-k value: start translating after k confirmed words (default 3) */
   simulMtWaitK: number
+  /** Whisper model variant for local STT: kotoba-v2.0 (Japanese-optimized) or large-v3-turbo (multilingual) */
+  whisperVariant: string
 }
 
 export const store = new Store<AppSettings>({
@@ -83,6 +85,7 @@ export const store = new Store<AppSettings>({
     glossaryTerms: [],
     slmSpeculativeDecoding: false,
     simulMtEnabled: false,
-    simulMtWaitK: 3
+    simulMtWaitK: 3,
+    whisperVariant: 'kotoba-v2.0'
   }
 })

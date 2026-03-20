@@ -33,6 +33,7 @@ export interface ElectronAPI {
   saveSubtitleSettings: (settings: Record<string, unknown>) => Promise<void>
   onSubtitleSettingsChanged: (callback: (settings: unknown) => void) => (() => void)
   onDisplaysChanged: (callback: () => void) => (() => void)
+  getWhisperVariants: () => Promise<Array<{ key: string; label: string; description: string; filename: string; sizeMB: number; downloaded: boolean }>>
   getPlatform: () => Promise<string>
 }
 
