@@ -56,6 +56,8 @@ export interface AppSettings {
   simulMtWaitK: number
   /** Whisper model variant for local STT: kotoba-v2.0 (Japanese-optimized) or large-v3-turbo (multilingual) */
   whisperVariant: string
+  /** Moonshine model variant for local STT: tiny (fastest) or base (recommended) */
+  moonshineVariant: string
   /** Source language: 'auto' for auto-detection or a specific language code */
   sourceLanguage: SourceLanguage
   /** Target language for translation output */
@@ -91,6 +93,7 @@ export const store = new Store<AppSettings>({
     simulMtEnabled: false,
     simulMtWaitK: 3,
     whisperVariant: 'kotoba-v2.0',
+    moonshineVariant: 'base',
     sourceLanguage: 'auto',
     targetLanguage: 'en'
   }

@@ -43,6 +43,46 @@ export function getWhisperVariants(): Record<WhisperVariant, WhisperVariantConfi
   return WHISPER_VARIANTS
 }
 
+/** Moonshine model variant identifier */
+export type MoonshineVariant = 'tiny' | 'base'
+
+/** Moonshine model variant configuration (downloaded via @huggingface/transformers) */
+export interface MoonshineVariantConfig {
+  /** HuggingFace model ID used by @huggingface/transformers pipeline */
+  modelId: string
+  /** Approximate model size in MB (quantized q8) */
+  sizeMB: number
+  /** Human-readable label */
+  label: string
+  /** Description shown in UI */
+  description: string
+  /** Number of parameters */
+  params: string
+}
+
+/** Available Moonshine ONNX model variants for local STT */
+export const MOONSHINE_VARIANTS: Record<MoonshineVariant, MoonshineVariantConfig> = {
+  'tiny': {
+    modelId: 'onnx-community/moonshine-tiny-ONNX',
+    sizeMB: 60,
+    label: 'Tiny (Fastest)',
+    description: '27M params, ~60MB — lowest latency, good for voice commands',
+    params: '27M'
+  },
+  'base': {
+    modelId: 'onnx-community/moonshine-base-ONNX',
+    sizeMB: 130,
+    label: 'Base (Recommended)',
+    description: '61M params, ~130MB — best balance of speed and accuracy',
+    params: '61M'
+  }
+}
+
+/** Get available Moonshine variants */
+export function getMoonshineVariants(): Record<MoonshineVariant, MoonshineVariantConfig> {
+  return MOONSHINE_VARIANTS
+}
+
 // Global download lock — serializes all model downloads to prevent disk corruption (#208)
 const activeDownloads = new Map<string, Promise<string>>()
 

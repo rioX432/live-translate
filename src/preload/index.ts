@@ -91,6 +91,9 @@ contextBridge.exposeInMainWorld('api', {
   // #261: Whisper model variant info
   getWhisperVariants: () => ipcRenderer.invoke('get-whisper-variants'),
 
+  // #260: Moonshine model variant info
+  getMoonshineVariants: () => ipcRenderer.invoke('get-moonshine-variants'),
+
   // #243: Platform detection for hiding platform-specific options
   getPlatform: () => ipcRenderer.invoke('get-platform'),
 
