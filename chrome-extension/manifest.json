@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "Live Translate - Tab Audio Capture",
+  "version": "0.1.0",
+  "description": "Capture browser tab audio from meetings (Zoom, Google Meet, Teams) and stream to Live Translate for real-time translation.",
+  "permissions": [
+    "tabCapture",
+    "offscreen",
+    "activeTab"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "offscreen": {
+    "reasons": ["USER_MEDIA"],
+    "justification": "Capture tab audio via tabCapture API and stream PCM data to the Live Translate desktop app for real-time speech translation."
+  }
+}

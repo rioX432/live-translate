@@ -22,12 +22,14 @@
     "@kutalia/whisper-node-addon": "^1.1.0",
     "@ricky0123/vad-web": "^0.0.30",
     "electron-store": "^10.0.0",
-    "node-llama-cpp": "^3.0.0"
+    "node-llama-cpp": "^3.0.0",
+    "ws": "^8.20.0"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "@types/ws": "^8.18.1",
     "@vitejs/plugin-react": "^4.3.0",
     "electron": "^33.0.0",
     "electron-builder": "^25.0.0",

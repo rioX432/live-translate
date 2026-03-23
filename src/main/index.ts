@@ -2,6 +2,7 @@ import { app, BrowserWindow, screen, ipcMain } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
+import { WsAudioServer } from './ws-audio-server'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
 import { MoonshineEngine } from '../engines/stt/MoonshineEngine'
@@ -71,6 +72,7 @@ let mainWindow: BrowserWindow | null = null
 let subtitleWindow: BrowserWindow | null = null
 let pipeline: TranslationPipeline | null = null
 let logger: TranscriptLogger | null = null
+let wsAudioServer: WsAudioServer | null = null
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -733,6 +735,72 @@ ipcMain.handle('get-session-logs', () => {
   return store.get('sessionLogs') || []
 })
 
+// --- WebSocket Audio Server for Chrome Extension (#264) ---
+
+const DEFAULT_WS_PORT = 9876
+
+ipcMain.handle('ws-audio-start', async (_event, port?: number) => {
+  try {
+    if (wsAudioServer?.running) {
+      return { error: 'WebSocket audio server is already running' }
+    }
+
+    wsAudioServer = new WsAudioServer(port || DEFAULT_WS_PORT)
+
+    // Forward received audio to the pipeline
+    wsAudioServer.on('audio', async (chunk: Float32Array) => {
+      if (!pipeline?.running) return
+
+      try {
+        await pipeline.process(chunk, 16000)
+      } catch (err) {
+        console.error('[ws-audio] Pipeline processing error:', err)
+      }
+    })
+
+    wsAudioServer.on('connected', () => {
+      mainWindow?.webContents.send('status-update', 'Chrome extension connected')
+      mainWindow?.webContents.send('ws-audio-status', { connected: true, running: true, port: wsAudioServer?.port })
+    })
+
+    wsAudioServer.on('disconnected', () => {
+      mainWindow?.webContents.send('status-update', 'Chrome extension disconnected')
+      mainWindow?.webContents.send('ws-audio-status', { connected: false, running: wsAudioServer?.running ?? false, port: wsAudioServer?.port })
+    })
+
+    wsAudioServer.on('error', (err: Error) => {
+      mainWindow?.webContents.send('status-update', `WebSocket error: ${sanitizeErrorMessage(err.message)}`)
+    })
+
+    await wsAudioServer.start()
+    mainWindow?.webContents.send('ws-audio-status', { connected: false, running: true, port: wsAudioServer.port })
+    return { success: true, port: wsAudioServer.port }
+  } catch (err) {
+    return { error: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) }
+  }
+})
+
+ipcMain.handle('ws-audio-stop', async () => {
+  try {
+    if (wsAudioServer) {
+      await wsAudioServer.stop()
+      wsAudioServer = null
+    }
+    mainWindow?.webContents.send('ws-audio-status', { connected: false, running: false, port: null })
+    return { success: true }
+  } catch (err) {
+    return { error: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) }
+  }
+})
+
+ipcMain.handle('ws-audio-get-status', () => {
+  return {
+    running: wsAudioServer?.running ?? false,
+    connected: wsAudioServer?.hasClient ?? false,
+    port: wsAudioServer?.port ?? DEFAULT_WS_PORT
+  }
+})
+
 // --- App Lifecycle ---
 
 app.whenReady().then(() => {
@@ -773,7 +841,10 @@ app.on('before-quit', (event) => {
       logger = null
       store.set('activeSession', null)
       await Promise.race([
-        pipeline?.dispose() ?? Promise.resolve(),
+        Promise.all([
+          pipeline?.dispose() ?? Promise.resolve(),
+          wsAudioServer?.stop() ?? Promise.resolve()
+        ]),
         new Promise((_resolve, reject) =>
           setTimeout(() => reject(new Error('Cleanup timed out')), 5000)
         )
