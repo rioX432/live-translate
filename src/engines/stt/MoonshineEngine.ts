@@ -1,13 +1,9 @@
 import { join } from 'path'
-import { existsSync } from 'fs'
 import type { STTEngine, STTResult, Language } from '../types'
-import { getModelsDir } from '../model-downloader'
+import { getModelsDir, MOONSHINE_VARIANTS } from '../model-downloader'
+import type { MoonshineVariant } from '../model-downloader'
 
-const MOONSHINE_MODEL = 'onnx-community/moonshine-base-ONNX'
 const MODELS_SUBDIR = 'moonshine'
-
-// Japanese detection heuristic (aligned with WhisperLocalEngine)
-const JA_REGEX = /[\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FFF\u3400-\u4DBF]/g
 
 export class MoonshineEngine implements STTEngine {
   readonly id = 'moonshine'
@@ -16,26 +12,29 @@ export class MoonshineEngine implements STTEngine {
 
   private pipeline: any = null
   private onProgress?: (message: string) => void
+  private variant: MoonshineVariant
 
-  constructor(options?: { onProgress?: (message: string) => void }) {
+  constructor(options?: { onProgress?: (message: string) => void; variant?: MoonshineVariant }) {
     this.onProgress = options?.onProgress
+    this.variant = options?.variant ?? 'base'
   }
 
   async initialize(): Promise<void> {
     if (this.pipeline) return
 
-    this.onProgress?.('Loading Moonshine model...')
+    const config = MOONSHINE_VARIANTS[this.variant]
+    this.onProgress?.(`Loading Moonshine ${config.label} model...`)
 
     const { pipeline, env } = await import('@huggingface/transformers')
     env.cacheDir = join(getModelsDir(), MODELS_SUBDIR)
 
     this.pipeline = await pipeline(
       'automatic-speech-recognition',
-      MOONSHINE_MODEL,
+      config.modelId,
       { dtype: 'q8' }
     )
 
-    this.onProgress?.('Moonshine model loaded')
+    this.onProgress?.(`Moonshine ${config.label} model loaded`)
   }
 
   async processAudio(audioChunk: Float32Array, sampleRate: number): Promise<STTResult | null> {

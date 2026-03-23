@@ -20,8 +20,8 @@ import { HunyuanMT15Translator } from '../engines/translator/HunyuanMT15Translat
 import { ANETranslator } from '../engines/translator/ANETranslator'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { detectGpu } from '../engines/gpu-detector'
-import { isGGUFDownloaded, getGGUFVariants, getHunyuanMTVariants, getHunyuanMT15Variants, getWhisperVariants, isModelDownloaded as isWhisperModelDownloaded } from '../engines/model-downloader'
-import type { SLMModelSize, WhisperVariant } from '../engines/model-downloader'
+import { isGGUFDownloaded, getGGUFVariants, getHunyuanMTVariants, getHunyuanMT15Variants, getWhisperVariants, getMoonshineVariants, isModelDownloaded as isWhisperModelDownloaded } from '../engines/model-downloader'
+import type { SLMModelSize, WhisperVariant, MoonshineVariant } from '../engines/model-downloader'
 import { listPlugins, discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
 import * as SessionManager from '../logger/SessionManager'
@@ -152,7 +152,8 @@ function initPipeline(): void {
     }))
   }
   pipeline.registerSTT('moonshine', () => new MoonshineEngine({
-    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg)
+    onProgress: (msg) => mainWindow?.webContents.send('status-update', msg),
+    variant: (store.get('moonshineVariant') as MoonshineVariant) || undefined
   }))
 
   // Register translator engines
@@ -550,6 +551,7 @@ ipcMain.handle('get-settings', () => {
     simulMtEnabled: store.get('simulMtEnabled'),
     simulMtWaitK: store.get('simulMtWaitK'),
     whisperVariant: store.get('whisperVariant'),
+    moonshineVariant: store.get('moonshineVariant'),
     sourceLanguage: store.get('sourceLanguage'),
     targetLanguage: store.get('targetLanguage')
   }
@@ -699,6 +701,19 @@ ipcMain.handle('get-whisper-variants', () => {
     filename: v.filename,
     sizeMB: v.sizeMB,
     downloaded: isWhisperModelDownloaded(key as WhisperVariant)
+  }))
+})
+
+// #260: Moonshine model variant info
+ipcMain.handle('get-moonshine-variants', () => {
+  const variants = getMoonshineVariants()
+  return Object.entries(variants).map(([key, v]) => ({
+    key,
+    label: v.label,
+    description: v.description,
+    modelId: v.modelId,
+    sizeMB: v.sizeMB,
+    params: v.params
   }))
 })
 

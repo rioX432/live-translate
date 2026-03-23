@@ -65,6 +65,7 @@ function SettingsPanel(): JSX.Element {
 
   const [sttEngine, setSttEngine] = useState<'whisper-local' | 'mlx-whisper' | 'moonshine'>('whisper-local')
   const [whisperVariant, setWhisperVariant] = useState<'kotoba-v2.0' | 'large-v3-turbo'>('kotoba-v2.0')
+  const [moonshineVariant, setMoonshineVariant] = useState<'tiny' | 'base'>('base')
 
   const [subtitleFontSize, setSubtitleFontSize] = useState(30)
   const [subtitleSourceColor, setSubtitleSourceColor] = useState('#ffffff')
@@ -138,6 +139,7 @@ function SettingsPanel(): JSX.Element {
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
       if (s.sttEngine) setSttEngine(s.sttEngine as 'whisper-local' | 'mlx-whisper' | 'moonshine')
       if (s.whisperVariant) setWhisperVariant(s.whisperVariant as 'kotoba-v2.0' | 'large-v3-turbo')
+      if (s.moonshineVariant) setMoonshineVariant(s.moonshineVariant as 'tiny' | 'base')
       if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(s.slmKvCacheQuant as boolean)
       if (s.slmModelSize) setSlmModelSize(s.slmModelSize as '4b' | '12b')
       if (s.slmSpeculativeDecoding !== undefined) setSlmSpeculativeDecoding(s.slmSpeculativeDecoding as boolean)
@@ -277,6 +279,7 @@ function SettingsPanel(): JSX.Element {
         selectedDisplay,
         sttEngine,
         whisperVariant,
+        moonshineVariant,
         slmKvCacheQuant,
         slmModelSize,
         slmSpeculativeDecoding,
@@ -751,8 +754,23 @@ function SettingsPanel(): JSX.Element {
               </div>
             )}
             {sttEngine === 'moonshine' && (
-              <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
-                Japanese accuracy is unverified. If results are poor, switch to Whisper.
+              <div style={{ marginTop: '8px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>
+                  Moonshine Model
+                </div>
+                <select
+                  value={moonshineVariant}
+                  onChange={(e) => setMoonshineVariant(e.target.value as 'tiny' | 'base')}
+                  style={selectStyle}
+                  disabled={isRunning || isStarting}
+                  aria-label="Moonshine model variant"
+                >
+                  <option value="base">Base — 61M params, best accuracy (~130MB)</option>
+                  <option value="tiny">Tiny — 27M params, fastest (~60MB)</option>
+                </select>
+                <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
+                  English-focused. Japanese/CJK accuracy is unverified — switch to Whisper if results are poor.
+                </div>
               </div>
             )}
           </Section>

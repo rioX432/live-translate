@@ -34,6 +34,7 @@ export interface ElectronAPI {
   onSubtitleSettingsChanged: (callback: (settings: unknown) => void) => (() => void)
   onDisplaysChanged: (callback: () => void) => (() => void)
   getWhisperVariants: () => Promise<Array<{ key: string; label: string; description: string; filename: string; sizeMB: number; downloaded: boolean }>>
+  getMoonshineVariants: () => Promise<Array<{ key: string; label: string; description: string; modelId: string; sizeMB: number; params: string }>>
   getPlatform: () => Promise<string>
 }
 
