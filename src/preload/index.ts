@@ -102,5 +102,15 @@ contextBridge.exposeInMainWorld('api', {
     const handler = (): void => callback()
     ipcRenderer.on('displays-changed', handler)
     return () => ipcRenderer.off('displays-changed', handler)
+  },
+
+  // WebSocket audio server for Chrome extension (#264)
+  wsAudioStart: (port?: number) => ipcRenderer.invoke('ws-audio-start', port),
+  wsAudioStop: () => ipcRenderer.invoke('ws-audio-stop'),
+  wsAudioGetStatus: () => ipcRenderer.invoke('ws-audio-get-status'),
+  onWsAudioStatus: (callback: (status: { running: boolean; connected: boolean; port: number | null }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: { running: boolean; connected: boolean; port: number | null }): void => callback(status)
+    ipcRenderer.on('ws-audio-status', handler)
+    return () => ipcRenderer.off('ws-audio-status', handler)
   }
 })
