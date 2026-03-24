@@ -17,6 +17,7 @@ import type {
   EngineMode,
   Language,
   MoonshineVariantType,
+  SherpaOnnxPresetType,
   SlmModelSizeType,
   SourceLanguage,
   SttEngineType,
@@ -48,6 +49,7 @@ function SettingsPanel(): React.JSX.Element {
   const [sttEngine, setSttEngine] = useState<SttEngineType>('whisper-local')
   const [whisperVariant, setWhisperVariant] = useState<WhisperVariantType>('kotoba-v2.0')
   const [moonshineVariant, setMoonshineVariant] = useState<MoonshineVariantType>('base')
+  const [sherpaOnnxPreset, setSherpaOnnxPreset] = useState<SherpaOnnxPresetType>('whisper-tiny')
 
   const [subtitleFontSize, setSubtitleFontSize] = useState(30)
   const [subtitleSourceColor, setSubtitleSourceColor] = useState('#ffffff')
@@ -120,6 +122,7 @@ function SettingsPanel(): React.JSX.Element {
       if (s.sttEngine) setSttEngine(s.sttEngine as SttEngineType)
       if (s.whisperVariant) setWhisperVariant(s.whisperVariant as WhisperVariantType)
       if (s.moonshineVariant) setMoonshineVariant(s.moonshineVariant as MoonshineVariantType)
+      if (s.sherpaOnnxPreset) setSherpaOnnxPreset(s.sherpaOnnxPreset as SherpaOnnxPresetType)
       if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(s.slmKvCacheQuant as boolean)
       if (s.slmModelSize) setSlmModelSize(s.slmModelSize as SlmModelSizeType)
       if (s.slmSpeculativeDecoding !== undefined) setSlmSpeculativeDecoding(s.slmSpeculativeDecoding as boolean)
@@ -260,6 +263,7 @@ function SettingsPanel(): React.JSX.Element {
         sttEngine,
         whisperVariant,
         moonshineVariant,
+        sherpaOnnxPreset,
         slmKvCacheQuant,
         slmModelSize,
         slmSpeculativeDecoding,
@@ -501,6 +505,7 @@ function SettingsPanel(): React.JSX.Element {
           : 'Whisper (kotoba-v2.0)'
       case 'moonshine': return 'Moonshine AI'
       case 'sensevoice': return 'SenseVoice (CJK-optimized)'
+      case 'sherpa-onnx': return 'Sherpa-ONNX'
       default: return sttEngine
     }
   }
@@ -647,6 +652,8 @@ function SettingsPanel(): React.JSX.Element {
             onWhisperVariantChange={setWhisperVariant}
             moonshineVariant={moonshineVariant}
             onMoonshineVariantChange={setMoonshineVariant}
+            sherpaOnnxPreset={sherpaOnnxPreset}
+            onSherpaOnnxPresetChange={setSherpaOnnxPreset}
             platform={platform}
             disabled={disabled}
           />

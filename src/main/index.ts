@@ -4,6 +4,7 @@ import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
 import { MoonshineEngine } from '../engines/stt/MoonshineEngine'
 import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
+import { SherpaOnnxSTTEngine } from '../engines/stt/SherpaOnnxSTTEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { CT2OpusMTTranslator } from '../engines/translator/CT2OpusMTTranslator'
 import { CT2Madlad400Translator } from '../engines/translator/CT2Madlad400Translator'
@@ -22,6 +23,7 @@ import { createLogger } from './logger'
 import type { AppContext } from './app-context'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
 import type { WhisperVariant, MoonshineVariant } from '../engines/model-downloader'
+import type { SherpaOnnxPreset } from '../engines/stt/SherpaOnnxSTTEngine'
 
 const log = createLogger('main')
 
@@ -54,6 +56,10 @@ function initPipeline(): void {
   }))
   ctx.pipeline.registerSTT('sensevoice', () => new SenseVoiceEngine({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+  }))
+  ctx.pipeline.registerSTT('sherpa-onnx', () => new SherpaOnnxSTTEngine({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
+    preset: (store.get('sherpaOnnxPreset') as SherpaOnnxPreset) || undefined
   }))
 
   // Register translator engines

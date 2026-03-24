@@ -1,7 +1,7 @@
 import React from 'react'
 import { Section } from './Section'
 import { selectStyle } from './shared'
-import type { SttEngineType, WhisperVariantType, MoonshineVariantType } from './shared'
+import type { SttEngineType, WhisperVariantType, MoonshineVariantType, SherpaOnnxPresetType } from './shared'
 
 interface STTSettingsProps {
   sttEngine: SttEngineType
@@ -10,6 +10,8 @@ interface STTSettingsProps {
   onWhisperVariantChange: (v: WhisperVariantType) => void
   moonshineVariant: MoonshineVariantType
   onMoonshineVariantChange: (v: MoonshineVariantType) => void
+  sherpaOnnxPreset: SherpaOnnxPresetType
+  onSherpaOnnxPresetChange: (v: SherpaOnnxPresetType) => void
   platform: string
   disabled: boolean
 }
@@ -21,6 +23,8 @@ export function STTSettings({
   onWhisperVariantChange,
   moonshineVariant,
   onMoonshineVariantChange,
+  sherpaOnnxPreset,
+  onSherpaOnnxPresetChange,
   platform,
   disabled
 }: STTSettingsProps): React.JSX.Element {
@@ -39,6 +43,7 @@ export function STTSettings({
         )}
         <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
         <option value="sensevoice">SenseVoice (CJK-optimized, 15x faster)</option>
+        <option value="sherpa-onnx">Sherpa-ONNX (unified, no Python needed)</option>
       </select>
       {sttEngine === 'whisper-local' && (
         <div style={{ marginTop: '8px' }}>
@@ -87,6 +92,31 @@ export function STTSettings({
           <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
             SenseVoice-Small: 15x faster than Whisper with strong CJK accuracy. Supports 50+ languages with emotion detection.
             Requires: <code style={{ color: '#7dd3fc' }}>pip install funasr torch torchaudio</code>
+          </div>
+        </div>
+      )}
+      {sttEngine === 'sherpa-onnx' && (
+        <div style={{ marginTop: '8px' }}>
+          <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>
+            Sherpa-ONNX Model
+          </div>
+          <select
+            value={sherpaOnnxPreset}
+            onChange={(e) => onSherpaOnnxPresetChange(e.target.value as SherpaOnnxPresetType)}
+            style={selectStyle}
+            disabled={disabled}
+            aria-label="Sherpa-ONNX model preset"
+          >
+            <option value="whisper-tiny">Whisper Tiny — fastest, ~75MB</option>
+            <option value="whisper-base">Whisper Base — balanced, ~140MB</option>
+            <option value="whisper-small">Whisper Small — best accuracy, ~460MB</option>
+            <option value="sensevoice">SenseVoice — CJK-optimized, ~220MB</option>
+            <option value="paraformer">Paraformer — CJK, ultra-fast, ~230MB</option>
+          </select>
+          <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+            Unified cross-platform toolkit with native Node.js bindings. No Python required.
+            Models auto-download on first use.
+            Requires: <code style={{ color: '#7dd3fc' }}>npm install sherpa-onnx-node</code>
           </div>
         </div>
       )}
