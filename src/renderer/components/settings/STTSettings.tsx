@@ -42,6 +42,7 @@ export function STTSettings({
         )}
         <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
         <option value="sensevoice">SenseVoice (CJK-optimized, 15x faster)</option>
+        <option value="sherpa-onnx">Sherpa-ONNX (unified, no Python)</option>
       </select>
       {sttEngine === 'whisper-local' && (
         <div style={{ marginTop: '8px' }}>
@@ -98,6 +99,16 @@ export function STTSettings({
           <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
             SenseVoice-Small: 15x faster than Whisper with strong CJK accuracy. Supports 50+ languages with emotion detection.
             Requires: <code style={{ color: '#7dd3fc' }}>pip install funasr torch torchaudio</code>
+          </div>
+        </div>
+      )}
+      {sttEngine === 'sherpa-onnx' && (
+        <div style={{ marginTop: '8px' }}>
+          <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+            Sherpa-ONNX: unified cross-platform STT via native Node.js addon. No Python required.
+            Supports Whisper, SenseVoice, and Paraformer models via ONNX Runtime.
+            Requires: <code style={{ color: '#7dd3fc' }}>npm install sherpa-onnx-node</code> and
+            model files in <code style={{ color: '#7dd3fc' }}>userData/models/sherpa-onnx/</code>.
           </div>
         </div>
       )}

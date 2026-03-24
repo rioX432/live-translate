@@ -58,6 +58,8 @@ export interface AppSettings {
   whisperVariant: string
   /** Moonshine model variant for local STT: tiny (fastest) or base (recommended) */
   moonshineVariant: string
+  /** Sherpa-ONNX model key: whisper-tiny, whisper-base, sensevoice-small, paraformer-zh */
+  sherpaOnnxModel: string
   /** Source language: 'auto' for auto-detection or a specific language code */
   sourceLanguage: SourceLanguage
   /** Target language for translation output */
@@ -96,6 +98,7 @@ export const store = new Store<AppSettings>({
     simulMtWaitK: 3,
     whisperVariant: 'kotoba-v2.0',
     moonshineVariant: 'base',
+    sherpaOnnxModel: 'whisper-base',
     sourceLanguage: 'auto',
     targetLanguage: 'en',
     wsAudioPort: 9876
