@@ -3,7 +3,9 @@ import { join } from 'path'
 import type { TranslatorEngine, Language } from '../types'
 
 // Dynamic import for ESM-only @huggingface/transformers
-type TranslationPipeline = (text: string) => Promise<Array<{ translation_text: string }>>
+type TranslationPipeline = ((text: string) => Promise<Array<{ translation_text: string }>>) & {
+  dispose(): Promise<void>
+}
 
 export class OpusMTTranslator implements TranslatorEngine {
   readonly id = 'opus-mt'
@@ -68,6 +70,14 @@ export class OpusMTTranslator implements TranslatorEngine {
 
   async dispose(): Promise<void> {
     console.log('[opus-mt] Disposing resources')
+    try {
+      await Promise.all([
+        this.jaToEn?.dispose(),
+        this.enToJa?.dispose()
+      ])
+    } catch (err) {
+      console.error('[opus-mt] Error during pipeline disposal:', err)
+    }
     this.jaToEn = null
     this.enToJa = null
   }
