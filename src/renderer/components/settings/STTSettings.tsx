@@ -38,6 +38,7 @@ export function STTSettings({
           <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
         )}
         <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
+        <option value="sensevoice">SenseVoice (CJK-optimized, 15x faster)</option>
       </select>
       {sttEngine === 'whisper-local' && (
         <div style={{ marginTop: '8px' }}>
@@ -78,6 +79,14 @@ export function STTSettings({
           </select>
           <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
             English-focused. Japanese/CJK accuracy is unverified — switch to Whisper if results are poor.
+          </div>
+        </div>
+      )}
+      {sttEngine === 'sensevoice' && (
+        <div style={{ marginTop: '8px' }}>
+          <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+            SenseVoice-Small: 15x faster than Whisper with strong CJK accuracy. Supports 50+ languages with emotion detection.
+            Requires: <code style={{ color: '#7dd3fc' }}>pip install funasr torch torchaudio</code>
           </div>
         </div>
       )}
