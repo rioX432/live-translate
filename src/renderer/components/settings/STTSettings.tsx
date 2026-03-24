@@ -37,6 +37,9 @@ export function STTSettings({
         {platform === 'darwin' && (
           <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
         )}
+        {platform === 'darwin' && (
+          <option value="lightning-whisper">Lightning Whisper MLX (Apple Silicon, 10x faster)</option>
+        )}
         <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
         <option value="sensevoice">SenseVoice (CJK-optimized, 15x faster)</option>
       </select>
@@ -79,6 +82,14 @@ export function STTSettings({
           </select>
           <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
             English-focused. Japanese/CJK accuracy is unverified — switch to Whisper if results are poor.
+          </div>
+        </div>
+      )}
+      {sttEngine === 'lightning-whisper' && (
+        <div style={{ marginTop: '8px' }}>
+          <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+            Lightning Whisper MLX: ~10x faster than whisper.cpp on Apple Silicon. Supports all Whisper model sizes including distil variants.
+            Requires: <code style={{ color: '#7dd3fc' }}>pip install lightning-whisper-mlx</code>
           </div>
         </div>
       )}
