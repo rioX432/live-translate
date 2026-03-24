@@ -16,10 +16,13 @@ import * as SessionManager from '../logger/SessionManager'
 import { store } from './store'
 import type { AppSettings, SubtitleSettings } from './store'
 import { sanitizeErrorMessage } from './error-utils'
+import { createLogger } from './logger'
 import { getSubtitleHeight } from './window-manager'
 import { WsAudioServer } from './ws-audio-server'
 import type { AppContext } from './app-context'
 import type { EngineConfig } from '../engines/types'
+
+const log = createLogger('ipc')
 
 /** Monthly character limits for API rotation providers */
 const QUOTA_LIMITS = {
@@ -119,7 +122,7 @@ export function registerIpcHandlers(ctx: AppContext): void {
         // Dispose leaked rotation provider instances on switchEngine failure
         if (rotationProviders) {
           for (const p of rotationProviders) {
-            p.engine.dispose().catch((e) => console.warn('[ipc] Failed to dispose rotation provider:', e))
+            p.engine.dispose().catch((e) => log.warn('Failed to dispose rotation provider:', e))
           }
         }
         throw err
@@ -197,7 +200,7 @@ export function registerIpcHandlers(ctx: AppContext): void {
   ipcMain.on('move-subtitle-to-display', (_event, displayId: number) => {
     const display = screen.getAllDisplays().find((d) => d.id === displayId)
     if (!display) {
-      console.warn(`[display] Display ${displayId} not found, ignoring move request`)
+      log.warn(`Display ${displayId} not found, ignoring move request`)
       return
     }
     if (ctx.subtitleWindow) {
@@ -275,7 +278,7 @@ export function registerIpcHandlers(ctx: AppContext): void {
       if (config && typeof config === 'object' && config.mode) {
         return session
       }
-      console.warn('[crash-recovery] Invalid session config, discarding:', config)
+      log.warn('Invalid session config, discarding:', config)
     }
     return null
   })
@@ -423,7 +426,7 @@ export function registerIpcHandlers(ctx: AppContext): void {
         try {
           await ctx.pipeline.process(chunk, 16000)
         } catch (err) {
-          console.error('[ws-audio] Pipeline processing error:', err)
+          log.error('Pipeline processing error (ws-audio):', err)
         }
       })
 

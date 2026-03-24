@@ -217,9 +217,6 @@ export function getGGUFVariants(modelSize: SLMModelSize): Record<string, GGUFVar
   return modelSize === '12b' ? GGUF_VARIANTS_12B : GGUF_VARIANTS_4B
 }
 
-/** @deprecated Use getGGUFVariants() instead. Kept for backward compatibility. */
-export const GGUF_VARIANTS: Record<string, GGUFVariant> = GGUF_VARIANTS_4B
-
 // GGUF download lock uses shared activeDownloads map
 
 /** Get the GGUF models subdirectory */
