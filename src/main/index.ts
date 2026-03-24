@@ -11,6 +11,8 @@ import { CT2Madlad400Translator } from '../engines/translator/CT2Madlad400Transl
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
 import { HunyuanMT15Translator } from '../engines/translator/HunyuanMT15Translator'
+import { Gemma2JpnTranslator } from '../engines/translator/Gemma2JpnTranslator'
+import { AlmaJaTranslator } from '../engines/translator/AlmaJaTranslator'
 import { ANETranslator } from '../engines/translator/ANETranslator'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
@@ -81,6 +83,15 @@ function initPipeline(): void {
     kvCacheQuant: store.get('slmKvCacheQuant')
   }))
   ctx.pipeline.registerTranslator('hunyuan-mt-15', () => new HunyuanMT15Translator({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
+    kvCacheQuant: store.get('slmKvCacheQuant')
+  }))
+  // JA↔EN specialized models (#312)
+  ctx.pipeline.registerTranslator('gemma2-jpn', () => new Gemma2JpnTranslator({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
+    kvCacheQuant: store.get('slmKvCacheQuant')
+  }))
+  ctx.pipeline.registerTranslator('alma-ja', () => new AlmaJaTranslator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     kvCacheQuant: store.get('slmKvCacheQuant')
   }))

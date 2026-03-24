@@ -17,7 +17,7 @@
 import type { Llama, LlamaModel, LlamaContext, LlamaContextSequence } from 'node-llama-cpp'
 import { LANG_NAMES_EN, LANG_NAMES_ZH } from '../engines/language-names'
 
-type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15'
+type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15' | 'gemma2-jpn' | 'alma-ja'
 
 /** Messages sent from main process to this worker */
 type WorkerInboundMessage =
@@ -210,6 +210,13 @@ async function handleTranslate(
       }
       // Hunyuan-MT recommended parameters
       inferenceParams = { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: { penalty: 1.05 } }
+    } else if (activeModelType === 'gemma2-jpn' || activeModelType === 'alma-ja') {
+      // JA↔EN specialized models: simple translation prompt
+      // These models are fine-tuned specifically for JA↔EN, so a simple prompt works best.
+      // Gemma-2-2B-JPN-IT-Translate is trained to translate sentence by sentence.
+      const contextSection = buildContextPrompt(translateContext)
+      prompt = `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
+      inferenceParams = { temperature: 0.1, maxTokens: 512 }
     } else {
       // TranslateGemma prompt
       const contextSection = buildContextPrompt(translateContext)
@@ -294,6 +301,8 @@ async function handleTranslateIncremental(
       } else {
         prompt = `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
       }
+    } else if (activeModelType === 'gemma2-jpn' || activeModelType === 'alma-ja') {
+      prompt = `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
     } else {
       prompt = `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
     }

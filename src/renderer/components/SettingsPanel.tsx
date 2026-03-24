@@ -351,6 +351,18 @@ function SettingsPanel(): React.JSX.Element {
           sttEngineId: sttEngine,
           translatorEngineId: 'hunyuan-mt-15'
         }
+      } else if (resolvedMode === 'offline-gemma2-jpn') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: sttEngine,
+          translatorEngineId: 'gemma2-jpn'
+        }
+      } else if (resolvedMode === 'offline-alma-ja') {
+        config = {
+          mode: 'cascade' as const,
+          sttEngineId: sttEngine,
+          translatorEngineId: 'alma-ja'
+        }
       } else if (resolvedMode === 'offline-ane') {
         config = {
           mode: 'cascade' as const,
@@ -478,6 +490,8 @@ function SettingsPanel(): React.JSX.Element {
       case 'offline-hybrid': return 'Hybrid (OPUS-MT + TranslateGemma)'
       case 'offline-slm': return 'TranslateGemma'
       case 'offline-hunyuan-mt-15': return 'HY-MT1.5-1.8B'
+      case 'offline-gemma2-jpn': return 'Gemma-2-2B JA↔EN'
+      case 'offline-alma-ja': return 'ALMA-7B-Ja-V2'
       case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B'
       case 'offline-opus': return 'OPUS-MT'
       case 'offline-ct2-opus': return 'OPUS-MT (CTranslate2)'
