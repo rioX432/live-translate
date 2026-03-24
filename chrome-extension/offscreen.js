@@ -2,8 +2,9 @@
  * Offscreen document for audio capture and WebSocket streaming.
  *
  * Receives a tab capture stream ID from the background service worker,
- * captures the audio via getUserMedia + AudioWorklet, resamples to 16kHz mono,
- * and streams raw Float32 PCM to the Electron app via WebSocket.
+ * captures the audio via AudioWorkletNode, resamples to 16kHz mono
+ * off the main thread, and streams raw Float32 PCM to the Electron
+ * app via WebSocket.
  */
 
 const TARGET_SAMPLE_RATE = 16000
@@ -15,7 +16,7 @@ const WS_MAX_RECONNECT_ATTEMPTS = 5
 let mediaStream = null
 let audioContext = null
 let sourceNode = null
-let processorNode = null
+let workletNode = null
 let ws = null
 let heartbeatTimer = null
 let audioBuffer = []
@@ -115,31 +116,10 @@ function flushAudioBuffer() {
 }
 
 /**
- * Downsample audio from source sample rate to target sample rate.
- * Uses simple linear interpolation.
- */
-function downsample(buffer, fromRate, toRate) {
-  if (fromRate === toRate) {
-    return buffer
-  }
-
-  const ratio = fromRate / toRate
-  const newLength = Math.round(buffer.length / ratio)
-  const result = new Float32Array(newLength)
-
-  for (let i = 0; i < newLength; i++) {
-    const srcIndex = i * ratio
-    const low = Math.floor(srcIndex)
-    const high = Math.min(low + 1, buffer.length - 1)
-    const frac = srcIndex - low
-    result[i] = buffer[low] * (1 - frac) + buffer[high] * frac
-  }
-
-  return result
-}
-
-/**
  * Start capturing audio from the given stream ID.
+ *
+ * Registers the AudioWorklet processor, connects the audio graph,
+ * and listens for downsampled audio chunks via MessagePort.
  */
 async function startCapture(streamId, port) {
   wsPort = port || 9876
@@ -163,17 +143,32 @@ async function startCapture(streamId, port) {
   audioContext = new AudioContext({ sampleRate })
   sourceNode = audioContext.createMediaStreamSource(mediaStream)
 
-  // Use ScriptProcessorNode for broad compatibility (AudioWorklet not available in offscreen)
-  const bufferSize = 4096
-  processorNode = audioContext.createScriptProcessor(bufferSize, 1, 1)
+  // Load the AudioWorklet processor module
+  // Use chrome.runtime.getURL() because addModule() cannot resolve relative
+  // paths inside Chrome extension contexts.
+  const processorUrl = chrome.runtime.getURL('audio-processor.js')
+  await audioContext.audioWorklet.addModule(processorUrl)
+
+  // Create the worklet node, passing sample rates so it can downsample
+  workletNode = new AudioWorkletNode(audioContext, 'audio-capture-processor', {
+    numberOfInputs: 1,
+    numberOfOutputs: 0,
+    channelCount: 1,
+    processorOptions: {
+      sourceSampleRate: sampleRate,
+      targetSampleRate: TARGET_SAMPLE_RATE
+    }
+  })
 
   const targetSamplesPerBuffer = Math.floor(TARGET_SAMPLE_RATE * (BUFFER_DURATION_MS / 1000))
 
-  processorNode.onaudioprocess = (event) => {
-    const inputData = event.inputBuffer.getChannelData(0)
+  // Receive downsampled audio chunks from the worklet via MessagePort
+  workletNode.port.onmessage = (event) => {
+    if (event.data.type !== 'audio') {
+      return
+    }
 
-    // Downsample to 16kHz
-    const resampled = downsample(inputData, sampleRate, TARGET_SAMPLE_RATE)
+    const resampled = new Float32Array(event.data.samples)
 
     audioBuffer.push(resampled)
     audioBufferLength += resampled.length
@@ -184,8 +179,7 @@ async function startCapture(streamId, port) {
     }
   }
 
-  sourceNode.connect(processorNode)
-  processorNode.connect(audioContext.destination)
+  sourceNode.connect(workletNode)
 
   // Detect when the tab's audio track ends (tab closed or navigated away)
   mediaStream.getAudioTracks()[0].addEventListener('ended', () => {
@@ -194,7 +188,7 @@ async function startCapture(streamId, port) {
     chrome.runtime.sendMessage({ type: 'capture-stopped' })
   })
 
-  console.log(`[offscreen] Capturing at ${sampleRate}Hz, resampling to ${TARGET_SAMPLE_RATE}Hz`)
+  console.log(`[offscreen] Capturing at ${sampleRate}Hz, resampling to ${TARGET_SAMPLE_RATE}Hz via AudioWorklet`)
 }
 
 /**
@@ -206,9 +200,11 @@ function stopCapture() {
   // Flush remaining audio
   flushAudioBuffer()
 
-  if (processorNode) {
-    processorNode.disconnect()
-    processorNode = null
+  if (workletNode) {
+    // Signal the worklet processor to stop, then disconnect
+    workletNode.port.postMessage({ type: 'stop' })
+    workletNode.disconnect()
+    workletNode = null
   }
 
   if (sourceNode) {
