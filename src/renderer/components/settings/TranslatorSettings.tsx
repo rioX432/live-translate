@@ -265,7 +265,7 @@ export function TranslatorSettings({
                 <div style={{ fontSize: '11px', color: '#94a3b8' }}>Reduces VRAM ~50%</div>
               </div>
             </label>
-            {slmModelSize === '12b' && (
+            {(slmModelSize === '12b' || engineMode === 'offline-alma-ja') && (
               <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
                 <input
                   type="checkbox"
@@ -274,11 +274,21 @@ export function TranslatorSettings({
                   disabled={disabled || !draftModelAvailable}
                 />
                 <div>
-                  <div style={{ fontWeight: 500, fontSize: '12px' }}>Speculative decoding (4B draft + 12B verify)</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>2-3x throughput, requires both models in VRAM (~10GB)</div>
+                  <div style={{ fontWeight: 500, fontSize: '12px' }}>
+                    {engineMode === 'offline-alma-ja'
+                      ? 'Speculative decoding (Gemma-2-2B draft + ALMA-7B verify)'
+                      : 'Speculative decoding (4B draft + 12B verify)'}
+                  </div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    {engineMode === 'offline-alma-ja'
+                      ? '1.5-2.5x throughput, requires both models in VRAM (~6GB)'
+                      : '2-3x throughput, requires both models in VRAM (~10GB)'}
+                  </div>
                   {!draftModelAvailable && (
                     <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
-                      Download the 4B model first
+                      {engineMode === 'offline-alma-ja'
+                        ? 'Download the Gemma-2-2B JA model first'
+                        : 'Download the 4B model first'}
                     </div>
                   )}
                 </div>

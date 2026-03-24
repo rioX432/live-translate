@@ -37,7 +37,7 @@ export interface ElectronAPI {
   getMoonshineVariants: () => Promise<Array<{ key: string; label: string; description: string; modelId: string; sizeMB: number; params: string }>>
   getPlatform: () => Promise<string>
   saveGlossary: (terms: Array<{ source: string; target: string }>) => Promise<void>
-  isDraftModelAvailable: () => Promise<boolean>
+  isDraftModelAvailable: (engine?: string) => Promise<boolean>
   wsAudioStart: (port?: number) => Promise<void>
   wsAudioStop: () => Promise<void>
   wsAudioGetStatus: () => Promise<{ running: boolean; connected: boolean; port: number | null }>

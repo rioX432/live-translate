@@ -8,7 +8,7 @@ import { ApiRotationController } from '../engines/translator/ApiRotationControll
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { detectGpu } from '../engines/gpu-detector'
-import { isGGUFDownloaded, getGGUFVariants, getHunyuanMTVariants, getHunyuanMT15Variants, getWhisperVariants, getMoonshineVariants, isModelDownloaded as isWhisperModelDownloaded } from '../engines/model-downloader'
+import { isGGUFDownloaded, getGGUFVariants, getGemma2JpnVariants, getHunyuanMTVariants, getHunyuanMT15Variants, getWhisperVariants, getMoonshineVariants, isModelDownloaded as isWhisperModelDownloaded } from '../engines/model-downloader'
 import type { SLMModelSize, WhisperVariant } from '../engines/model-downloader'
 import { listPlugins } from '../engines/plugin-loader'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
@@ -351,7 +351,14 @@ export function registerIpcHandlers(ctx: AppContext): void {
     }))
   })
 
-  ipcMain.handle('is-draft-model-available', () => {
+  ipcMain.handle('is-draft-model-available', (_event, engine?: string) => {
+    if (engine === 'alma-ja') {
+      // ALMA-7B uses Gemma-2-2B-JPN as draft model
+      const draftVariants = getGemma2JpnVariants()
+      const draftVariantConfig = draftVariants['Q4_K_M']
+      return draftVariantConfig ? isGGUFDownloaded(draftVariantConfig.filename) : false
+    }
+    // Default: TranslateGemma 12B uses 4B as draft model
     const draftVariants = getGGUFVariants('4b')
     const draftVariantConfig = draftVariants['Q4_K_M']
     return draftVariantConfig ? isGGUFDownloaded(draftVariantConfig.filename) : false

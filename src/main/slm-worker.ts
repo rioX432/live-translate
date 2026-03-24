@@ -272,9 +272,23 @@ async function handleTranslateIncremental(
   }
 
   try {
-    const { LlamaChatSession } = await import('node-llama-cpp')
+    const { LlamaChatSession, DraftSequenceTokenPredictor } = await import('node-llama-cpp')
 
-    const contextSequence = context.getSequence()
+    // Create context sequence, optionally with speculative decoding
+    let contextSequence: LlamaContextSequence
+    if (speculativeEnabled && draftContext) {
+      const draftSequence = draftContext.getSequence()
+      contextSequence = context.getSequence({
+        tokenPredictor: new DraftSequenceTokenPredictor(draftSequence, {
+          minTokens: 0,
+          maxTokens: 16,
+          minConfidence: 0.6
+        })
+      })
+    } else {
+      contextSequence = context.getSequence()
+    }
+
     const session = new LlamaChatSession({ contextSequence })
 
     const fromLang = LANG_NAMES_EN[from] ?? from
@@ -317,6 +331,12 @@ async function handleTranslateIncremental(
       ...inferenceParams,
       ...(previousOutput.trim() && { responsePrefix: previousOutput })
     })
+
+    // Log speculative decoding stats for debugging
+    if (speculativeEnabled && contextSequence.tokenPredictions) {
+      const stats = contextSequence.tokenPredictions
+      console.log(`[slm-worker] Incremental speculative stats — validated: ${stats.validated}, refuted: ${stats.refuted}`)
+    }
 
     contextSequence.dispose?.()
     session.dispose?.()

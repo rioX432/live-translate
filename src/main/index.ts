@@ -99,7 +99,8 @@ function initPipeline(): void {
   }))
   ctx.pipeline.registerTranslator('alma-ja', () => new AlmaJaTranslator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant')
+    kvCacheQuant: store.get('slmKvCacheQuant'),
+    speculativeDecoding: store.get('slmSpeculativeDecoding')
   }))
   // ANEMLL Apple Neural Engine translator — macOS Apple Silicon only (#241)
   if (process.platform === 'darwin') {
