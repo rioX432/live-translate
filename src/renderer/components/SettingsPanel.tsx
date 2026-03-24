@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
 
 /** Supported language codes — must match Language type in types.ts */
@@ -42,7 +42,7 @@ interface DisplayInfo {
   label: string
 }
 
-function SettingsPanel(): JSX.Element {
+function SettingsPanel(): React.JSX.Element {
   const [engineMode, setEngineMode] = useState<EngineMode>('offline-hybrid')
   const [gpuInfo, setGpuInfo] = useState<{ hasGpu: boolean; gpuNames: string[] } | null>(null)
   const [apiKey, setApiKey] = useState('')
@@ -1452,7 +1452,7 @@ function SettingsPanel(): JSX.Element {
   )
 }
 
-function Section({ label, children, role }: { label: string; children: React.ReactNode; role?: string }): JSX.Element {
+function Section({ label, children, role }: { label: string; children: React.ReactNode; role?: string }): React.JSX.Element {
   return (
     <section style={{ marginBottom: '18px' }} role={role} aria-label={label}>
       <label style={sectionLabelStyle}>{label}</label>

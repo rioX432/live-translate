@@ -247,7 +247,7 @@ async function handleTranslate(
 
     // Build prompt based on model type
     let prompt: string
-    let inferenceParams: { temperature: number; maxTokens: number; topK?: number; topP?: number; repeatPenalty?: number }
+    let inferenceParams: { temperature: number; maxTokens: number; topK?: number; topP?: number; repeatPenalty?: { penalty: number } }
 
     if (activeModelType === 'hunyuan-mt-15') {
       // HY-MT1.5 uses the official Tencent prompt template:
@@ -261,7 +261,7 @@ async function handleTranslate(
         prompt = `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
       }
       // HY-MT1.5 recommended parameters (same as Hunyuan-MT)
-      inferenceParams = { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: 1.05 }
+      inferenceParams = { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: { penalty: 1.05 } }
     } else if (activeModelType === 'hunyuan-mt') {
       // Hunyuan-MT uses a specific prompt template:
       // Chinese ↔ Other: Chinese prompt; Other ↔ Other: English prompt
@@ -275,7 +275,7 @@ async function handleTranslate(
         prompt = `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
       }
       // Hunyuan-MT recommended parameters
-      inferenceParams = { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: 1.05 }
+      inferenceParams = { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: { penalty: 1.05 } }
     } else {
       // TranslateGemma prompt
       const contextSection = buildContextPrompt(translateContext)
@@ -367,7 +367,7 @@ async function handleTranslateIncremental(
     // Use responsePrefix to force the model to continue from previous output
     // This implements prefix-constrained decoding for SimulMT consistency
     const inferenceParams = (activeModelType === 'hunyuan-mt' || activeModelType === 'hunyuan-mt-15')
-      ? { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: 1.05 }
+      ? { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: { penalty: 1.05 } }
       : { temperature: 0.1, maxTokens: 512 }
 
     const response = await session.prompt(prompt, {

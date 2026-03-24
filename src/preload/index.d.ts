@@ -36,6 +36,12 @@ export interface ElectronAPI {
   getWhisperVariants: () => Promise<Array<{ key: string; label: string; description: string; filename: string; sizeMB: number; downloaded: boolean }>>
   getMoonshineVariants: () => Promise<Array<{ key: string; label: string; description: string; modelId: string; sizeMB: number; params: string }>>
   getPlatform: () => Promise<string>
+  saveGlossary: (terms: Array<{ source: string; target: string }>) => Promise<void>
+  isDraftModelAvailable: () => Promise<boolean>
+  wsAudioStart: (port?: number) => Promise<void>
+  wsAudioStop: () => Promise<void>
+  wsAudioGetStatus: () => Promise<{ running: boolean; connected: boolean; port: number | null }>
+  onWsAudioStatus: (callback: (status: { running: boolean; connected: boolean; port: number | null }) => void) => (() => void)
 }
 
 declare global {

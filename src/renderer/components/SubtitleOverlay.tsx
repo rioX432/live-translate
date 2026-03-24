@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 
 interface SubtitleLine {
   id: number
@@ -34,7 +34,7 @@ const FADE_DURATION_MS = 8000
 const INTERIM_LINE_ID = -1
 const DRAFT_LINE_ID = -2
 
-function SubtitleOverlay(): JSX.Element {
+function SubtitleOverlay(): React.JSX.Element {
   const [lines, setLines] = useState<SubtitleLine[]>([])
   const [config, setConfig] = useState<SubtitleConfig>(DEFAULT_CONFIG)
   const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)

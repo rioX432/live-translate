@@ -31,7 +31,7 @@ import type { EngineConfig, TranslationResult } from '../engines/types'
 
 /** Scrub API keys from error messages before sending to renderer (#209) */
 function sanitizeErrorMessage(message: string): string {
-  const settings = store.store as Record<string, unknown>
+  const settings = store.store as unknown as Record<string, unknown>
   const secrets = [
     settings.googleApiKey,
     settings.deeplApiKey,
@@ -561,7 +561,7 @@ ipcMain.handle('get-settings', () => {
 
 // Subtitle settings — push changes to subtitle window in real-time
 ipcMain.handle('save-subtitle-settings', (_event, settings: Record<string, unknown>) => {
-  store.set('subtitleSettings', settings as import('./store').SubtitleSettings)
+  store.set('subtitleSettings', settings as unknown as import('./store').SubtitleSettings)
   subtitleWindow?.webContents.send('subtitle-settings-changed', settings)
 })
 

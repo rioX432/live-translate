@@ -9,5 +9,5 @@
     "declarationMap": true,
     "composite": true
   },
-  "include": ["src/main/**/*", "src/engines/**/*", "src/pipeline/**/*", "src/logger/**/*", "electron.vite.config.ts"]
+  "include": ["src/main/**/*", "src/preload/**/*", "src/engines/**/*", "src/pipeline/**/*", "src/logger/**/*", "electron.vite.config.ts"]
 }
