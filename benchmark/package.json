@@ -8,7 +8,16 @@
     "bench": "tsx --expose-gc run.ts",
     "bench:google": "tsx --expose-gc run.ts --engines google",
     "bench:opus": "tsx --expose-gc run.ts --engines opus-mt",
-    "bench:gemma": "tsx --expose-gc run.ts --engines translate-gemma"
+    "bench:gemma": "tsx --expose-gc run.ts --engines translate-gemma",
+    "bench:stt": "tsx --expose-gc run.ts --stt",
+    "bench:stt:whisper-local": "tsx --expose-gc run.ts --stt --engines whisper-local",
+    "bench:stt:mlx-whisper": "tsx --expose-gc run.ts --stt --engines mlx-whisper",
+    "bench:stt:lightning-whisper": "tsx --expose-gc run.ts --stt --engines lightning-whisper",
+    "bench:stt:moonshine": "tsx --expose-gc run.ts --stt --engines moonshine",
+    "bench:stt:sensevoice": "tsx --expose-gc run.ts --stt --engines sensevoice",
+    "bench:stt:qwen-asr": "tsx --expose-gc run.ts --stt --engines qwen-asr",
+    "bench:stt:sherpa-onnx": "tsx --expose-gc run.ts --stt --engines sherpa-onnx",
+    "generate:stt-testset": "bash scripts/generate-stt-testset.sh"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.0",
