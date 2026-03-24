@@ -40,7 +40,12 @@ npm install          # Install deps (postinstall fixes whisper-node-addon)
 live-translate/
 ├── src/
 │   ├── main/
-│   │   ├── index.ts             # App entry, IPC handlers, pipeline wiring
+│   │   ├── index.ts             # App entry, pipeline init, lifecycle orchestration
+│   │   ├── app-context.ts       # Shared mutable state interface (AppContext)
+│   │   ├── window-manager.ts    # Window creation, display handlers
+│   │   ├── ipc-handlers.ts      # IPC handlers (pipeline, settings, sessions, ws-audio)
+│   │   ├── audio-handlers.ts    # Audio processing IPC (process, streaming, finalize)
+│   │   ├── error-utils.ts       # Error sanitization and hint mapping
 │   │   ├── store.ts             # electron-store (encrypted, settings, quota)
 │   │   └── slm-worker.ts        # UtilityProcess: TranslateGemma + summarization
 │   ├── preload/                 # Context bridge (renderer ↔ main IPC)
