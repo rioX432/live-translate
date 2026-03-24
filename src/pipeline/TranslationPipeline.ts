@@ -47,6 +47,8 @@ export enum PipelineState {
 const MAX_CONSECUTIVE_ERRORS = 3
 const RECOVERY_DELAY_MS = 1000
 const ENGINE_INIT_TIMEOUT_MS = 5 * 60_000 // 5 minutes for model download
+const MAX_STREAMING_LOCK_RESOLVERS = 50
+const STREAMING_LOCK_TIMEOUT_MS = 10_000
 
 /**
  * Manages the STT → Translation pipeline.
@@ -196,6 +198,36 @@ export class TranslationPipeline extends EventEmitter {
     if (this.processingCount === 0) return
     return new Promise((resolve) => {
       this.processingDoneResolvers.push(resolve)
+    })
+  }
+
+  /**
+   * Wait for the streaming lock to be released with a timeout and backpressure cap.
+   * If more than MAX_STREAMING_LOCK_RESOLVERS are already waiting, the oldest
+   * resolvers are auto-resolved to prevent unbounded growth (#292).
+   */
+  private waitForStreamingLock(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      // Evict oldest waiters when the queue is full
+      while (this.streamingLockResolvers.length >= MAX_STREAMING_LOCK_RESOLVERS) {
+        const oldest = this.streamingLockResolvers.shift()
+        if (oldest) oldest()
+      }
+
+      // Auto-resolve after timeout so callers never hang indefinitely
+      const timer = setTimeout(() => {
+        const idx = this.streamingLockResolvers.indexOf(resolve)
+        if (idx !== -1) {
+          this.streamingLockResolvers.splice(idx, 1)
+          console.warn('[pipeline] streamingLock wait timed out')
+          resolve()
+        }
+      }, STREAMING_LOCK_TIMEOUT_MS)
+
+      this.streamingLockResolvers.push(() => {
+        clearTimeout(timer)
+        resolve()
+      })
     })
   }
 
@@ -517,9 +549,7 @@ export class TranslationPipeline extends EventEmitter {
     if (this.config.mode !== 'cascade' || !this.sttEngine) return null
 
     if (this.streamingLock) {
-      await new Promise<void>((resolve) => {
-        this.streamingLockResolvers.push(resolve)
-      })
+      await this.waitForStreamingLock()
     }
     this.processingCount++
     this.streamingLock = true
