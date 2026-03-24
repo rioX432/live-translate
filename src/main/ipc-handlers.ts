@@ -241,6 +241,7 @@ export function registerIpcHandlers(ctx: AppContext): void {
       simulMtWaitK: store.get('simulMtWaitK'),
       whisperVariant: store.get('whisperVariant'),
       moonshineVariant: store.get('moonshineVariant'),
+      sherpaOnnxModel: store.get('sherpaOnnxModel'),
       sourceLanguage: store.get('sourceLanguage'),
       targetLanguage: store.get('targetLanguage'),
       wsAudioPort: store.get('wsAudioPort')

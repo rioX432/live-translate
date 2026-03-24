@@ -521,6 +521,7 @@ function SettingsPanel(): React.JSX.Element {
           : 'Whisper (kotoba-v2.0)'
       case 'moonshine': return 'Moonshine AI'
       case 'sensevoice': return 'SenseVoice (CJK-optimized)'
+      case 'sherpa-onnx': return 'Sherpa-ONNX (unified)'
       default: return sttEngine
     }
   }

@@ -5,6 +5,7 @@ import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
 import { MoonshineEngine } from '../engines/stt/MoonshineEngine'
 import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
 import { LightningWhisperEngine } from '../engines/stt/LightningWhisperEngine'
+import { SherpaOnnxEngine } from '../engines/stt/SherpaOnnxEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { CT2OpusMTTranslator } from '../engines/translator/CT2OpusMTTranslator'
 import { CT2Madlad400Translator } from '../engines/translator/CT2Madlad400Translator'
@@ -61,6 +62,10 @@ function initPipeline(): void {
   }))
   ctx.pipeline.registerSTT('sensevoice', () => new SenseVoiceEngine({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+  }))
+  ctx.pipeline.registerSTT('sherpa-onnx', () => new SherpaOnnxEngine({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
+    modelKey: (store.get('sherpaOnnxModel') as string) || undefined
   }))
 
   // Register translator engines
