@@ -42,6 +42,12 @@ export interface ElectronAPI {
   wsAudioStop: () => Promise<void>
   wsAudioGetStatus: () => Promise<{ running: boolean; connected: boolean; port: number | null }>
   onWsAudioStatus: (callback: (status: { running: boolean; connected: boolean; port: number | null }) => void) => (() => void)
+  // Auto-update (#314)
+  updateCheck: () => Promise<{ success?: boolean; error?: string }>
+  updateDownload: () => Promise<{ success?: boolean; error?: string }>
+  updateInstall: () => Promise<{ success?: boolean; deferred?: boolean }>
+  updateGetStatus: () => Promise<{ state: string; version?: string; progress?: number; error?: string }>
+  onUpdateStatus: (callback: (status: { state: string; version?: string; progress?: number; error?: string }) => void) => (() => void)
 }
 
 declare global {

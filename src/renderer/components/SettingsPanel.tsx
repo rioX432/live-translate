@@ -6,7 +6,8 @@ import {
   STTSettings,
   TranslatorSettings,
   SubtitleSettings,
-  SessionControls
+  SessionControls,
+  UpdateStatus
 } from './settings'
 import {
   LANGUAGE_LABELS,
@@ -713,6 +714,8 @@ function SettingsPanel(): React.JSX.Element {
             selectedDisplay={selectedDisplay}
             onDisplayChange={handleDisplayChange}
           />
+
+          <UpdateStatus />
         </div>
       )}
 

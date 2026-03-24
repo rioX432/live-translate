@@ -112,5 +112,16 @@ contextBridge.exposeInMainWorld('api', {
     const handler = (_event: Electron.IpcRendererEvent, status: { running: boolean; connected: boolean; port: number | null }): void => callback(status)
     ipcRenderer.on('ws-audio-status', handler)
     return () => ipcRenderer.off('ws-audio-status', handler)
+  },
+
+  // Auto-update (#314)
+  updateCheck: () => ipcRenderer.invoke('update-check'),
+  updateDownload: () => ipcRenderer.invoke('update-download'),
+  updateInstall: () => ipcRenderer.invoke('update-install'),
+  updateGetStatus: () => ipcRenderer.invoke('update-get-status'),
+  onUpdateStatus: (callback: (status: { state: string; version?: string; progress?: number; error?: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: { state: string; version?: string; progress?: number; error?: string }): void => callback(status)
+    ipcRenderer.on('update-status', handler)
+    return () => ipcRenderer.off('update-status', handler)
   }
 })
