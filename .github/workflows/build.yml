@@ -22,7 +22,16 @@ jobs:
 
       - run: npm ci
 
-      - run: npm run package:dmg
+      - name: Build and package DMG
+        env:
+          # Code signing: base64-encoded .p12 certificate
+          CSC_LINK: ${{ secrets.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          # Notarization: Apple ID + app-specific password
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: npm run package:dmg
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4

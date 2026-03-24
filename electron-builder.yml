@@ -20,8 +20,11 @@ mac:
     - target: dir
       arch:
         - arm64
-  identity: null
-  entitlementsInherit: build/entitlements.mac.plist
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.inherit.plist
+  notarize: true
   extendInfo:
     NSMicrophoneUsageDescription: "live-translate needs microphone access for real-time speech recognition and translation."
 win:
