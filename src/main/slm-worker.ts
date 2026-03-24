@@ -440,25 +440,31 @@ ${transcript}`
 }
 
 async function handleDispose(): Promise<void> {
-  if (draftContext) {
-    await draftContext.dispose?.()
-    draftContext = null
+  try {
+    if (draftContext) {
+      await draftContext.dispose()
+      draftContext = null
+    }
+    if (draftModel) {
+      await draftModel.dispose()
+      draftModel = null
+    }
+    speculativeEnabled = false
+    if (context) {
+      await context.dispose()
+      context = null
+    }
+    if (model) {
+      await model.dispose()
+      model = null
+    }
+    if (llama) {
+      await llama.dispose()
+      llama = null
+    }
+  } finally {
+    process.exit(0)
   }
-  if (draftModel) {
-    await draftModel.dispose?.()
-    draftModel = null
-  }
-  speculativeEnabled = false
-  if (context) {
-    await context.dispose?.()
-    context = null
-  }
-  if (model) {
-    await model.dispose?.()
-    model = null
-  }
-  llama = null
-  process.exit(0)
 }
 
 // Listen for messages from main process
