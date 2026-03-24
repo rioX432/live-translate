@@ -22,6 +22,7 @@ import { createMainWindow, createSubtitleWindow, registerDisplayHandlers } from 
 import { registerAudioHandlers } from './audio-handlers'
 import { registerIpcHandlers } from './ipc-handlers'
 import { createLogger } from './logger'
+import { initAutoUpdater, registerUpdateHandlers, disposeAutoUpdater } from './auto-updater'
 import type { AppContext } from './app-context'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
 import type { WhisperVariant, MoonshineVariant } from '../engines/model-downloader'
@@ -167,6 +168,7 @@ function initPipeline(): void {
 // --- Register all IPC handlers ---
 registerAudioHandlers(ctx)
 registerIpcHandlers(ctx)
+registerUpdateHandlers(ctx)
 
 // --- App Lifecycle ---
 
@@ -175,6 +177,7 @@ app.whenReady().then(() => {
   createMainWindow(ctx)
   createSubtitleWindow(ctx)
   registerDisplayHandlers(ctx)
+  initAutoUpdater(ctx)
 })
 
 let isQuitting = false
@@ -186,6 +189,7 @@ app.on('before-quit', (event) => {
   // Async cleanup before quit — timeout after 5s to prevent hanging (#222)
   ;(async () => {
     try {
+      disposeAutoUpdater()
       ctx.logger?.endSession()
       ctx.logger = null
       store.set('activeSession', null)

@@ -12,9 +12,14 @@ files:
 asarUnpack:
   - 'node_modules/@kutalia/whisper-node-addon/**'
   - 'node_modules/node-llama-cpp/**'
+publish:
+  provider: github
 mac:
   target:
     - target: dmg
+      arch:
+        - arm64
+    - target: zip
       arch:
         - arm64
     - target: dir
