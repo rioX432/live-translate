@@ -190,10 +190,12 @@ function SettingsPanel(): React.JSX.Element {
     }).catch(() => setGpuInfo({ hasGpu: false, gpuNames: [] }))
   }, [])
 
-  // Check if 4B draft model is available for speculative decoding
+  // Check if draft model is available for speculative decoding
+  // For TranslateGemma 12B: checks 4B draft; for ALMA-7B: checks Gemma-2-2B draft
   useEffect(() => {
-    window.api.isDraftModelAvailable().then(setDraftModelAvailable).catch(() => setDraftModelAvailable(false))
-  }, [slmModelSize])
+    const engine = engineMode === 'offline-alma-ja' ? 'alma-ja' : undefined
+    window.api.isDraftModelAvailable(engine).then(setDraftModelAvailable).catch(() => setDraftModelAvailable(false))
+  }, [slmModelSize, engineMode])
 
   // Load displays and listen for display changes
   useEffect(() => {

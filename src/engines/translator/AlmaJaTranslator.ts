@@ -1,7 +1,7 @@
 import { utilityProcess } from 'electron'
 import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
-import { getGGUFDir, downloadGGUF, getAlmaJaVariants } from '../model-downloader'
+import { getGGUFDir, downloadGGUF, getAlmaJaVariants, getGemma2JpnVariants, isGGUFDownloaded } from '../model-downloader'
 import {
   WORKER_TRANSLATE_TIMEOUT_MS,
   WORKER_INIT_TIMEOUT_MS,
@@ -40,11 +40,13 @@ export class AlmaJaTranslator implements TranslatorEngine {
   private onProgress?: (message: string) => void
   private variant: string
   private kvCacheQuant: boolean
+  private speculativeDecoding: boolean
 
-  constructor(options?: { onProgress?: (message: string) => void; variant?: string; kvCacheQuant?: boolean }) {
+  constructor(options?: { onProgress?: (message: string) => void; variant?: string; kvCacheQuant?: boolean; speculativeDecoding?: boolean }) {
     this.onProgress = options?.onProgress
     this.variant = options?.variant ?? 'Q4_K_M'
     this.kvCacheQuant = options?.kvCacheQuant ?? true
+    this.speculativeDecoding = options?.speculativeDecoding ?? false
   }
 
   async initialize(): Promise<void> {
@@ -61,6 +63,19 @@ export class AlmaJaTranslator implements TranslatorEngine {
     const variantConfig = variants[this.variant] ?? variants['Q4_K_M']!
     const modelPath = join(getGGUFDir(), variantConfig.filename)
     await downloadGGUF(variantConfig.filename, variantConfig.url, this.onProgress, variantConfig.sha256)
+
+    // Resolve draft model path for speculative decoding (Gemma-2-2B draft + ALMA-7B verifier)
+    let draftModelPath: string | undefined
+    if (this.speculativeDecoding) {
+      const draftVariants = getGemma2JpnVariants()
+      const draftVariantConfig = draftVariants['Q4_K_M']!
+      if (isGGUFDownloaded(draftVariantConfig.filename)) {
+        draftModelPath = join(getGGUFDir(), draftVariantConfig.filename)
+        this.onProgress?.('Speculative decoding enabled: Gemma-2-2B draft + ALMA-7B verifier')
+      } else {
+        this.onProgress?.('Speculative decoding skipped: Gemma-2-2B draft model not downloaded')
+      }
+    }
 
     // Spawn UtilityProcess (reuses the same slm-worker)
     this.onProgress?.('Starting ALMA-7B-Ja-V2 worker...')
@@ -93,7 +108,8 @@ export class AlmaJaTranslator implements TranslatorEngine {
         if (msg.type === 'ready') {
           clearTimeout(timeout)
           this.worker?.removeListener('message', initHandler)
-          this.onProgress?.('ALMA-7B-Ja-V2 model loaded')
+          const specLabel = draftModelPath ? ' (speculative decoding)' : ''
+          this.onProgress?.(`ALMA-7B-Ja-V2 model loaded${specLabel}`)
           resolve()
         } else if (msg.type === 'error') {
           clearTimeout(timeout)
@@ -107,7 +123,8 @@ export class AlmaJaTranslator implements TranslatorEngine {
         type: 'init',
         modelPath,
         kvCacheQuant: this.kvCacheQuant,
-        modelType: 'alma-ja'
+        modelType: 'alma-ja',
+        ...(draftModelPath && { draftModelPath })
       })
     })
 
