@@ -3,8 +3,13 @@ import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { getGGUFDir, downloadGGUF, getGGUFVariants, isGGUFDownloaded } from '../model-downloader'
 import type { SLMModelSize } from '../model-downloader'
-
-const TRANSLATE_TIMEOUT_MS = 30_000
+import {
+  WORKER_TRANSLATE_TIMEOUT_MS,
+  WORKER_SUMMARIZE_TIMEOUT_MS,
+  WORKER_INIT_TIMEOUT_MS,
+  WORKER_DISPOSE_GRACE_MS,
+  WORKER_MAX_PENDING_REQUESTS
+} from '../constants'
 
 interface PendingRequest {
   resolve: (text: string) => void
@@ -71,7 +76,7 @@ export class SLMTranslator implements TranslatorEngine {
     this.worker = utilityProcess.fork(workerPath)
 
     this.worker.on('exit', (code) => {
-      console.log(`[slm-translator] Worker exited with code ${code}`)
+      console.log(`[slm-worker] Worker exited with code ${code}`)
       this.worker = null
       for (const [id, req] of this.pending) {
         clearTimeout(req.timer)
@@ -85,10 +90,10 @@ export class SLMTranslator implements TranslatorEngine {
       const timeout = setTimeout(() => {
         this.worker?.removeListener('message', initHandler)
         // Kill orphaned worker on timeout
-        try { this.worker?.kill() } catch (e) { console.warn('[slm] Failed to kill worker on timeout:', e) }
+        try { this.worker?.kill() } catch (e) { console.warn('[slm-worker] Failed to kill worker on timeout:', e) }
         this.worker = null
         reject(new Error('TranslateGemma initialization timed out'))
-      }, 5 * 60_000)
+      }, WORKER_INIT_TIMEOUT_MS)
 
       const initHandler = (msg: any): void => {
         // Guard: ignore messages if worker was killed during timeout (#205)
@@ -143,25 +148,37 @@ export class SLMTranslator implements TranslatorEngine {
         return
       }
       if (msg.type === 'error') {
-        console.error('[slm-translator] Worker error:', msg.message)
+        console.error('[slm-worker] Worker error:', msg.message)
       }
     })
+  }
+
+  /** Evict the oldest pending request if the map is at capacity */
+  private evictOldestPending(): void {
+    if (this.pending.size >= WORKER_MAX_PENDING_REQUESTS) {
+      const oldestKey = this.pending.keys().next().value!
+      const oldest = this.pending.get(oldestKey)!
+      this.pending.delete(oldestKey)
+      clearTimeout(oldest.timer)
+      oldest.reject(new Error('Evicted: worker pending request limit exceeded'))
+    }
   }
 
   async translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string> {
     if (!text.trim()) return ''
     if (from === to) return text
     if (!this.worker) {
-      throw new Error('[slm-translator] Not initialized')
+      throw new Error('[slm-worker] Not initialized')
     }
 
     const id = String(this.nextId++)
 
     return new Promise<string>((resolve, reject) => {
+      this.evictOldestPending()
       const timer = setTimeout(() => {
         this.pending.delete(id)
         reject(new Error('TranslateGemma translation timed out'))
-      }, TRANSLATE_TIMEOUT_MS)
+      }, WORKER_TRANSLATE_TIMEOUT_MS)
 
       this.pending.set(id, { resolve, reject, timer })
       this.worker!.postMessage({ type: 'translate', id, text, from, to, context })
@@ -178,16 +195,17 @@ export class SLMTranslator implements TranslatorEngine {
     if (!text.trim()) return previousOutput || ''
     if (from === to) return text
     if (!this.worker) {
-      throw new Error('[slm-translator] Not initialized')
+      throw new Error('[slm-worker] Not initialized')
     }
 
     const id = String(this.nextId++)
 
     return new Promise<string>((resolve, reject) => {
+      this.evictOldestPending()
       const timer = setTimeout(() => {
         this.pending.delete(id)
         reject(new Error('TranslateGemma incremental translation timed out'))
-      }, TRANSLATE_TIMEOUT_MS)
+      }, WORKER_TRANSLATE_TIMEOUT_MS)
 
       this.pending.set(id, { resolve, reject, timer })
       this.worker!.postMessage({
@@ -204,17 +222,16 @@ export class SLMTranslator implements TranslatorEngine {
 
   async summarize(transcript: string): Promise<string> {
     if (!this.worker) {
-      throw new Error('[slm-translator] Not initialized')
+      throw new Error('[slm-worker] Not initialized')
     }
 
     const id = String(this.nextId++)
-    const SUMMARIZE_TIMEOUT_MS = 120_000 // 2 minutes for summarization
-
     return new Promise<string>((resolve, reject) => {
+      this.evictOldestPending()
       const timer = setTimeout(() => {
         this.pending.delete(id)
         reject(new Error('Summarization timed out'))
-      }, SUMMARIZE_TIMEOUT_MS)
+      }, WORKER_SUMMARIZE_TIMEOUT_MS)
 
       this.pending.set(id, { resolve, reject, timer })
       this.worker!.postMessage({ type: 'summarize', id, transcript })
@@ -223,12 +240,20 @@ export class SLMTranslator implements TranslatorEngine {
 
   async dispose(): Promise<void> {
     if (this.worker) {
-      // Remove all listeners before killing to prevent exit handler from firing
+      // Remove all listeners before sending dispose to prevent exit handler from firing
       this.worker.removeAllListeners()
       try {
-        this.worker.postMessage({ type: 'dispose' })
-        // Give worker time to clean up
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        // Wait for the worker to confirm disposal or fall back to timeout
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, WORKER_DISPOSE_GRACE_MS)
+          this.worker!.on('message', (msg: any) => {
+            if (msg.type === 'disposed') {
+              clearTimeout(timeout)
+              resolve()
+            }
+          })
+          this.worker!.postMessage({ type: 'dispose' })
+        })
       } catch {
         // Ignore errors during disposal
       }

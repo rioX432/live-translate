@@ -1,9 +1,7 @@
 import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
-
-const TRANSLATE_TIMEOUT_MS = 15_000
-const INIT_TIMEOUT_MS = 180_000
+import { CT2_MADLAD400_TRANSLATE_TIMEOUT_MS, CT2_MADLAD400_INIT_TIMEOUT_MS } from '../constants'
 
 /**
  * CTranslate2-accelerated Madlad-400 translator (#262).
@@ -32,11 +30,11 @@ export class CT2Madlad400Translator extends SubprocessBridge implements Translat
   }
 
   protected getInitTimeout(): number {
-    return INIT_TIMEOUT_MS
+    return CT2_MADLAD400_INIT_TIMEOUT_MS
   }
 
   protected getCommandTimeout(): number {
-    return TRANSLATE_TIMEOUT_MS
+    return CT2_MADLAD400_TRANSLATE_TIMEOUT_MS
   }
 
   protected getSpawnConfig(): SpawnConfig {

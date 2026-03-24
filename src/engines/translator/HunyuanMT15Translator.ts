@@ -2,8 +2,12 @@ import { utilityProcess } from 'electron'
 import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { getGGUFDir, downloadGGUF, getHunyuanMT15Variants } from '../model-downloader'
-
-const TRANSLATE_TIMEOUT_MS = 30_000
+import {
+  WORKER_TRANSLATE_TIMEOUT_MS,
+  WORKER_INIT_TIMEOUT_MS,
+  WORKER_DISPOSE_GRACE_MS,
+  WORKER_MAX_PENDING_REQUESTS
+} from '../constants'
 
 interface PendingRequest {
   resolve: (text: string) => void
@@ -58,7 +62,7 @@ export class HunyuanMT15Translator implements TranslatorEngine {
     this.worker = utilityProcess.fork(workerPath)
 
     this.worker.on('exit', (code) => {
-      console.log(`[hunyuan-mt-15] Worker exited with code ${code}`)
+      console.log(`[hunyuan-mt-15-worker] Worker exited with code ${code}`)
       this.worker = null
       for (const [id, req] of this.pending) {
         clearTimeout(req.timer)
@@ -71,10 +75,10 @@ export class HunyuanMT15Translator implements TranslatorEngine {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.worker?.removeListener('message', initHandler)
-        try { this.worker?.kill() } catch (e) { console.warn('[hy-mt1.5] Failed to kill worker on timeout:', e) }
+        try { this.worker?.kill() } catch (e) { console.warn('[hunyuan-mt-15-worker] Failed to kill worker on timeout:', e) }
         this.worker = null
         reject(new Error('HY-MT1.5 initialization timed out'))
-      }, 5 * 60_000)
+      }, WORKER_INIT_TIMEOUT_MS)
 
       const initHandler = (msg: any): void => {
         if (!this.worker) return
@@ -126,25 +130,37 @@ export class HunyuanMT15Translator implements TranslatorEngine {
         return
       }
       if (msg.type === 'error') {
-        console.error('[hunyuan-mt-15] Worker error:', msg.message)
+        console.error('[hunyuan-mt-15-worker] Worker error:', msg.message)
       }
     })
+  }
+
+  /** Evict the oldest pending request if the map is at capacity */
+  private evictOldestPending(): void {
+    if (this.pending.size >= WORKER_MAX_PENDING_REQUESTS) {
+      const oldestKey = this.pending.keys().next().value!
+      const oldest = this.pending.get(oldestKey)!
+      this.pending.delete(oldestKey)
+      clearTimeout(oldest.timer)
+      oldest.reject(new Error('Evicted: worker pending request limit exceeded'))
+    }
   }
 
   async translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string> {
     if (!text.trim()) return ''
     if (from === to) return text
     if (!this.worker) {
-      throw new Error('[hunyuan-mt-15] Not initialized')
+      throw new Error('[hunyuan-mt-15-worker] Not initialized')
     }
 
     const id = String(this.nextId++)
 
     return new Promise<string>((resolve, reject) => {
+      this.evictOldestPending()
       const timer = setTimeout(() => {
         this.pending.delete(id)
         reject(new Error('HY-MT1.5 translation timed out'))
-      }, TRANSLATE_TIMEOUT_MS)
+      }, WORKER_TRANSLATE_TIMEOUT_MS)
 
       this.pending.set(id, { resolve, reject, timer })
       this.worker!.postMessage({ type: 'translate', id, text, from, to, context })
@@ -161,16 +177,17 @@ export class HunyuanMT15Translator implements TranslatorEngine {
     if (!text.trim()) return previousOutput || ''
     if (from === to) return text
     if (!this.worker) {
-      throw new Error('[hunyuan-mt-15] Not initialized')
+      throw new Error('[hunyuan-mt-15-worker] Not initialized')
     }
 
     const id = String(this.nextId++)
 
     return new Promise<string>((resolve, reject) => {
+      this.evictOldestPending()
       const timer = setTimeout(() => {
         this.pending.delete(id)
         reject(new Error('HY-MT1.5 incremental translation timed out'))
-      }, TRANSLATE_TIMEOUT_MS)
+      }, WORKER_TRANSLATE_TIMEOUT_MS)
 
       this.pending.set(id, { resolve, reject, timer })
       this.worker!.postMessage({
@@ -187,11 +204,20 @@ export class HunyuanMT15Translator implements TranslatorEngine {
 
   async dispose(): Promise<void> {
     if (this.worker) {
-      // Remove all listeners before killing to prevent exit handler from firing
+      // Remove all listeners before sending dispose to prevent exit handler from firing
       this.worker.removeAllListeners()
       try {
-        this.worker.postMessage({ type: 'dispose' })
-        await new Promise((resolve) => setTimeout(resolve, 1000))
+        // Wait for the worker to confirm disposal or fall back to timeout
+        await new Promise<void>((resolve) => {
+          const timeout = setTimeout(resolve, WORKER_DISPOSE_GRACE_MS)
+          this.worker!.on('message', (msg: any) => {
+            if (msg.type === 'disposed') {
+              clearTimeout(timeout)
+              resolve()
+            }
+          })
+          this.worker!.postMessage({ type: 'dispose' })
+        })
       } catch {
         // Ignore errors during disposal
       }

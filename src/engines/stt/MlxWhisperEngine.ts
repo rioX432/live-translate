@@ -5,9 +5,7 @@ import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 import { ALL_LANGUAGES } from '../types'
 import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
-
-const TRANSCRIBE_TIMEOUT_MS = 30_000
-const INIT_TIMEOUT_MS = 60_000
+import { MLX_WHISPER_TRANSCRIBE_TIMEOUT_MS, MLX_WHISPER_INIT_TIMEOUT_MS } from '../constants'
 
 export class MlxWhisperEngine extends SubprocessBridge implements STTEngine {
   readonly id = 'mlx-whisper'
@@ -31,11 +29,11 @@ export class MlxWhisperEngine extends SubprocessBridge implements STTEngine {
   }
 
   protected getInitTimeout(): number {
-    return INIT_TIMEOUT_MS
+    return MLX_WHISPER_INIT_TIMEOUT_MS
   }
 
   protected getCommandTimeout(): number {
-    return TRANSCRIBE_TIMEOUT_MS
+    return MLX_WHISPER_TRANSCRIBE_TIMEOUT_MS
   }
 
   protected getSpawnConfig(): SpawnConfig {
