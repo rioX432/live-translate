@@ -1,6 +1,9 @@
 import { ipcMain } from 'electron'
 import { sanitizeErrorMessage } from './error-utils'
+import { createLogger } from './logger'
 import type { AppContext } from './app-context'
+
+const log = createLogger('audio')
 
 /** Minimum number of samples for a valid audio chunk (0.5s at 16kHz) */
 const MIN_AUDIO_CHUNK_SAMPLES = 8000
@@ -20,7 +23,7 @@ function toFloat32Array(audioData: unknown): Float32Array | null {
       Buffer.isBuffer(audioData) ? audioData.buffer.slice(audioData.byteOffset, audioData.byteOffset + audioData.byteLength) : audioData
     )
   } else {
-    console.error('[audio] Unknown data type:', typeof audioData)
+    log.error('Unknown data type:', typeof audioData)
     return null
   }
 
@@ -60,7 +63,7 @@ export function registerAudioHandlers(ctx: AppContext): void {
     try {
       return await ctx.pipeline.process(chunk, 16000)
     } catch (err) {
-      console.error('[audio] Pipeline error:', err)
+      log.error('Pipeline error:', err)
       // #43: propagate error to renderer
       const message = sanitizeErrorMessage(err instanceof Error ? err.message : String(err))
       ctx.mainWindow?.webContents.send('status-update', `Processing error: ${message}`)
@@ -78,7 +81,7 @@ export function registerAudioHandlers(ctx: AppContext): void {
     try {
       return await ctx.pipeline.processStreaming(chunk, 16000)
     } catch (err) {
-      console.error('[audio] Streaming pipeline error:', err)
+      log.error('Streaming pipeline error:', err)
       return null
     }
   })
@@ -93,7 +96,7 @@ export function registerAudioHandlers(ctx: AppContext): void {
     try {
       return await ctx.pipeline.finalizeStreaming(chunk, 16000)
     } catch (err) {
-      console.error('[audio] Finalize streaming error:', err)
+      log.error('Finalize streaming error:', err)
       return null
     }
   })

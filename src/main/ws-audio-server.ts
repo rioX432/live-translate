@@ -16,6 +16,9 @@
 import { createServer, type Server, type IncomingMessage } from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import { EventEmitter } from 'events'
+import { createLogger } from './logger'
+
+const log = createLogger('ws-audio')
 
 export interface WsAudioServerEvents {
   /** Emitted when a valid audio chunk is received */
@@ -70,19 +73,19 @@ export class WsAudioServer extends EventEmitter {
         // Only allow connections from localhost
         const remoteAddr = req.socket.remoteAddress
         if (remoteAddr !== '127.0.0.1' && remoteAddr !== '::1' && remoteAddr !== '::ffff:127.0.0.1') {
-          console.warn(`[ws-audio] Rejected connection from non-localhost: ${remoteAddr}`)
+          log.warn(`Rejected connection from non-localhost: ${remoteAddr}`)
           ws.close(1008, 'Only localhost connections allowed')
           return
         }
 
         // Only allow one client at a time
         if (this.client && this.client.readyState === WebSocket.OPEN) {
-          console.warn('[ws-audio] Rejecting second client — only one extension connection allowed')
+          log.warn('Rejecting second client — only one extension connection allowed')
           ws.close(1013, 'Only one client allowed')
           return
         }
 
-        console.log('[ws-audio] Chrome extension connected')
+        log.info('Chrome extension connected')
         this.client = ws
         this.emit('connected')
 
@@ -95,7 +98,7 @@ export class WsAudioServer extends EventEmitter {
         })
 
         ws.on('close', () => {
-          console.log('[ws-audio] Chrome extension disconnected')
+          log.info('Chrome extension disconnected')
           if (this.client === ws) {
             this.client = null
           }
@@ -103,13 +106,13 @@ export class WsAudioServer extends EventEmitter {
         })
 
         ws.on('error', (err) => {
-          console.error('[ws-audio] Client error:', err)
+          log.error('Client error:', err)
           this.emit('error', err)
         })
       })
 
       this.wss.on('error', (err) => {
-        console.error('[ws-audio] Server error:', err)
+        log.error('Server error:', err)
         this.emit('error', err)
       })
 
@@ -123,7 +126,7 @@ export class WsAudioServer extends EventEmitter {
 
       this.httpServer.listen(this._port, '127.0.0.1', () => {
         this._running = true
-        console.log(`[ws-audio] Server listening on ws://127.0.0.1:${this._port}`)
+        log.info(`Server listening on ws://127.0.0.1:${this._port}`)
         resolve()
       })
     })
@@ -154,7 +157,7 @@ export class WsAudioServer extends EventEmitter {
       if (this.httpServer) {
         this.httpServer.close(() => {
           this.httpServer = null
-          console.log('[ws-audio] Server stopped')
+          log.info('Server stopped')
           resolve()
         })
       } else {
@@ -195,7 +198,7 @@ export class WsAudioServer extends EventEmitter {
       }
     }
     if (hasInvalid) {
-      console.warn('[ws-audio] Received audio data with invalid samples, discarding')
+      log.warn('Received audio data with invalid samples, discarding')
       return
     }
 
@@ -211,7 +214,7 @@ export class WsAudioServer extends EventEmitter {
 
       switch (msg.type) {
         case 'hello':
-          console.log(`[ws-audio] Client identified: ${msg.source}`)
+          log.info(`Client identified: ${msg.source}`)
           ws.send(JSON.stringify({ type: 'welcome', sampleRate: SAMPLE_RATE }))
           break
 
@@ -220,10 +223,10 @@ export class WsAudioServer extends EventEmitter {
           break
 
         default:
-          console.log(`[ws-audio] Unknown message type: ${msg.type}`)
+          log.warn(`Unknown message type: ${msg.type}`)
       }
     } catch {
-      console.warn('[ws-audio] Failed to parse text message')
+      log.warn('Failed to parse text message')
     }
   }
 }

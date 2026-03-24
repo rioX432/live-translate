@@ -17,9 +17,12 @@ import { sanitizeErrorMessage, getErrorHint } from './error-utils'
 import { createMainWindow, createSubtitleWindow, registerDisplayHandlers } from './window-manager'
 import { registerAudioHandlers } from './audio-handlers'
 import { registerIpcHandlers } from './ipc-handlers'
+import { createLogger } from './logger'
 import type { AppContext } from './app-context'
 import type { TranslationResult } from '../engines/types'
 import type { WhisperVariant, MoonshineVariant } from '../engines/model-downloader'
+
+const log = createLogger('main')
 
 // Shared mutable state
 const ctx: AppContext = {
@@ -102,7 +105,7 @@ function initPipeline(): void {
     } else if (manifest.engineType === 'e2e') {
       ctx.pipeline.registerE2E(manifest.engineId, factory as any)
     }
-    console.log(`[plugin] Registered ${manifest.engineType} plugin: ${manifest.name} (${manifest.engineId})`)
+    log.info(`Registered ${manifest.engineType} plugin: ${manifest.name} (${manifest.engineId})`)
   }
 
   // Forward results to subtitle window and logger
@@ -174,7 +177,7 @@ app.on('before-quit', (event) => {
         )
       ])
     } catch (err) {
-      console.error('[quit] Cleanup error:', err)
+      log.error('Cleanup error:', err)
     } finally {
       app.quit()
     }
