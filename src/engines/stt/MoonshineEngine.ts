@@ -79,6 +79,11 @@ export class MoonshineEngine implements STTEngine {
 
   async dispose(): Promise<void> {
     console.log('[moonshine] Disposing resources')
+    try {
+      await this.pipeline?.dispose()
+    } catch (err) {
+      console.error('[moonshine] Error during pipeline disposal:', err)
+    }
     this.pipeline = null
   }
 }
