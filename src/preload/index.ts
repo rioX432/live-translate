@@ -86,14 +86,10 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.invoke('save-glossary', terms),
 
   // #238: Check if draft model is available for speculative decoding
-  // For TranslateGemma 12B: checks 4B draft; for ALMA-7B: checks Gemma-2-2B draft
   isDraftModelAvailable: (engine?: string) => ipcRenderer.invoke('is-draft-model-available', engine),
 
   // #261: Whisper model variant info
   getWhisperVariants: () => ipcRenderer.invoke('get-whisper-variants'),
-
-  // #260: Moonshine model variant info
-  getMoonshineVariants: () => ipcRenderer.invoke('get-moonshine-variants'),
 
   // #243: Platform detection for hiding platform-specific options
   getPlatform: () => ipcRenderer.invoke('get-platform'),

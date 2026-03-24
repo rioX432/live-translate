@@ -2,9 +2,7 @@ import { app } from 'electron'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
-import { MoonshineEngine } from '../engines/stt/MoonshineEngine'
 import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
-import { LightningWhisperEngine } from '../engines/stt/LightningWhisperEngine'
 import { SherpaOnnxEngine } from '../engines/stt/SherpaOnnxEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { CT2OpusMTTranslator } from '../engines/translator/CT2OpusMTTranslator'
@@ -12,8 +10,6 @@ import { CT2Madlad400Translator } from '../engines/translator/CT2Madlad400Transl
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
 import { HunyuanMT15Translator } from '../engines/translator/HunyuanMT15Translator'
-import { Gemma2JpnTranslator } from '../engines/translator/Gemma2JpnTranslator'
-import { AlmaJaTranslator } from '../engines/translator/AlmaJaTranslator'
 import { ANETranslator } from '../engines/translator/ANETranslator'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
@@ -26,7 +22,7 @@ import { createLogger } from './logger'
 import { initAutoUpdater, registerUpdateHandlers, disposeAutoUpdater } from './auto-updater'
 import type { AppContext } from './app-context'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
-import type { WhisperVariant, MoonshineVariant } from '../engines/model-downloader'
+import type { WhisperVariant } from '../engines/model-downloader'
 
 const log = createLogger('main')
 
@@ -52,17 +48,12 @@ function initPipeline(): void {
     ctx.pipeline.registerSTT('mlx-whisper', () => new MlxWhisperEngine({
       onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
     }))
-    ctx.pipeline.registerSTT('lightning-whisper', () => new LightningWhisperEngine({
-      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-    }))
   }
-  ctx.pipeline.registerSTT('moonshine', () => new MoonshineEngine({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    variant: (store.get('moonshineVariant') as MoonshineVariant) || undefined
-  }))
+  // Experimental: requires Python funasr — not shown in default UI
   ctx.pipeline.registerSTT('sensevoice', () => new SenseVoiceEngine({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))
+  // Experimental: requires native addon — not shown in default UI
   ctx.pipeline.registerSTT('sherpa-onnx', () => new SherpaOnnxEngine({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     modelKey: (store.get('sherpaOnnxModel') as string) || undefined
@@ -72,12 +63,15 @@ function initPipeline(): void {
   ctx.pipeline.registerTranslator('opus-mt', () => new OpusMTTranslator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))
+  // Experimental: requires Python ctranslate2 — not shown in default UI
   ctx.pipeline.registerTranslator('ct2-opus-mt', () => new CT2OpusMTTranslator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))
+  // Experimental: requires Python ctranslate2 — not shown in default UI
   ctx.pipeline.registerTranslator('ct2-madlad-400', () => new CT2Madlad400Translator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))
+  // Experimental: TranslateGemma ~8s/sentence — too slow for real-time, kept for hybrid mode
   ctx.pipeline.registerTranslator('slm-translate', () => new SLMTranslator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     kvCacheQuant: store.get('slmKvCacheQuant'),
@@ -88,21 +82,12 @@ function initPipeline(): void {
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     kvCacheQuant: store.get('slmKvCacheQuant')
   }))
+  // Experimental: untested smaller Hunyuan variant — not shown in default UI
   ctx.pipeline.registerTranslator('hunyuan-mt-15', () => new HunyuanMT15Translator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     kvCacheQuant: store.get('slmKvCacheQuant')
   }))
-  // JA↔EN specialized models (#312)
-  ctx.pipeline.registerTranslator('gemma2-jpn', () => new Gemma2JpnTranslator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant')
-  }))
-  ctx.pipeline.registerTranslator('alma-ja', () => new AlmaJaTranslator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant'),
-    speculativeDecoding: store.get('slmSpeculativeDecoding')
-  }))
-  // ANEMLL Apple Neural Engine translator — macOS Apple Silicon only (#241)
+  // ANEMLL Apple Neural Engine translator — macOS Apple Silicon only (#241) — experimental
   if (process.platform === 'darwin') {
     ctx.pipeline.registerTranslator('ane-translate', () => new ANETranslator({
       onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)

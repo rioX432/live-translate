@@ -43,46 +43,6 @@ export function getWhisperVariants(): Record<WhisperVariant, WhisperVariantConfi
   return WHISPER_VARIANTS
 }
 
-/** Moonshine model variant identifier */
-export type MoonshineVariant = 'tiny' | 'base'
-
-/** Moonshine model variant configuration (downloaded via @huggingface/transformers) */
-export interface MoonshineVariantConfig {
-  /** HuggingFace model ID used by @huggingface/transformers pipeline */
-  modelId: string
-  /** Approximate model size in MB (quantized q8) */
-  sizeMB: number
-  /** Human-readable label */
-  label: string
-  /** Description shown in UI */
-  description: string
-  /** Number of parameters */
-  params: string
-}
-
-/** Available Moonshine ONNX model variants for local STT */
-export const MOONSHINE_VARIANTS: Record<MoonshineVariant, MoonshineVariantConfig> = {
-  'tiny': {
-    modelId: 'onnx-community/moonshine-tiny-ONNX',
-    sizeMB: 60,
-    label: 'Tiny (Fastest)',
-    description: '27M params, ~60MB — lowest latency, good for voice commands',
-    params: '27M'
-  },
-  'base': {
-    modelId: 'onnx-community/moonshine-base-ONNX',
-    sizeMB: 130,
-    label: 'Base (Recommended)',
-    description: '61M params, ~130MB — best balance of speed and accuracy',
-    params: '61M'
-  }
-}
-
-/** Get available Moonshine variants */
-export function getMoonshineVariants(): Record<MoonshineVariant, MoonshineVariantConfig> {
-  return MOONSHINE_VARIANTS
-}
-
 // Global download lock — serializes all model downloads to prevent disk corruption (#208)
 const activeDownloads = new Map<string, Promise<string>>()
 
@@ -215,60 +175,6 @@ export const GGUF_VARIANTS_12B: Record<string, GGUFVariant> = {
 /** Get GGUF variants for the given model size */
 export function getGGUFVariants(modelSize: SLMModelSize): Record<string, GGUFVariant> {
   return modelSize === '12b' ? GGUF_VARIANTS_12B : GGUF_VARIANTS_4B
-}
-
-/** Gemma-2-2B-JPN-IT-Translate GGUF variants (JA↔EN specialized, webbigdata) */
-export const GEMMA2_JPN_VARIANTS: Record<string, GGUFVariant> = {
-  'Q4_K_M': {
-    filename: 'gemma-2-2b-jpn-it-translate-Q4_K_M.gguf',
-    url: 'https://huggingface.co/webbigdata/gemma-2-2b-jpn-it-translate-gguf/resolve/main/gemma-2-2b-jpn-it-translate-Q4_K_M.gguf',
-    sizeMB: 1630,
-    label: 'Q4_K_M (Recommended, ~1.6GB)'
-  },
-  'Q6_K': {
-    filename: 'gemma-2-2b-jpn-it-translate-Q6_K.gguf',
-    url: 'https://huggingface.co/webbigdata/gemma-2-2b-jpn-it-translate-gguf/resolve/main/gemma-2-2b-jpn-it-translate-Q6_K.gguf',
-    sizeMB: 2050,
-    label: 'Q6_K (Balanced, ~2.1GB)'
-  },
-  'Q8_0': {
-    filename: 'gemma-2-2b-jpn-it-translate-Q8_0.gguf',
-    url: 'https://huggingface.co/webbigdata/gemma-2-2b-jpn-it-translate-gguf/resolve/main/gemma-2-2b-jpn-it-translate-Q8_0.gguf',
-    sizeMB: 3180,
-    label: 'Q8_0 (Best quality, ~3.2GB)'
-  }
-}
-
-/** Get Gemma-2-2B-JPN GGUF variants */
-export function getGemma2JpnVariants(): Record<string, GGUFVariant> {
-  return GEMMA2_JPN_VARIANTS
-}
-
-/** ALMA-7B-Ja-V2 GGUF variants (JA↔EN specialized, mmnga quantizations) */
-export const ALMA_JA_VARIANTS: Record<string, GGUFVariant> = {
-  'Q4_K_M': {
-    filename: 'webbigdata-ALMA-7B-Ja-V2-q4_K_M.gguf',
-    url: 'https://huggingface.co/mmnga/webbigdata-ALMA-7B-Ja-V2-gguf/resolve/main/webbigdata-ALMA-7B-Ja-V2-q4_K_M.gguf',
-    sizeMB: 3890,
-    label: 'Q4_K_M (Recommended, ~3.9GB)'
-  },
-  'Q5_K_M': {
-    filename: 'webbigdata-ALMA-7B-Ja-V2-q5_K_M.gguf',
-    url: 'https://huggingface.co/mmnga/webbigdata-ALMA-7B-Ja-V2-gguf/resolve/main/webbigdata-ALMA-7B-Ja-V2-q5_K_M.gguf',
-    sizeMB: 4560,
-    label: 'Q5_K_M (Balanced, ~4.6GB)'
-  },
-  'Q8_0': {
-    filename: 'webbigdata-ALMA-7B-Ja-V2-q8_0.gguf',
-    url: 'https://huggingface.co/mmnga/webbigdata-ALMA-7B-Ja-V2-gguf/resolve/main/webbigdata-ALMA-7B-Ja-V2-q8_0.gguf',
-    sizeMB: 6830,
-    label: 'Q8_0 (Best quality, ~6.8GB)'
-  }
-}
-
-/** Get ALMA-7B-Ja GGUF variants */
-export function getAlmaJaVariants(): Record<string, GGUFVariant> {
-  return ALMA_JA_VARIANTS
 }
 
 // GGUF download lock uses shared activeDownloads map
