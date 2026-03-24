@@ -119,7 +119,7 @@ export function registerIpcHandlers(ctx: AppContext): void {
         // Dispose leaked rotation provider instances on switchEngine failure
         if (rotationProviders) {
           for (const p of rotationProviders) {
-            p.engine.dispose().catch(() => {})
+            p.engine.dispose().catch((e) => console.warn('[ipc] Failed to dispose rotation provider:', e))
           }
         }
         throw err
