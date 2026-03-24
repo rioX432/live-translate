@@ -1,9 +1,10 @@
-import { spawn, execSync, type ChildProcess } from 'child_process'
+import { execSync } from 'child_process'
 import { join } from 'path'
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 import { ALL_LANGUAGES } from '../types'
+import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
 
 const TRANSCRIBE_TIMEOUT_MS = 30_000
 const INIT_TIMEOUT_MS = 120_000
@@ -44,125 +45,62 @@ export const QWEN_ASR_VARIANTS: Record<QwenASRVariant, QwenASRVariantConfig> = {
  * Supports 52 languages/dialects with strong CJK performance.
  * Requires: python3 with `qwen-asr` package installed.
  */
-export class QwenASREngine implements STTEngine {
+export class QwenASREngine extends SubprocessBridge implements STTEngine {
   readonly id = 'qwen-asr'
   readonly name: string
   readonly isOffline = true
 
-  private process: ChildProcess | null = null
-  private initPromise: Promise<void> | null = null
   private variant: QwenASRVariant
   private onProgress?: (message: string) => void
-  private pendingRequests = new Map<number, (data: any) => void>()
-  private nextRequestId = 0
-  private buffer = ''
-  private stderrRateLimit = { count: 0, lastReset: Date.now() }
 
   constructor(options?: {
     variant?: QwenASRVariant
     onProgress?: (message: string) => void
   }) {
+    super()
     this.variant = options?.variant ?? '0.6b'
     this.onProgress = options?.onProgress
     const config = QWEN_ASR_VARIANTS[this.variant]
     this.name = `Qwen3-ASR (${config.label})`
   }
 
-  async initialize(): Promise<void> {
-    if (this.initPromise) return this.initPromise
-    this.initPromise = this.doInitialize()
-    return this.initPromise
+  protected getLogPrefix(): string {
+    return '[qwen-asr]'
   }
 
-  private async doInitialize(): Promise<void> {
-    if (this.process) return
+  protected getInitTimeout(): number {
+    return INIT_TIMEOUT_MS
+  }
 
+  protected getCommandTimeout(): number {
+    return TRANSCRIBE_TIMEOUT_MS
+  }
+
+  protected getSpawnConfig(): SpawnConfig {
     const config = QWEN_ASR_VARIANTS[this.variant]
     this.onProgress?.(`Starting Qwen3-ASR ${config.label} bridge...`)
-
-    const bridgePath = join(__dirname, '../../resources/qwen-asr-bridge.py')
-
-    const initTimeout = setTimeout(() => {
-      console.error('[qwen-asr] Initialization timed out')
-      try { this.process?.kill() } catch { /* ignore */ }
-      this.process = null
-    }, INIT_TIMEOUT_MS)
-
-    try {
-      const python3 = findPython3WithQwenASR()
-      this.onProgress?.(`Using Python: ${python3}`)
-      this.process = spawn(python3, [bridgePath], {
-        stdio: ['pipe', 'pipe', 'pipe']
-      })
-    } catch (err) {
-      clearTimeout(initTimeout)
-      throw new Error(
-        'Python 3 with qwen-asr not found. Create a venv and install: ' +
-        'python3 -m venv ~/qwen-asr-env && ~/qwen-asr-env/bin/pip install qwen-asr'
-      )
-    }
-
-    this.process.on('error', (err) => {
-      clearTimeout(initTimeout)
-      console.error('[qwen-asr] Failed to start Python bridge:', err.message)
-      this.process = null
-    })
-
-    this.process.stdout!.on('data', (data: Buffer) => {
-      this.buffer += data.toString()
-      const lines = this.buffer.split('\n')
-      this.buffer = lines.pop() ?? ''
-
-      for (const line of lines) {
-        if (!line.trim()) continue
-        try {
-          const msg = JSON.parse(line)
-          const reqId = msg._reqId as number | undefined
-          if (reqId !== undefined && this.pendingRequests.has(reqId)) {
-            this.pendingRequests.get(reqId)!(msg)
-            this.pendingRequests.delete(reqId)
-          }
-        } catch {
-          console.warn('[qwen-asr] Invalid JSON from bridge:', line)
-        }
-      }
-    })
-
-    this.process.stderr!.on('data', (data: Buffer) => {
-      const now = Date.now()
-      if (now - this.stderrRateLimit.lastReset > 5000) {
-        this.stderrRateLimit = { count: 0, lastReset: now }
-      }
-      if (this.stderrRateLimit.count < 10) {
-        this.stderrRateLimit.count++
-        console.warn('[qwen-asr] stderr:', data.toString().trim())
-      }
-    })
-
-    this.process.on('exit', (code) => {
-      console.log(`[qwen-asr] Bridge exited with code ${code}`)
-      this.process = null
-    })
-
-    // Send init command with model ID
-    try {
-      const result = await this.sendCommand({
+    const python3 = findPython3WithQwenASR()
+    this.onProgress?.(`Using Python: ${python3}`)
+    return {
+      command: python3,
+      args: [join(__dirname, '../../resources/qwen-asr-bridge.py')],
+      initMessage: {
         action: 'init',
         model: config.modelId
-      })
-      if (result.error) {
-        throw new Error(`Qwen3-ASR init failed: ${result.error}`)
       }
-      this.onProgress?.(`Qwen3-ASR ${config.label} ready`)
-    } catch (err) {
-      if (this.process) {
-        try { this.process.kill() } catch { /* ignore */ }
-        this.process = null
-      }
-      throw err
-    } finally {
-      clearTimeout(initTimeout)
     }
+  }
+
+  protected getSpawnError(): Error {
+    return new Error(
+      'Python 3 with qwen-asr not found. Create a venv and install: ' +
+      'python3 -m venv ~/qwen-asr-env && ~/qwen-asr-env/bin/pip install qwen-asr'
+    )
+  }
+
+  protected onInitComplete(_result: InitResult): void {
+    const config = QWEN_ASR_VARIANTS[this.variant]
+    this.onProgress?.(`Qwen3-ASR ${config.label} ready`)
   }
 
   async processAudio(audioChunk: Float32Array, sampleRate: number): Promise<STTResult | null> {
@@ -172,7 +110,7 @@ export class QwenASREngine implements STTEngine {
     try {
       writeWav(tempPath, audioChunk, sampleRate)
 
-      let result: any
+      let result: Record<string, unknown>
       try {
         result = await this.sendCommand({
           action: 'transcribe',
@@ -189,7 +127,7 @@ export class QwenASREngine implements STTEngine {
         return null
       }
 
-      if (!result.text || !result.text.trim()) return null
+      if (!result.text || !(result.text as string).trim()) return null
 
       // Qwen3-ASR provides built-in language detection (97.9% accuracy)
       const detectedLang = result.language as string | undefined
@@ -198,7 +136,7 @@ export class QwenASREngine implements STTEngine {
         : 'en'
 
       return {
-        text: result.text.trim(),
+        text: (result.text as string).trim(),
         language,
         isFinal: true,
         timestamp: Date.now()
@@ -206,57 +144,6 @@ export class QwenASREngine implements STTEngine {
     } finally {
       try { unlinkSync(tempPath) } catch { /* ignore */ }
     }
-  }
-
-  async dispose(): Promise<void> {
-    console.log('[qwen-asr] Disposing resources')
-    if (this.process) {
-      try {
-        this.sendCommand({ action: 'dispose' }).catch(() => {})
-        await new Promise((resolve) => setTimeout(resolve, 500))
-      } catch { /* ignore */ }
-      try {
-        this.process.kill()
-      } catch { /* ignore */ }
-      this.process = null
-    }
-    const pending = Array.from(this.pendingRequests.values())
-    this.pendingRequests.clear()
-    for (const resolve of pending) {
-      resolve({ error: 'Engine disposed' })
-    }
-    this.initPromise = null
-  }
-
-  private sendCommand(cmd: Record<string, unknown>): Promise<any> {
-    return new Promise((resolve, reject) => {
-      if (!this.process?.stdin) {
-        reject(new Error('Bridge process not running'))
-        return
-      }
-
-      const reqId = this.nextRequestId++ % 0xFFFFFF
-
-      const timeout = setTimeout(() => {
-        this.pendingRequests.delete(reqId)
-        reject(new Error('Bridge command timed out'))
-      }, TRANSCRIBE_TIMEOUT_MS)
-
-      this.pendingRequests.set(reqId, (data) => {
-        clearTimeout(timeout)
-        resolve(data)
-      })
-
-      const written = this.process.stdin.write(JSON.stringify({ ...cmd, _reqId: reqId }) + '\n')
-      if (!written) {
-        this.process.stdin.once('drain', () => { /* backpressure resolved */ })
-      }
-      this.process.stdin.once('error', (err) => {
-        this.pendingRequests.delete(reqId)
-        clearTimeout(timeout)
-        reject(new Error(`stdin write error: ${err.message}`))
-      })
-    })
   }
 }
 
