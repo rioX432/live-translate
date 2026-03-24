@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import SubtitleOverlay from './components/SubtitleOverlay'
 import SettingsPanel from './components/SettingsPanel'
 
-function App(): JSX.Element {
+function App(): React.JSX.Element {
   const [isSubtitleMode, setIsSubtitleMode] = useState(false)
 
   useEffect(() => {

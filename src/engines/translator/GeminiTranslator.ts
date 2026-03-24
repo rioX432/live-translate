@@ -6,7 +6,21 @@ const DEFAULT_TIMEOUT_MS = 15_000
 
 const LANG_NAMES: Record<Language, string> = {
   ja: 'Japanese',
-  en: 'English'
+  en: 'English',
+  zh: 'Chinese',
+  ko: 'Korean',
+  fr: 'French',
+  de: 'German',
+  es: 'Spanish',
+  pt: 'Portuguese',
+  ru: 'Russian',
+  it: 'Italian',
+  nl: 'Dutch',
+  pl: 'Polish',
+  ar: 'Arabic',
+  th: 'Thai',
+  vi: 'Vietnamese',
+  id: 'Indonesian'
 }
 
 export class GeminiTranslator implements TranslatorEngine {

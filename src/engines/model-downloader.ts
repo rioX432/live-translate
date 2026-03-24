@@ -352,7 +352,7 @@ async function doDownloadWithResume(
         const hash = await new Promise<string>((resolve, reject) => {
           const hasher = createHash('sha256')
           const stream = createReadStream(partialPath)
-          stream.on('data', (chunk: Buffer) => hasher.update(chunk))
+          stream.on('data', (chunk: string | Buffer) => hasher.update(chunk))
           stream.on('end', () => resolve(hasher.digest('hex')))
           stream.on('error', reject)
         })
