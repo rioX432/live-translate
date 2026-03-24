@@ -23,6 +23,7 @@
     "@huggingface/transformers": "^3.8.0",
     "@kutalia/whisper-node-addon": "^1.1.0",
     "@ricky0123/vad-web": "^0.0.30",
+    "deepfilternet3-noise-filter": "^1.2.1",
     "electron-store": "^10.0.0",
     "node-llama-cpp": "^3.0.0",
     "ws": "^8.20.0"
