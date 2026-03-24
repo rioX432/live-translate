@@ -45,6 +45,37 @@ function buildBreakdownTable(
   return [header, sep, ...rows].join('\n')
 }
 
+function buildGoNoGoTable(summaries: EngineSummary[]): string {
+  const LATENCY_THRESHOLD = 500
+  const MEMORY_THRESHOLD_MB = 4 * 1024
+
+  // Collect unique engine IDs preserving order
+  const engineIds = [...new Set(summaries.map((s) => s.engineId))]
+
+  // Aggregate per-engine metrics across directions
+  const engineMetrics = engineIds.map((id) => {
+    const runs = summaries.filter((s) => s.engineId === id)
+    const label = runs[0]?.engineLabel ?? id
+    const avgLatency =
+      runs.reduce((acc, r) => acc + r.latency.avg, 0) / runs.length
+    const peakRss = Math.max(...runs.map((r) => r.peakRssMB))
+    const latencyOk = avgLatency < LATENCY_THRESHOLD
+    const memoryOk = peakRss < MEMORY_THRESHOLD_MB
+    const offline = !id.includes('google')
+    return { id, label, avgLatency, peakRss, latencyOk, memoryOk, offline }
+  })
+
+  const header = `| Criteria | ${engineMetrics.map((e) => e.label).join(' | ')} |`
+  const sep = `|---|${engineMetrics.map(() => '---').join('|')}|`
+
+  const latencyRow = `| Latency acceptable (<500ms) | ${engineMetrics.map((e) => (e.latencyOk ? `Yes (${fmt(e.avgLatency)}ms)` : `No (${fmt(e.avgLatency)}ms)`)).join(' | ')} |`
+  const memoryRow = `| Memory acceptable (<4GB) | ${engineMetrics.map((e) => (e.memoryOk ? `Yes (${fmt(e.peakRss / 1024, 2)}GB)` : `No (${fmt(e.peakRss / 1024, 2)}GB)`)).join(' | ')} |`
+  const offlineRow = `| Offline capable | ${engineMetrics.map((e) => (e.offline ? 'Yes' : 'No')).join(' | ')} |`
+  const recRow = `| Recommendation | ${engineMetrics.map((e) => (e.latencyOk && e.memoryOk ? 'Go' : 'No-Go')).join(' | ')} |`
+
+  return [header, sep, latencyRow, memoryRow, offlineRow, recRow].join('\n')
+}
+
 function buildMarkdown(result: BenchmarkResult): string {
   const lines: string[] = [
     '# Translation Benchmark Results',
@@ -65,15 +96,7 @@ function buildMarkdown(result: BenchmarkResult): string {
     '',
     '## Go/No-Go Recommendation',
     '',
-    '> TODO: Fill in after reviewing results and human evaluation scores.',
-    '',
-    '| Criteria | OPUS-MT | TranslateGemma | Google |',
-    '|---|---|---|---|',
-    '| Quality (human eval avg) | | | |',
-    '| Latency acceptable (<500ms) | | | |',
-    '| Memory acceptable (<4GB) | | | |',
-    '| Offline capable | Yes | Yes | No |',
-    '| Recommendation | | | |',
+    buildGoNoGoTable(result.summaries),
     ''
   ]
   return lines.join('\n')
