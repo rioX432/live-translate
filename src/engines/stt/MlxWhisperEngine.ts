@@ -14,6 +14,7 @@ export class MlxWhisperEngine implements STTEngine {
   readonly isOffline = true
 
   private process: ChildProcess | null = null
+  private initPromise: Promise<void> | null = null
   private model: string
   private onProgress?: (message: string) => void
   private pendingRequests = new Map<number, (data: any) => void>()
@@ -30,6 +31,12 @@ export class MlxWhisperEngine implements STTEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.initPromise) return this.initPromise
+    this.initPromise = this.doInitialize()
+    return this.initPromise
+  }
+
+  private async doInitialize(): Promise<void> {
     if (this.process) return
 
     this.onProgress?.('Starting mlx-whisper bridge...')
@@ -172,6 +179,7 @@ export class MlxWhisperEngine implements STTEngine {
     for (const resolve of pending) {
       resolve({ error: 'Engine disposed' })
     }
+    this.initPromise = null
   }
 
   private sendCommand(cmd: Record<string, unknown>): Promise<any> {

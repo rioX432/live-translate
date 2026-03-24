@@ -23,6 +23,7 @@ export class ANETranslator implements TranslatorEngine {
   readonly isOffline = true
 
   private process: ChildProcess | null = null
+  private initPromise: Promise<void> | null = null
   private onProgress?: (message: string) => void
   private model: string
   private pendingRequests = new Map<number, (data: Record<string, unknown>) => void>()
@@ -39,6 +40,12 @@ export class ANETranslator implements TranslatorEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.initPromise) return this.initPromise
+    this.initPromise = this.doInitialize()
+    return this.initPromise
+  }
+
+  private async doInitialize(): Promise<void> {
     if (this.process) return
 
     this.onProgress?.('Starting ANEMLL bridge...')
@@ -206,6 +213,7 @@ export class ANETranslator implements TranslatorEngine {
     for (const resolve of pending) {
       resolve({ error: 'Engine disposed' })
     }
+    this.initPromise = null
   }
 
   private sendCommand(cmd: Record<string, unknown>): Promise<Record<string, unknown>> {

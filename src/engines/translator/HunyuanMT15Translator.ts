@@ -25,6 +25,7 @@ export class HunyuanMT15Translator implements TranslatorEngine {
   private worker: Electron.UtilityProcess | null = null
   private pending = new Map<string, PendingRequest>()
   private nextId = 0
+  private initPromise: Promise<void> | null = null
   private onProgress?: (message: string) => void
   private variant: string
   private kvCacheQuant: boolean
@@ -36,6 +37,12 @@ export class HunyuanMT15Translator implements TranslatorEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.initPromise) return this.initPromise
+    this.initPromise = this.doInitialize()
+    return this.initPromise
+  }
+
+  private async doInitialize(): Promise<void> {
     if (this.worker) return
 
     // Download model if needed
@@ -199,5 +206,6 @@ export class HunyuanMT15Translator implements TranslatorEngine {
       req.reject(new Error('Translator disposed'))
     }
     this.pending.clear()
+    this.initPromise = null
   }
 }
