@@ -216,6 +216,8 @@ export class SLMTranslator implements TranslatorEngine {
 
   async dispose(): Promise<void> {
     if (this.worker) {
+      // Remove all listeners before killing to prevent exit handler from firing
+      this.worker.removeAllListeners()
       try {
         this.worker.postMessage({ type: 'dispose' })
         // Give worker time to clean up

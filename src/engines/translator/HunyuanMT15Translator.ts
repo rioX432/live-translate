@@ -180,6 +180,8 @@ export class HunyuanMT15Translator implements TranslatorEngine {
 
   async dispose(): Promise<void> {
     if (this.worker) {
+      // Remove all listeners before killing to prevent exit handler from firing
+      this.worker.removeAllListeners()
       try {
         this.worker.postMessage({ type: 'dispose' })
         await new Promise((resolve) => setTimeout(resolve, 1000))
