@@ -24,10 +24,16 @@ export interface UseAudioCaptureReturn {
   onSpeechSegmentEnd: (callback: (finalBuffer: Float32Array) => void) => () => void
 }
 
+/** Optional noise suppression preprocessor injected from the parent component */
+export interface NoiseSuppressionProcessor {
+  processStream: (stream: MediaStream) => Promise<MediaStream>
+  destroy: () => Promise<void>
+}
+
 const STREAMING_INTERVAL_MS = 2000
 const SAMPLE_RATE = 16000
 
-export function useAudioCapture(): UseAudioCaptureReturn {
+export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): UseAudioCaptureReturn {
   const [devices, setDevices] = useState<AudioDevice[]>([])
   const [selectedDevice, setSelectedDevice] = useState<string>('')
   const [isCapturing, setIsCapturing] = useState(false)
@@ -135,15 +141,23 @@ export function useAudioCapture(): UseAudioCaptureReturn {
     const deviceId = selectedDevice
     const vad = await MicVAD.new({
       getStream: async () => {
-        return navigator.mediaDevices.getUserMedia({
+        // #313: Request 48 kHz when DeepFilterNet3 is active (it requires 48 kHz);
+        // VAD resamples internally to 16 kHz regardless.
+        const idealSampleRate = noiseSuppression ? 48000 : 16000
+        const rawStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             deviceId: deviceId ? { exact: deviceId } : undefined,
             channelCount: 1,
-            sampleRate: { ideal: 16000 },
+            sampleRate: { ideal: idealSampleRate },
             echoCancellation: true,
-            noiseSuppression: true
+            noiseSuppression: !noiseSuppression // disable browser NS when DeepFilterNet3 is active
           }
         })
+        // #313: Apply DeepFilterNet3 noise suppression before VAD
+        if (noiseSuppression) {
+          return noiseSuppression.processStream(rawStream)
+        }
+        return rawStream
       },
       // Override with more sensitive thresholds for real-time translation
       positiveSpeechThreshold: 0.3,
@@ -224,6 +238,8 @@ export function useAudioCapture(): UseAudioCaptureReturn {
       vadRef.current.destroy()
       vadRef.current = null
     }
+    // #313: Release DeepFilterNet3 resources
+    noiseSuppression?.destroy().catch((err) => console.warn('[audio-capture] Noise suppression cleanup error:', err))
     isSpeakingRef.current = false
     rollingBufferRef.current = []
     rollingBufferIndexRef.current = 0
@@ -231,7 +247,7 @@ export function useAudioCapture(): UseAudioCaptureReturn {
     setIsCapturing(false)
     setVolume(0)
     console.log('[audio-capture] VAD stopped')
-  }, [stopStreamingTimer])
+  }, [stopStreamingTimer, noiseSuppression])
 
   const onAudioChunk = useCallback((callback: (chunk: Float32Array) => void) => {
     chunkCallbackRef.current = callback

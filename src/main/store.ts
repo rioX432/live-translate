@@ -64,6 +64,8 @@ export interface AppSettings {
   targetLanguage: Language
   /** WebSocket port for Chrome extension audio server (default 9876) */
   wsAudioPort: number
+  /** Enable DeepFilterNet3 noise suppression for cleaner STT input (#313) */
+  noiseSuppressionEnabled: boolean
 }
 
 export const store = new Store<AppSettings>({
@@ -98,6 +100,7 @@ export const store = new Store<AppSettings>({
     moonshineVariant: 'base',
     sourceLanguage: 'auto',
     targetLanguage: 'en',
-    wsAudioPort: 9876
+    wsAudioPort: 9876,
+    noiseSuppressionEnabled: false
   }
 })

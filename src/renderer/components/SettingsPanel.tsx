@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
+import { useNoiseSuppression } from '../hooks/useNoiseSuppression'
 import {
   AudioSettings,
   LanguageSettings,
@@ -77,7 +78,9 @@ function SettingsPanel(): React.JSX.Element {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [showApiOptions, setShowApiOptions] = useState(false)
 
-  const audio = useAudioCapture()
+  // #313: Noise suppression
+  const noiseSuppression = useNoiseSuppression()
+  const audio = useAudioCapture(noiseSuppression.enabled ? noiseSuppression : undefined)
 
   const formatDuration = useCallback((ms: number): string => {
     const totalSec = Math.floor(ms / 1000)
@@ -129,6 +132,7 @@ function SettingsPanel(): React.JSX.Element {
       if (s.simulMtWaitK !== undefined) setSimulMtWaitK(s.simulMtWaitK as number)
       if (s.sourceLanguage) setSourceLanguage(s.sourceLanguage as SourceLanguage)
       if (s.targetLanguage) setTargetLanguage(s.targetLanguage as Language)
+      if (s.noiseSuppressionEnabled !== undefined) noiseSuppression.setEnabled(s.noiseSuppressionEnabled as boolean)
       if (s.subtitleSettings) {
         const sub = s.subtitleSettings as Record<string, unknown>
         if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
@@ -267,7 +271,8 @@ function SettingsPanel(): React.JSX.Element {
         simulMtEnabled,
         simulMtWaitK,
         sourceLanguage,
-        targetLanguage
+        targetLanguage,
+        noiseSuppressionEnabled: noiseSuppression.enabled
       }), 10_000, 'saveSettings')
 
       // Resolve auto mode to concrete engine
@@ -586,7 +591,12 @@ function SettingsPanel(): React.JSX.Element {
       )}
 
       {/* Microphone Selection — always visible */}
-      <AudioSettings audio={audio} disabled={disabled} />
+      <AudioSettings
+        audio={audio}
+        disabled={disabled}
+        noiseSuppressionEnabled={noiseSuppression.enabled}
+        onNoiseSuppressionChange={noiseSuppression.setEnabled}
+      />
 
       {/* Current config summary — always visible */}
       <div style={{
