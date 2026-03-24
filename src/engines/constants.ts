@@ -75,6 +75,12 @@ export const QWEN_ASR_TRANSCRIBE_TIMEOUT_MS = 30_000
 /** Init timeout for Qwen-ASR bridge (ms) */
 export const QWEN_ASR_INIT_TIMEOUT_MS = 120_000
 
+/** Command timeout for SenseVoice transcription (ms) */
+export const SENSEVOICE_TRANSCRIBE_TIMEOUT_MS = 30_000
+
+/** Init timeout for SenseVoice bridge — model download on first run can be slow (ms) */
+export const SENSEVOICE_INIT_TIMEOUT_MS = 180_000
+
 // ---------------------------------------------------------------------------
 // ANE translator
 // ---------------------------------------------------------------------------

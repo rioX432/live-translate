@@ -27,7 +27,7 @@ export const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
 
 export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-ct2-opus' | 'offline-madlad-400' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-hunyuan-mt-15' | 'offline-ane' | 'offline-hybrid'
 
-export type SttEngineType = 'whisper-local' | 'mlx-whisper' | 'moonshine'
+export type SttEngineType = 'whisper-local' | 'mlx-whisper' | 'moonshine' | 'sensevoice'
 export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo'
 export type MoonshineVariantType = 'tiny' | 'base'
 export type SlmModelSizeType = '4b' | '12b'

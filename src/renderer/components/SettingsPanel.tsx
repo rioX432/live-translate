@@ -500,6 +500,7 @@ function SettingsPanel(): React.JSX.Element {
           ? 'Whisper (large-v3-turbo)'
           : 'Whisper (kotoba-v2.0)'
       case 'moonshine': return 'Moonshine AI'
+      case 'sensevoice': return 'SenseVoice (CJK-optimized)'
       default: return sttEngine
     }
   }

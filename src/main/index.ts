@@ -3,6 +3,7 @@ import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
 import { MoonshineEngine } from '../engines/stt/MoonshineEngine'
+import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { CT2OpusMTTranslator } from '../engines/translator/CT2OpusMTTranslator'
 import { CT2Madlad400Translator } from '../engines/translator/CT2Madlad400Translator'
@@ -50,6 +51,9 @@ function initPipeline(): void {
   ctx.pipeline.registerSTT('moonshine', () => new MoonshineEngine({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     variant: (store.get('moonshineVariant') as MoonshineVariant) || undefined
+  }))
+  ctx.pipeline.registerSTT('sensevoice', () => new SenseVoiceEngine({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))
 
   // Register translator engines
