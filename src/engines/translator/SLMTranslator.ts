@@ -85,7 +85,7 @@ export class SLMTranslator implements TranslatorEngine {
       const timeout = setTimeout(() => {
         this.worker?.removeListener('message', initHandler)
         // Kill orphaned worker on timeout
-        try { this.worker?.kill() } catch { /* ignore */ }
+        try { this.worker?.kill() } catch (e) { console.warn('[slm-translator] Failed to kill timed-out worker:', e) }
         this.worker = null
         reject(new Error('TranslateGemma initialization timed out'))
       }, 5 * 60_000)
@@ -229,13 +229,13 @@ export class SLMTranslator implements TranslatorEngine {
         this.worker.postMessage({ type: 'dispose' })
         // Give worker time to clean up
         await new Promise((resolve) => setTimeout(resolve, 1000))
-      } catch {
-        // Ignore errors during disposal
+      } catch (e) {
+        console.warn('[slm-translator] Error sending dispose to worker:', e)
       }
       try {
         this.worker.kill()
-      } catch {
-        // Already exited
+      } catch (e) {
+        console.warn('[slm-translator] Failed to kill worker (may have already exited):', e)
       }
       this.worker = null
     }

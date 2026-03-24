@@ -120,7 +120,8 @@ export function listSessions(): SessionMetadata[] {
     try {
       const data: SessionData = JSON.parse(readFileSync(join(dir, f), 'utf-8'))
       return data.metadata
-    } catch {
+    } catch (e) {
+      console.warn(`[session] Failed to parse session file ${f}:`, e)
       return null
     }
   }).filter(Boolean) as SessionMetadata[]
@@ -132,7 +133,8 @@ export function loadSession(sessionId: string): SessionData | null {
   if (!existsSync(path)) return null
   try {
     return JSON.parse(readFileSync(path, 'utf-8'))
-  } catch {
+  } catch (e) {
+    console.warn(`[session] Failed to load session ${sessionId}:`, e)
     return null
   }
 }
@@ -158,7 +160,7 @@ export function searchSessions(query: string): Array<{ sessionId: string; matche
         results.push({ sessionId: data.metadata.id, matches })
         totalMatches += matches.length
       }
-    } catch { /* skip corrupted files */ }
+    } catch (e) { console.warn(`[session] Skipping corrupted session file ${f}:`, e) }
   }
 
   return results

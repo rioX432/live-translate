@@ -154,7 +154,7 @@ function SettingsPanel(): React.JSX.Element {
           setSttEngine('mlx-whisper')
         }
       })
-    }).catch(() => {})
+    }).catch((e) => console.warn('[settings] Failed to load platform/STT defaults:', e))
 
     // Check for crashed session
     window.api.getCrashedSession().then((session) => {
@@ -167,7 +167,7 @@ function SettingsPanel(): React.JSX.Element {
 
   // Load session history
   useEffect(() => {
-    window.api.listSessions().then(setSessions).catch(() => {})
+    window.api.listSessions().then(setSessions).catch((e) => console.warn('[settings] Failed to load sessions:', e))
   }, [isRunning])
 
   // Detect GPU — fall back to OPUS-MT if no GPU
@@ -182,12 +182,18 @@ function SettingsPanel(): React.JSX.Element {
           }
         })
       }
-    }).catch(() => setGpuInfo({ hasGpu: false, gpuNames: [] }))
+    }).catch((e) => {
+      console.warn('[settings] GPU detection failed, falling back to no-GPU:', e)
+      setGpuInfo({ hasGpu: false, gpuNames: [] })
+    })
   }, [])
 
   // Check if 4B draft model is available for speculative decoding
   useEffect(() => {
-    window.api.isDraftModelAvailable().then(setDraftModelAvailable).catch(() => setDraftModelAvailable(false))
+    window.api.isDraftModelAvailable().then(setDraftModelAvailable).catch((e) => {
+      console.warn('[settings] Failed to check draft model availability:', e)
+      setDraftModelAvailable(false)
+    })
   }, [slmModelSize])
 
   // Load displays and listen for display changes

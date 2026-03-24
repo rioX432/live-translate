@@ -71,7 +71,7 @@ export class HunyuanMT15Translator implements TranslatorEngine {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.worker?.removeListener('message', initHandler)
-        try { this.worker?.kill() } catch { /* ignore */ }
+        try { this.worker?.kill() } catch (e) { console.warn('[hunyuan-mt-15] Failed to kill timed-out worker:', e) }
         this.worker = null
         reject(new Error('HY-MT1.5 initialization timed out'))
       }, 5 * 60_000)
@@ -192,13 +192,13 @@ export class HunyuanMT15Translator implements TranslatorEngine {
       try {
         this.worker.postMessage({ type: 'dispose' })
         await new Promise((resolve) => setTimeout(resolve, 1000))
-      } catch {
-        // Ignore errors during disposal
+      } catch (e) {
+        console.warn('[hunyuan-mt-15] Error sending dispose to worker:', e)
       }
       try {
         this.worker.kill()
-      } catch {
-        // Already exited
+      } catch (e) {
+        console.warn('[hunyuan-mt-15] Failed to kill worker (may have already exited):', e)
       }
       this.worker = null
     }
