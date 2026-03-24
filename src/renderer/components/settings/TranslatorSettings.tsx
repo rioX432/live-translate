@@ -76,7 +76,7 @@ export function TranslatorSettings({
   const [newGlossarySource, setNewGlossarySource] = useState('')
   const [newGlossaryTarget, setNewGlossaryTarget] = useState('')
 
-  const showSlmOptions = ['offline-slm', 'offline-hunyuan-mt', 'offline-hunyuan-mt-15', 'offline-hybrid'].includes(engineMode)
+  const showSlmOptions = ['offline-slm', 'offline-hunyuan-mt', 'offline-hunyuan-mt-15', 'offline-gemma2-jpn', 'offline-alma-ja', 'offline-hybrid'].includes(engineMode)
   const isApiEngine = ['rotation', 'online', 'online-deepl', 'online-gemini'].includes(engineMode)
 
   return (
@@ -122,6 +122,32 @@ export function TranslatorSettings({
           <div>
             <div style={{ fontWeight: 500 }}>HY-MT1.5-1.8B (Recommended)</div>
             <div style={{ fontSize: '12px', color: '#94a3b8' }}>36 languages, ~1.1GB — fast and lightweight</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline-gemma2-jpn'}
+            onChange={() => onEngineModeChange('offline-gemma2-jpn')}
+            disabled={disabled}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Gemma-2-2B JA↔EN</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN specialized, ~1.6GB — fast and compact</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline-alma-ja'}
+            onChange={() => onEngineModeChange('offline-alma-ja')}
+            disabled={disabled}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>ALMA-7B-Ja-V2</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN specialized, COMET 0.88, ~3.9GB</div>
           </div>
         </label>
         <label style={radioLabelStyle}>

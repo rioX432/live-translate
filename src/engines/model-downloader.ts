@@ -217,6 +217,60 @@ export function getGGUFVariants(modelSize: SLMModelSize): Record<string, GGUFVar
   return modelSize === '12b' ? GGUF_VARIANTS_12B : GGUF_VARIANTS_4B
 }
 
+/** Gemma-2-2B-JPN-IT-Translate GGUF variants (JA↔EN specialized, webbigdata) */
+export const GEMMA2_JPN_VARIANTS: Record<string, GGUFVariant> = {
+  'Q4_K_M': {
+    filename: 'gemma-2-2b-jpn-it-translate-Q4_K_M.gguf',
+    url: 'https://huggingface.co/webbigdata/gemma-2-2b-jpn-it-translate-gguf/resolve/main/gemma-2-2b-jpn-it-translate-Q4_K_M.gguf',
+    sizeMB: 1630,
+    label: 'Q4_K_M (Recommended, ~1.6GB)'
+  },
+  'Q6_K': {
+    filename: 'gemma-2-2b-jpn-it-translate-Q6_K.gguf',
+    url: 'https://huggingface.co/webbigdata/gemma-2-2b-jpn-it-translate-gguf/resolve/main/gemma-2-2b-jpn-it-translate-Q6_K.gguf',
+    sizeMB: 2050,
+    label: 'Q6_K (Balanced, ~2.1GB)'
+  },
+  'Q8_0': {
+    filename: 'gemma-2-2b-jpn-it-translate-Q8_0.gguf',
+    url: 'https://huggingface.co/webbigdata/gemma-2-2b-jpn-it-translate-gguf/resolve/main/gemma-2-2b-jpn-it-translate-Q8_0.gguf',
+    sizeMB: 3180,
+    label: 'Q8_0 (Best quality, ~3.2GB)'
+  }
+}
+
+/** Get Gemma-2-2B-JPN GGUF variants */
+export function getGemma2JpnVariants(): Record<string, GGUFVariant> {
+  return GEMMA2_JPN_VARIANTS
+}
+
+/** ALMA-7B-Ja-V2 GGUF variants (JA↔EN specialized, mmnga quantizations) */
+export const ALMA_JA_VARIANTS: Record<string, GGUFVariant> = {
+  'Q4_K_M': {
+    filename: 'webbigdata-ALMA-7B-Ja-V2-q4_K_M.gguf',
+    url: 'https://huggingface.co/mmnga/webbigdata-ALMA-7B-Ja-V2-gguf/resolve/main/webbigdata-ALMA-7B-Ja-V2-q4_K_M.gguf',
+    sizeMB: 3890,
+    label: 'Q4_K_M (Recommended, ~3.9GB)'
+  },
+  'Q5_K_M': {
+    filename: 'webbigdata-ALMA-7B-Ja-V2-q5_K_M.gguf',
+    url: 'https://huggingface.co/mmnga/webbigdata-ALMA-7B-Ja-V2-gguf/resolve/main/webbigdata-ALMA-7B-Ja-V2-q5_K_M.gguf',
+    sizeMB: 4560,
+    label: 'Q5_K_M (Balanced, ~4.6GB)'
+  },
+  'Q8_0': {
+    filename: 'webbigdata-ALMA-7B-Ja-V2-q8_0.gguf',
+    url: 'https://huggingface.co/mmnga/webbigdata-ALMA-7B-Ja-V2-gguf/resolve/main/webbigdata-ALMA-7B-Ja-V2-q8_0.gguf',
+    sizeMB: 6830,
+    label: 'Q8_0 (Best quality, ~6.8GB)'
+  }
+}
+
+/** Get ALMA-7B-Ja GGUF variants */
+export function getAlmaJaVariants(): Record<string, GGUFVariant> {
+  return ALMA_JA_VARIANTS
+}
+
 // GGUF download lock uses shared activeDownloads map
 
 /** Get the GGUF models subdirectory */
