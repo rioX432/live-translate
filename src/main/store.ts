@@ -62,6 +62,8 @@ export interface AppSettings {
   sourceLanguage: SourceLanguage
   /** Target language for translation output */
   targetLanguage: Language
+  /** WebSocket port for Chrome extension audio server (default 9876) */
+  wsAudioPort: number
 }
 
 export const store = new Store<AppSettings>({
@@ -95,6 +97,7 @@ export const store = new Store<AppSettings>({
     whisperVariant: 'kotoba-v2.0',
     moonshineVariant: 'base',
     sourceLanguage: 'auto',
-    targetLanguage: 'en'
+    targetLanguage: 'en',
+    wsAudioPort: 9876
   }
 })

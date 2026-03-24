@@ -239,7 +239,8 @@ export function registerIpcHandlers(ctx: AppContext): void {
       whisperVariant: store.get('whisperVariant'),
       moonshineVariant: store.get('moonshineVariant'),
       sourceLanguage: store.get('sourceLanguage'),
-      targetLanguage: store.get('targetLanguage')
+      targetLanguage: store.get('targetLanguage'),
+      wsAudioPort: store.get('wsAudioPort')
     }
   })
 
@@ -413,7 +414,7 @@ export function registerIpcHandlers(ctx: AppContext): void {
         return { error: 'WebSocket audio server is already running' }
       }
 
-      ctx.wsAudioServer = new WsAudioServer(port || DEFAULT_WS_PORT)
+      ctx.wsAudioServer = new WsAudioServer(port || store.get('wsAudioPort') || DEFAULT_WS_PORT)
 
       // Forward received audio to the pipeline
       ctx.wsAudioServer.on('audio', async (chunk: Float32Array) => {
@@ -465,7 +466,7 @@ export function registerIpcHandlers(ctx: AppContext): void {
     return {
       running: ctx.wsAudioServer?.running ?? false,
       connected: ctx.wsAudioServer?.hasClient ?? false,
-      port: ctx.wsAudioServer?.port ?? DEFAULT_WS_PORT
+      port: ctx.wsAudioServer?.port ?? store.get('wsAudioPort') ?? DEFAULT_WS_PORT
     }
   })
 }
