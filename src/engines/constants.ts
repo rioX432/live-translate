@@ -60,8 +60,14 @@ export const CT2_MADLAD400_TRANSLATE_TIMEOUT_MS = 15_000
 export const CT2_MADLAD400_INIT_TIMEOUT_MS = 180_000
 
 // ---------------------------------------------------------------------------
-// STT bridges (mlx-whisper, Qwen-ASR)
+// STT bridges (mlx-whisper, Lightning Whisper MLX, Qwen-ASR)
 // ---------------------------------------------------------------------------
+
+/** Command timeout for Lightning Whisper MLX transcription (ms) */
+export const LIGHTNING_WHISPER_TRANSCRIBE_TIMEOUT_MS = 30_000
+
+/** Init timeout for Lightning Whisper MLX bridge — model download on first use (ms) */
+export const LIGHTNING_WHISPER_INIT_TIMEOUT_MS = 120_000
 
 /** Command timeout for mlx-whisper transcription (ms) */
 export const MLX_WHISPER_TRANSCRIBE_TIMEOUT_MS = 30_000

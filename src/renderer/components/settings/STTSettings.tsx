@@ -35,7 +35,10 @@ export function STTSettings({
       >
         <option value="whisper-local">Whisper (whisper.cpp)</option>
         {platform === 'darwin' && (
-          <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
+          <option value="lightning-whisper">Lightning Whisper MLX (Apple Silicon, 10x faster)</option>
+        )}
+        {platform === 'darwin' && (
+          <option value="mlx-whisper">mlx-whisper (Apple Silicon)</option>
         )}
         <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
       </select>

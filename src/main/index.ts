@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
+import { LightningWhisperEngine } from '../engines/stt/LightningWhisperEngine'
 import { MoonshineEngine } from '../engines/stt/MoonshineEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { CT2OpusMTTranslator } from '../engines/translator/CT2OpusMTTranslator'
@@ -44,6 +45,9 @@ function initPipeline(): void {
   // mlx-whisper is Apple Silicon only — skip registration on other platforms
   if (process.platform === 'darwin') {
     ctx.pipeline.registerSTT('mlx-whisper', () => new MlxWhisperEngine({
+      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+    }))
+    ctx.pipeline.registerSTT('lightning-whisper', () => new LightningWhisperEngine({
       onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
     }))
   }

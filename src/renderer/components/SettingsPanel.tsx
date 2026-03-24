@@ -151,7 +151,7 @@ function SettingsPanel(): React.JSX.Element {
       // Only set default if no saved setting exists
       window.api.getSettings().then((s) => {
         if (!s.sttEngine && p === 'darwin') {
-          setSttEngine('mlx-whisper')
+          setSttEngine('lightning-whisper')
         }
       })
     }).catch((e) => console.warn('[settings] Failed to load platform/settings:', e))
@@ -494,6 +494,7 @@ function SettingsPanel(): React.JSX.Element {
 
   const sttDisplayName = (): string => {
     switch (sttEngine) {
+      case 'lightning-whisper': return 'Lightning Whisper MLX (10x faster)'
       case 'mlx-whisper': return 'mlx-whisper (Apple Silicon)'
       case 'whisper-local':
         return whisperVariant === 'large-v3-turbo'
