@@ -20,7 +20,17 @@
     "bench:gemma2jpn": "tsx --expose-gc run.ts --engines gemma2-jpn",
     "bench:api": "tsx --expose-gc run.ts --engines google,deepl,microsoft,gemini",
     "bench:local": "tsx --expose-gc run.ts --engines opus-mt,ct2-opus-mt,ct2-madlad400,translate-gemma,hunyuan-mt,hunyuan-mt-15,alma-ja,gemma2-jpn",
-    "bench:all": "tsx --expose-gc run.ts --engines google,deepl,microsoft,gemini,opus-mt,ct2-opus-mt,ct2-madlad400,translate-gemma,hunyuan-mt,hunyuan-mt-15,alma-ja,gemma2-jpn"
+    "bench:all": "tsx --expose-gc run.ts --engines google,deepl,microsoft,gemini,opus-mt,ct2-opus-mt,ct2-madlad400,translate-gemma,hunyuan-mt,hunyuan-mt-15,alma-ja,gemma2-jpn",
+    "stt": "tsx --expose-gc run.ts --stt",
+    "stt:whisper": "tsx --expose-gc run.ts --stt --engines whisper-local",
+    "stt:mlx": "tsx --expose-gc run.ts --stt --engines mlx-whisper",
+    "stt:lightning": "tsx --expose-gc run.ts --stt --engines lightning-whisper",
+    "stt:moonshine": "tsx --expose-gc run.ts --stt --engines moonshine",
+    "stt:sensevoice": "tsx --expose-gc run.ts --stt --engines sensevoice",
+    "stt:qwen": "tsx --expose-gc run.ts --stt --engines qwen-asr",
+    "stt:sherpa": "tsx --expose-gc run.ts --stt --engines sherpa-onnx",
+    "stt:all": "tsx --expose-gc run.ts --stt --engines whisper-local,mlx-whisper,lightning-whisper,moonshine,sensevoice,qwen-asr,sherpa-onnx",
+    "stt:generate-testset": "bash scripts/generate-stt-testset.sh"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.0",

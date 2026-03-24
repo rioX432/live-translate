@@ -16,7 +16,10 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "lint": "eslint src/",
-    "lint:fix": "eslint src/ --fix"
+    "lint:fix": "eslint src/ --fix",
+    "bench:stt": "cd benchmark && npm run stt",
+    "bench:stt:all": "cd benchmark && npm run stt:all",
+    "bench:stt:generate": "cd benchmark && npm run stt:generate-testset"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^3.0.0",
