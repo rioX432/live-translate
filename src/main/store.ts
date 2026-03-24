@@ -73,7 +73,7 @@ export interface AppSettings {
 export const store = new Store<AppSettings>({
   encryptionKey: 'live-translate-v1',
   defaults: {
-    translationEngine: 'offline-hybrid',
+    translationEngine: 'offline-opus',
     googleApiKey: '',
     microsoftApiKey: '',
     microsoftRegion: '',

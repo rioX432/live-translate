@@ -81,12 +81,6 @@ export const SENSEVOICE_TRANSCRIBE_TIMEOUT_MS = 30_000
 /** Init timeout for SenseVoice bridge — model download on first run can be slow (ms) */
 export const SENSEVOICE_INIT_TIMEOUT_MS = 180_000
 
-/** Command timeout for Lightning Whisper MLX transcription (ms) */
-export const LIGHTNING_WHISPER_TRANSCRIBE_TIMEOUT_MS = 30_000
-
-/** Init timeout for Lightning Whisper MLX bridge — model download on first run can be slow (ms) */
-export const LIGHTNING_WHISPER_INIT_TIMEOUT_MS = 120_000
-
 // ---------------------------------------------------------------------------
 // ANE translator
 // ---------------------------------------------------------------------------

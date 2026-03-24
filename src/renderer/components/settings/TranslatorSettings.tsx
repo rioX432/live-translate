@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { Section } from './Section'
-import { inputStyle, radioLabelStyle, selectStyle } from './shared'
-import type { EngineMode, SlmModelSizeType } from './shared'
+import { inputStyle, radioLabelStyle } from './shared'
+import type { EngineMode } from './shared'
 
 interface TranslatorSettingsProps {
   engineMode: EngineMode
@@ -10,14 +10,9 @@ interface TranslatorSettingsProps {
   disabled: boolean
   // GPU info
   gpuInfo: { hasGpu: boolean; gpuNames: string[] } | null
-  // SLM options
-  slmModelSize: SlmModelSizeType
-  onSlmModelSizeChange: (v: SlmModelSizeType) => void
+  // SLM options (for Hunyuan-MT)
   slmKvCacheQuant: boolean
   onSlmKvCacheQuantChange: (v: boolean) => void
-  slmSpeculativeDecoding: boolean
-  onSlmSpeculativeDecodingChange: (v: boolean) => void
-  draftModelAvailable: boolean
   simulMtEnabled: boolean
   onSimulMtEnabledChange: (v: boolean) => void
   simulMtWaitK: number
@@ -44,16 +39,10 @@ interface TranslatorSettingsProps {
 export function TranslatorSettings({
   engineMode,
   onEngineModeChange,
-  platform,
   disabled,
   gpuInfo,
-  slmModelSize,
-  onSlmModelSizeChange,
   slmKvCacheQuant,
   onSlmKvCacheQuantChange,
-  slmSpeculativeDecoding,
-  onSlmSpeculativeDecodingChange,
-  draftModelAvailable,
   simulMtEnabled,
   onSimulMtEnabledChange,
   simulMtWaitK,
@@ -76,7 +65,7 @@ export function TranslatorSettings({
   const [newGlossarySource, setNewGlossarySource] = useState('')
   const [newGlossaryTarget, setNewGlossaryTarget] = useState('')
 
-  const showSlmOptions = ['offline-slm', 'offline-hunyuan-mt', 'offline-hunyuan-mt-15', 'offline-gemma2-jpn', 'offline-alma-ja', 'offline-hybrid'].includes(engineMode)
+  const showLlmOptions = ['offline-hunyuan-mt', 'offline-hybrid'].includes(engineMode)
   const isApiEngine = ['rotation', 'online', 'online-deepl', 'online-gemini'].includes(engineMode)
 
   return (
@@ -85,6 +74,32 @@ export function TranslatorSettings({
         <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
           Offline
         </div>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline-opus'}
+            onChange={() => onEngineModeChange('offline-opus')}
+            disabled={disabled}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>OPUS-MT (Recommended)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>~280ms latency, ~1GB memory — best speed/quality balance</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline-hunyuan-mt'}
+            onChange={() => onEngineModeChange('offline-hunyuan-mt')}
+            disabled={disabled}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Hunyuan-MT 7B (High Quality)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>WMT25 winner, 33 languages, ~4GB — slower but higher quality</div>
+          </div>
+        </label>
         <label style={radioLabelStyle}>
           <input
             type="radio"
@@ -98,161 +113,15 @@ export function TranslatorSettings({
             <div style={{ fontSize: '12px', color: '#94a3b8' }}>Instant draft + LLM refinement — best offline quality</div>
           </div>
         </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-slm'}
-            onChange={() => onEngineModeChange('offline-slm')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>TranslateGemma</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>GPU-accelerated offline translation</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-hunyuan-mt-15'}
-            onChange={() => onEngineModeChange('offline-hunyuan-mt-15')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>HY-MT1.5-1.8B (Recommended)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>36 languages, ~1.1GB — fast and lightweight</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-gemma2-jpn'}
-            onChange={() => onEngineModeChange('offline-gemma2-jpn')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Gemma-2-2B JA↔EN</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN specialized, ~1.6GB — fast and compact</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-alma-ja'}
-            onChange={() => onEngineModeChange('offline-alma-ja')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>ALMA-7B-Ja-V2</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>JA↔EN specialized, COMET 0.88, ~3.9GB</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-hunyuan-mt'}
-            onChange={() => onEngineModeChange('offline-hunyuan-mt')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Hunyuan-MT 7B (WMT25 Winner)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>33 languages, ~4.7GB download</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-opus'}
-            onChange={() => onEngineModeChange('offline-opus')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>OPUS-MT</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Lightweight, ~100MB — fast but basic</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-ct2-opus'}
-            onChange={() => onEngineModeChange('offline-ct2-opus')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>OPUS-MT (CTranslate2)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>6-10x faster, requires Python 3</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-madlad-400'}
-            onChange={() => onEngineModeChange('offline-madlad-400')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Madlad-400 (450+ Languages)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Google T5-based, ~1.5GB, requires Python 3</div>
-          </div>
-        </label>
-        {platform === 'darwin' && (
-          <label style={radioLabelStyle}>
-            <input
-              type="radio"
-              name="engine"
-              checked={engineMode === 'offline-ane'}
-              onChange={() => onEngineModeChange('offline-ane')}
-              disabled={disabled}
-            />
-            <div>
-              <div style={{ fontWeight: 500 }}>ANEMLL (Apple Neural Engine)</div>
-              <div style={{ fontSize: '12px', color: '#94a3b8' }}>Ultra-low power, Apple Silicon only</div>
-            </div>
-          </label>
-        )}
 
-        {/* SLM sub-options */}
-        {showSlmOptions && (
+        {/* LLM sub-options for Hunyuan-MT and Hybrid */}
+        {showLlmOptions && (
           <>
             {gpuInfo && !gpuInfo.hasGpu && (
               <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 4px 24px' }}>
                 No GPU detected — translation may be slow on CPU-only systems
               </div>
             )}
-            <div style={{ paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '2px' }}>Model Size</div>
-              <label style={radioLabelStyle}>
-                <input
-                  type="radio"
-                  name="slm-model-size"
-                  checked={slmModelSize === '4b'}
-                  onChange={() => onSlmModelSizeChange('4b')}
-                  disabled={disabled}
-                />
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: '12px' }}>4B (Faster, ~2.6GB)</div>
-                </div>
-              </label>
-              <label style={radioLabelStyle}>
-                <input
-                  type="radio"
-                  name="slm-model-size"
-                  checked={slmModelSize === '12b'}
-                  onChange={() => onSlmModelSizeChange('12b')}
-                  disabled={disabled}
-                />
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: '12px' }}>12B (Higher quality, ~7.3GB)</div>
-                </div>
-              </label>
-            </div>
             <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
               <input
                 type="checkbox"
@@ -265,35 +134,6 @@ export function TranslatorSettings({
                 <div style={{ fontSize: '11px', color: '#94a3b8' }}>Reduces VRAM ~50%</div>
               </div>
             </label>
-            {(slmModelSize === '12b' || engineMode === 'offline-alma-ja') && (
-              <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
-                <input
-                  type="checkbox"
-                  checked={slmSpeculativeDecoding}
-                  onChange={(e) => onSlmSpeculativeDecodingChange(e.target.checked)}
-                  disabled={disabled || !draftModelAvailable}
-                />
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: '12px' }}>
-                    {engineMode === 'offline-alma-ja'
-                      ? 'Speculative decoding (Gemma-2-2B draft + ALMA-7B verify)'
-                      : 'Speculative decoding (4B draft + 12B verify)'}
-                  </div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                    {engineMode === 'offline-alma-ja'
-                      ? '1.5-2.5x throughput, requires both models in VRAM (~6GB)'
-                      : '2-3x throughput, requires both models in VRAM (~10GB)'}
-                  </div>
-                  {!draftModelAvailable && (
-                    <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
-                      {engineMode === 'offline-alma-ja'
-                        ? 'Download the Gemma-2-2B JA model first'
-                        : 'Download the 4B model first'}
-                    </div>
-                  )}
-                </div>
-              </label>
-            )}
             <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
               <input
                 type="checkbox"

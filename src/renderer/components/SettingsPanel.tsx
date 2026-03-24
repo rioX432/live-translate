@@ -18,8 +18,6 @@ import type {
   DisplayInfo,
   EngineMode,
   Language,
-  MoonshineVariantType,
-  SlmModelSizeType,
   SourceLanguage,
   SttEngineType,
   SubtitlePositionType,
@@ -27,7 +25,7 @@ import type {
 } from './settings/shared'
 
 function SettingsPanel(): React.JSX.Element {
-  const [engineMode, setEngineMode] = useState<EngineMode>('offline-hybrid')
+  const [engineMode, setEngineMode] = useState<EngineMode>('offline-opus')
   const [gpuInfo, setGpuInfo] = useState<{ hasGpu: boolean; gpuNames: string[] } | null>(null)
   const [apiKey, setApiKey] = useState('')
   const [deeplApiKey, setDeeplApiKey] = useState('')
@@ -47,9 +45,8 @@ function SettingsPanel(): React.JSX.Element {
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>('auto')
   const [targetLanguage, setTargetLanguage] = useState<Language>('en')
 
-  const [sttEngine, setSttEngine] = useState<SttEngineType>('whisper-local')
+  const [sttEngine, setSttEngine] = useState<SttEngineType>('mlx-whisper')
   const [whisperVariant, setWhisperVariant] = useState<WhisperVariantType>('kotoba-v2.0')
-  const [moonshineVariant, setMoonshineVariant] = useState<MoonshineVariantType>('base')
 
   const [subtitleFontSize, setSubtitleFontSize] = useState(30)
   const [subtitleSourceColor, setSubtitleSourceColor] = useState('#ffffff')
@@ -60,9 +57,6 @@ function SettingsPanel(): React.JSX.Element {
   const [sessions, setSessions] = useState<Array<{ id: string; startedAt: number; engineMode: string; entryCount: number }>>([])
 
   const [slmKvCacheQuant, setSlmKvCacheQuant] = useState(true)
-  const [slmModelSize, setSlmModelSize] = useState<SlmModelSizeType>('4b')
-  const [slmSpeculativeDecoding, setSlmSpeculativeDecoding] = useState(false)
-  const [draftModelAvailable, setDraftModelAvailable] = useState(false)
   const [simulMtEnabled, setSimulMtEnabled] = useState(false)
   const [simulMtWaitK, setSimulMtWaitK] = useState(3)
 
@@ -123,10 +117,7 @@ function SettingsPanel(): React.JSX.Element {
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
       if (s.sttEngine) setSttEngine(s.sttEngine as SttEngineType)
       if (s.whisperVariant) setWhisperVariant(s.whisperVariant as WhisperVariantType)
-      if (s.moonshineVariant) setMoonshineVariant(s.moonshineVariant as MoonshineVariantType)
       if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(s.slmKvCacheQuant as boolean)
-      if (s.slmModelSize) setSlmModelSize(s.slmModelSize as SlmModelSizeType)
-      if (s.slmSpeculativeDecoding !== undefined) setSlmSpeculativeDecoding(s.slmSpeculativeDecoding as boolean)
       if (s.glossaryTerms) setGlossaryTerms(s.glossaryTerms as Array<{ source: string; target: string }>)
       if (s.simulMtEnabled !== undefined) setSimulMtEnabled(s.simulMtEnabled as boolean)
       if (s.simulMtWaitK !== undefined) setSimulMtWaitK(s.simulMtWaitK as number)
@@ -189,13 +180,6 @@ function SettingsPanel(): React.JSX.Element {
       }
     }).catch(() => setGpuInfo({ hasGpu: false, gpuNames: [] }))
   }, [])
-
-  // Check if draft model is available for speculative decoding
-  // For TranslateGemma 12B: checks 4B draft; for ALMA-7B: checks Gemma-2-2B draft
-  useEffect(() => {
-    const engine = engineMode === 'offline-alma-ja' ? 'alma-ja' : undefined
-    window.api.isDraftModelAvailable(engine).then(setDraftModelAvailable).catch(() => setDraftModelAvailable(false))
-  }, [slmModelSize, engineMode])
 
   // Load displays and listen for display changes
   useEffect(() => {
@@ -266,10 +250,7 @@ function SettingsPanel(): React.JSX.Element {
         selectedDisplay,
         sttEngine,
         whisperVariant,
-        moonshineVariant,
         slmKvCacheQuant,
-        slmModelSize,
-        slmSpeculativeDecoding,
         simulMtEnabled,
         simulMtWaitK,
         sourceLanguage,
@@ -284,7 +265,7 @@ function SettingsPanel(): React.JSX.Element {
         if (hasKeys) {
           resolvedMode = 'rotation'
         } else if (gpuInfo?.hasGpu) {
-          resolvedMode = 'offline-hunyuan-mt-15'
+          resolvedMode = 'offline-hunyuan-mt'
         } else {
           resolvedMode = 'offline-opus'
         }
@@ -329,53 +310,11 @@ function SettingsPanel(): React.JSX.Element {
           sttEngineId: sttEngine,
           translatorEngineId: 'opus-mt'
         }
-      } else if (resolvedMode === 'offline-ct2-opus') {
-        config = {
-          mode: 'cascade' as const,
-          sttEngineId: sttEngine,
-          translatorEngineId: 'ct2-opus-mt'
-        }
-      } else if (resolvedMode === 'offline-madlad-400') {
-        config = {
-          mode: 'cascade' as const,
-          sttEngineId: sttEngine,
-          translatorEngineId: 'ct2-madlad-400'
-        }
-      } else if (resolvedMode === 'offline-slm') {
-        config = {
-          mode: 'cascade' as const,
-          sttEngineId: sttEngine,
-          translatorEngineId: 'slm-translate'
-        }
       } else if (resolvedMode === 'offline-hunyuan-mt') {
         config = {
           mode: 'cascade' as const,
           sttEngineId: sttEngine,
           translatorEngineId: 'hunyuan-mt'
-        }
-      } else if (resolvedMode === 'offline-hunyuan-mt-15') {
-        config = {
-          mode: 'cascade' as const,
-          sttEngineId: sttEngine,
-          translatorEngineId: 'hunyuan-mt-15'
-        }
-      } else if (resolvedMode === 'offline-gemma2-jpn') {
-        config = {
-          mode: 'cascade' as const,
-          sttEngineId: sttEngine,
-          translatorEngineId: 'gemma2-jpn'
-        }
-      } else if (resolvedMode === 'offline-alma-ja') {
-        config = {
-          mode: 'cascade' as const,
-          sttEngineId: sttEngine,
-          translatorEngineId: 'alma-ja'
-        }
-      } else if (resolvedMode === 'offline-ane') {
-        config = {
-          mode: 'cascade' as const,
-          sttEngineId: sttEngine,
-          translatorEngineId: 'ane-translate'
         }
       } else if (resolvedMode === 'offline-hybrid') {
         config = {
@@ -495,16 +434,9 @@ function SettingsPanel(): React.JSX.Element {
   // Current engine display name
   const engineDisplayName = (): string => {
     switch (engineMode) {
-      case 'offline-hybrid': return 'Hybrid (OPUS-MT + TranslateGemma)'
-      case 'offline-slm': return 'TranslateGemma'
-      case 'offline-hunyuan-mt-15': return 'HY-MT1.5-1.8B'
-      case 'offline-gemma2-jpn': return 'Gemma-2-2B JA↔EN'
-      case 'offline-alma-ja': return 'ALMA-7B-Ja-V2'
-      case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B'
       case 'offline-opus': return 'OPUS-MT'
-      case 'offline-ct2-opus': return 'OPUS-MT (CTranslate2)'
-      case 'offline-madlad-400': return 'Madlad-400 (450+ Languages)'
-      case 'offline-ane': return 'ANEMLL (Apple Neural Engine)'
+      case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B (High Quality)'
+      case 'offline-hybrid': return 'Hybrid (OPUS-MT + TranslateGemma)'
       case 'rotation': return 'API Auto Rotation'
       case 'online': return 'Google Translation'
       case 'online-deepl': return 'DeepL'
@@ -521,9 +453,6 @@ function SettingsPanel(): React.JSX.Element {
         return whisperVariant === 'large-v3-turbo'
           ? 'Whisper (large-v3-turbo)'
           : 'Whisper (kotoba-v2.0)'
-      case 'moonshine': return 'Moonshine AI'
-      case 'sensevoice': return 'SenseVoice (CJK-optimized)'
-      case 'sherpa-onnx': return 'Sherpa-ONNX (unified)'
       default: return sttEngine
     }
   }
@@ -673,8 +602,6 @@ function SettingsPanel(): React.JSX.Element {
             onSttEngineChange={setSttEngine}
             whisperVariant={whisperVariant}
             onWhisperVariantChange={setWhisperVariant}
-            moonshineVariant={moonshineVariant}
-            onMoonshineVariantChange={setMoonshineVariant}
             platform={platform}
             disabled={disabled}
           />
@@ -685,13 +612,8 @@ function SettingsPanel(): React.JSX.Element {
             platform={platform}
             disabled={disabled}
             gpuInfo={gpuInfo}
-            slmModelSize={slmModelSize}
-            onSlmModelSizeChange={setSlmModelSize}
             slmKvCacheQuant={slmKvCacheQuant}
             onSlmKvCacheQuantChange={setSlmKvCacheQuant}
-            slmSpeculativeDecoding={slmSpeculativeDecoding}
-            onSlmSpeculativeDecodingChange={setSlmSpeculativeDecoding}
-            draftModelAvailable={draftModelAvailable}
             simulMtEnabled={simulMtEnabled}
             onSimulMtEnabledChange={setSimulMtEnabled}
             simulMtWaitK={simulMtWaitK}
