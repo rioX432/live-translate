@@ -26,13 +26,13 @@ Bidirectional JA↔EN translation with transparent subtitles overlaid on any dis
 ## Features
 
 - **Real-time translation** — Whisper STT + pluggable translation engines
-- **Local-first** — Runs entirely offline with OPUS-MT or TranslateGemma 4B (GPU)
-- **API rotation** — Combine free tiers of Google, DeepL, Azure, and Gemini (4M+ chars/month)
+- **Local-first** — Runs entirely offline with OPUS-MT (279ms) or Hunyuan-MT 7B (quality mode)
+- **API rotation** — Combine free tiers of Google, DeepL, and Gemini (4M+ chars/month)
 - **Subtitle overlay** — Transparent, always-on-top subtitles on any display
 - **Customizable subtitles** — Font size, colors, opacity, position
 - **Speaker diarization** — Speaker change detection with labels
 - **Meeting summaries** — Generate summaries via local LLM after sessions
-- **Multiple STT engines** — Whisper, mlx-whisper (Apple Silicon), Moonshine AI
+- **Multiple STT engines** — Whisper Local (whisper.cpp), MLX Whisper (Apple Silicon optimized)
 - **Streaming display** — Local Agreement algorithm for flicker-free interim results
 - **GPU auto-detection** — Automatically selects best engine for your hardware
 - **Plugin system** — Extensible engine architecture with manifest-based plugins
@@ -65,18 +65,50 @@ npm run test         # Run unit tests
 
 - macOS 13+ (Apple Silicon recommended)
 - Node.js 20+
-- For online engines: API key(s) from Google / DeepL / Azure / Gemini
+- For online engines: API key(s) from Google / DeepL / Gemini
+
+## STT Engines
+
+| Engine | JA CER | EN WER | Latency | Notes |
+|--------|--------|--------|---------|-------|
+| **Whisper Local** | — | — | Fast | Native whisper.cpp, primary default |
+| **MLX Whisper** | 8.1% | 3.8% | 2.9s | Apple Silicon optimized |
+
+<details>
+<summary>Experimental STT engines (hidden from UI)</summary>
+
+| Engine | Notes |
+|--------|-------|
+| SenseVoice | Under evaluation |
+| Qwen3-ASR | Under evaluation |
+| Sherpa-ONNX | Under evaluation |
+
+Removed: Lightning Whisper MLX (JA CER 162%), Moonshine (JA CER 221%)
+</details>
 
 ## Translation Engines
 
-| Engine | Quality | Speed | Offline | Free Tier |
-|--------|---------|-------|---------|-----------|
-| **Auto Rotation** (recommended) | Best | Fast | No | 4M+ chars/month |
-| TranslateGemma 4B | High | Medium | Yes | Unlimited |
-| OPUS-MT | Good | Fast | Yes | Unlimited |
-| Google Translate | High | Fast | No | 500K chars/month |
-| DeepL | High | Fast | No | 500K chars/month |
-| Gemini 2.5 Flash | High | Fast | No | Generous |
+| Engine | JA→EN | EN→JA | Memory | Offline | Free Tier |
+|--------|-------|-------|--------|---------|-----------|
+| **OPUS-MT** (fast default) | 279ms | 462ms | 0.98GB | Yes | Unlimited |
+| **Hunyuan-MT 7B** (quality) | 3.7s | 6.3s | 4GB | Yes | Unlimited |
+| **Google Translate** | Fast | Fast | — | No | 500K chars/month |
+| **DeepL** | Fast | Fast | — | No | 500K chars/month |
+| **Gemini 2.5 Flash** | Fast | Fast | — | No | Generous |
+
+<details>
+<summary>Experimental translation engines (hidden from UI)</summary>
+
+| Engine | Notes |
+|--------|-------|
+| TranslateGemma | 8s/sentence — too slow for real-time |
+| HY-MT1.5 | Under evaluation |
+| CT2 OPUS-MT | CTranslate2 variant |
+| CT2 Madlad-400 | CTranslate2, 450+ languages |
+| ANE | Apple Neural Engine backend |
+
+Removed: ALMA-Ja, Gemma-2-JPN
+</details>
 
 ## Usage
 
@@ -96,7 +128,7 @@ Microphone → Silero VAD → STT Engine → Translator → Subtitle Overlay
 
 - **Cascade mode**: Independent STT + Translator engines
 - **Streaming**: Local Agreement algorithm for stable interim display
-- **UtilityProcess**: TranslateGemma runs in isolated process (node-llama-cpp)
+- **UtilityProcess**: Local LLM engines run in isolated process (node-llama-cpp)
 - **Plugin system**: Drop-in engine plugins via manifest files
 
 ### Adding a Translation Engine
@@ -119,9 +151,9 @@ export class MyTranslator implements TranslatorEngine {
 
 - **Framework**: Electron + React + TypeScript
 - **Build**: electron-vite
-- **STT**: whisper.cpp, mlx-whisper, Moonshine AI
+- **STT**: whisper.cpp (native), MLX Whisper (Apple Silicon)
 - **VAD**: Silero VAD (@ricky0123/vad-web)
-- **Translation**: Google, DeepL, Azure, Gemini, OPUS-MT, TranslateGemma 4B
+- **Translation**: OPUS-MT (fast), Hunyuan-MT 7B (quality), Google, DeepL, Gemini
 - **LLM**: node-llama-cpp (meeting summaries, context-aware translation)
 - **Testing**: Vitest
 
