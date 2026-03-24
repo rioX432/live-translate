@@ -19,7 +19,7 @@ import { registerAudioHandlers } from './audio-handlers'
 import { registerIpcHandlers } from './ipc-handlers'
 import { createLogger } from './logger'
 import type { AppContext } from './app-context'
-import type { TranslationResult } from '../engines/types'
+import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
 import type { WhisperVariant, MoonshineVariant } from '../engines/model-downloader'
 
 const log = createLogger('main')
@@ -98,12 +98,15 @@ function initPipeline(): void {
   for (const plugin of discoverPlugins()) {
     const { manifest } = plugin
     const factory = () => loadPluginEngine(plugin)
+    // Plugin factory returns Promise<STTEngine | TranslatorEngine | E2ETranslationEngine>;
+    // Pipeline wraps factory() in Promise.resolve(), so async factories are supported.
+    // Cast through unknown because the factory return type is a union Promise.
     if (manifest.engineType === 'stt') {
-      ctx.pipeline.registerSTT(manifest.engineId, factory as any)
+      ctx.pipeline.registerSTT(manifest.engineId, factory as unknown as () => STTEngine)
     } else if (manifest.engineType === 'translator') {
-      ctx.pipeline.registerTranslator(manifest.engineId, factory as any)
+      ctx.pipeline.registerTranslator(manifest.engineId, factory as unknown as () => TranslatorEngine)
     } else if (manifest.engineType === 'e2e') {
-      ctx.pipeline.registerE2E(manifest.engineId, factory as any)
+      ctx.pipeline.registerE2E(manifest.engineId, factory as unknown as () => E2ETranslationEngine)
     }
     log.info(`Registered ${manifest.engineType} plugin: ${manifest.name} (${manifest.engineId})`)
   }
