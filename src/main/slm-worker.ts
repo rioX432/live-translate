@@ -14,7 +14,29 @@
  *   Worker → Main: { type: 'error', id?: string, message: string }
  */
 
+import type { Llama, LlamaModel, LlamaContext, LlamaContextSequence } from 'node-llama-cpp'
+
 type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15'
+
+/** IPC message from main process to worker */
+interface WorkerIncomingMessage {
+  type: 'init' | 'translate' | 'translate-incremental' | 'summarize' | 'dispose'
+  id?: string
+  modelPath?: string
+  kvCacheQuant?: boolean
+  modelType?: ModelType
+  draftModelPath?: string
+  text?: string
+  from?: string
+  to?: string
+  previousOutput?: string
+  transcript?: string
+  context?: {
+    previousSegments?: Array<{ source: string; translated: string; speakerId?: string }>
+    glossary?: Array<{ source: string; target: string }>
+    speakerId?: string
+  }
+}
 
 const LANG_NAMES: Record<string, string> = {
   ja: 'Japanese',
@@ -99,11 +121,11 @@ const LANG_NAMES_ZH: Record<string, string> = {
   yue: '粤语'
 }
 
-let llama: any = null
-let model: any = null
-let context: any = null
-let draftModel: any = null
-let draftContext: any = null
+let llama: Llama | null = null
+let model: LlamaModel | null = null
+let context: LlamaContext | null = null
+let draftModel: LlamaModel | null = null
+let draftContext: LlamaContext | null = null
 let speculativeEnabled = false
 let requestQueue: Promise<void> = Promise.resolve()
 let activeModelType: ModelType = 'translategemma'
@@ -226,7 +248,7 @@ async function handleTranslate(
     const { LlamaChatSession, DraftSequenceTokenPredictor } = await import('node-llama-cpp')
 
     // Create context sequence, optionally with speculative decoding
-    let contextSequence: any
+    let contextSequence: LlamaContextSequence
     if (speculativeEnabled && draftContext) {
       const draftSequence = draftContext.getSequence()
       contextSequence = context.getSequence({
@@ -469,23 +491,23 @@ async function handleDispose(): Promise<void> {
 
 // Listen for messages from main process
 // Serialize translate/summarize requests to prevent concurrent context access
-process.parentPort!.on('message', (e: { data: any }) => {
+process.parentPort!.on('message', (e: { data: WorkerIncomingMessage }) => {
   const msg = e.data
 
   const handleMessage = async (): Promise<void> => {
     try {
       switch (msg.type) {
         case 'init':
-          await handleInit(msg.modelPath, msg.kvCacheQuant, msg.modelType, msg.draftModelPath)
+          await handleInit(msg.modelPath!, msg.kvCacheQuant, msg.modelType, msg.draftModelPath)
           break
         case 'translate':
-          await handleTranslate(msg.id, msg.text, msg.from, msg.to, msg.context)
+          await handleTranslate(msg.id!, msg.text!, msg.from!, msg.to!, msg.context)
           break
         case 'translate-incremental':
-          await handleTranslateIncremental(msg.id, msg.text, msg.previousOutput, msg.from, msg.to, msg.context)
+          await handleTranslateIncremental(msg.id!, msg.text!, msg.previousOutput!, msg.from!, msg.to!, msg.context)
           break
         case 'summarize':
-          await handleSummarize(msg.id, msg.transcript)
+          await handleSummarize(msg.id!, msg.transcript!)
           break
         case 'dispose':
           await handleDispose()

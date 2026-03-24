@@ -5,6 +5,14 @@ import { getGGUFDir, downloadGGUF, getHunyuanMTVariants } from '../model-downloa
 
 const TRANSLATE_TIMEOUT_MS = 30_000
 
+/** IPC message from slm-worker to main process */
+interface WorkerMessage {
+  type: 'ready' | 'result' | 'error'
+  id?: string
+  text?: string
+  message?: string
+}
+
 interface PendingRequest {
   resolve: (text: string) => void
   reject: (err: Error) => void
@@ -76,7 +84,7 @@ export class HunyuanMTTranslator implements TranslatorEngine {
         reject(new Error('Hunyuan-MT initialization timed out'))
       }, 5 * 60_000)
 
-      const initHandler = (msg: any): void => {
+      const initHandler = (msg: WorkerMessage): void => {
         if (!this.worker) return
 
         if (msg.type === 'ready') {
@@ -87,7 +95,7 @@ export class HunyuanMTTranslator implements TranslatorEngine {
         } else if (msg.type === 'error') {
           clearTimeout(timeout)
           this.worker?.removeListener('message', initHandler)
-          reject(new Error(msg.message))
+          reject(new Error(msg.message ?? 'Unknown worker error'))
         }
       }
 
@@ -106,13 +114,13 @@ export class HunyuanMTTranslator implements TranslatorEngine {
 
     // Clear any leftover listeners before registering to prevent duplicates
     this.worker.removeAllListeners('message')
-    this.worker.on('message', (msg: any) => {
+    this.worker.on('message', (msg: WorkerMessage) => {
       if (msg.type === 'result' && msg.id) {
         const req = this.pending.get(msg.id)
         if (req) {
           clearTimeout(req.timer)
           this.pending.delete(msg.id)
-          req.resolve(msg.text)
+          req.resolve(msg.text ?? '')
         }
         return
       }
@@ -121,7 +129,7 @@ export class HunyuanMTTranslator implements TranslatorEngine {
         if (req) {
           clearTimeout(req.timer)
           this.pending.delete(msg.id)
-          req.reject(new Error(msg.message))
+          req.reject(new Error(msg.message ?? 'Unknown worker error'))
         }
         return
       }
