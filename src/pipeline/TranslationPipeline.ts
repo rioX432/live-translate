@@ -378,8 +378,14 @@ export class TranslationPipeline extends EventEmitter {
   ): Promise<TranslationResult | null> {
     if (!this.sttEngine) return null
 
+    const t0 = performance.now()
     const sttResult = await this.sttEngine.processAudio(audioChunk, sampleRate)
-    if (!sttResult || !sttResult.isFinal || !sttResult.text.trim()) return null
+    const sttMs = (performance.now() - t0).toFixed(0)
+    if (!sttResult || !sttResult.isFinal || !sttResult.text.trim()) {
+      console.log(`[pipeline] STT: ${sttMs}ms → (no result)`)
+      return null
+    }
+    console.log(`[pipeline] STT: ${sttMs}ms → "${sttResult.text}" [${sttResult.language}]`)
 
     const targetLang = this.resolveTargetLanguage(sttResult.language)
 
@@ -389,6 +395,7 @@ export class TranslationPipeline extends EventEmitter {
     }
 
     try {
+      const t1 = performance.now()
       const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
       const glossary = this.glossary.length > 0 ? this.glossary : undefined
       const translated = await this.translator.translate(
@@ -397,6 +404,8 @@ export class TranslationPipeline extends EventEmitter {
         targetLang,
         this.contextBuffer.getContext(glossary, speakerId)
       )
+      const translateMs = (performance.now() - t1).toFixed(0)
+      console.log(`[pipeline] Translate: ${translateMs}ms → "${translated}"`)
 
       this.contextBuffer.add(sttResult.text, translated, speakerId)
 
@@ -467,14 +476,18 @@ export class TranslationPipeline extends EventEmitter {
     this.processingCount++
     this.streamingLock = true
     try {
+      const t0 = performance.now()
       const sttResult = await this.sttEngine.processAudio(audioBuffer, sampleRate)
+      const sttMs = (performance.now() - t0).toFixed(0)
       if (!sttResult || !sttResult.text.trim()) {
+        console.log(`[pipeline:stream] STT: ${sttMs}ms → (no result, ${(audioBuffer.length / sampleRate).toFixed(1)}s audio)`)
         // Reset agreement on silence to prevent stale state accumulation (#75)
         this.agreement.reset()
         this.lastTranslatedConfirmed = ''
         this.simulMtPreviousOutput = ''
         return null
       }
+      console.log(`[pipeline:stream] STT: ${sttMs}ms → "${sttResult.text}" [${sttResult.language}]`)
 
       const agreement = this.agreement.update(sttResult.text)
       const targetLang = this.resolveTargetLanguage(sttResult.language)
