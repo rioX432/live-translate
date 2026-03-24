@@ -1,6 +1,7 @@
 import { utilityProcess } from 'electron'
 import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
+import type { SLMWorkerOutgoingMessage } from './slm-worker-types'
 import { getGGUFDir, downloadGGUF, getGGUFVariants, isGGUFDownloaded } from '../model-downloader'
 import type { SLMModelSize } from '../model-downloader'
 
@@ -90,7 +91,7 @@ export class SLMTranslator implements TranslatorEngine {
         reject(new Error('TranslateGemma initialization timed out'))
       }, 5 * 60_000)
 
-      const initHandler = (msg: any): void => {
+      const initHandler = (msg: SLMWorkerOutgoingMessage): void => {
         // Guard: ignore messages if worker was killed during timeout (#205)
         if (!this.worker) return
 
@@ -123,7 +124,7 @@ export class SLMTranslator implements TranslatorEngine {
 
     // Clear any leftover listeners before registering to prevent duplicates (#206)
     this.worker.removeAllListeners('message')
-    this.worker.on('message', (msg: any) => {
+    this.worker.on('message', (msg: SLMWorkerOutgoingMessage) => {
       if (msg.type === 'result' && msg.id) {
         const req = this.pending.get(msg.id)
         if (req) {

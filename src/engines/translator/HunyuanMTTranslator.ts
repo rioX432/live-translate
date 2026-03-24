@@ -1,6 +1,7 @@
 import { utilityProcess } from 'electron'
 import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
+import type { SLMWorkerOutgoingMessage } from './slm-worker-types'
 import { getGGUFDir, downloadGGUF, getHunyuanMTVariants } from '../model-downloader'
 
 const TRANSLATE_TIMEOUT_MS = 30_000
@@ -76,7 +77,7 @@ export class HunyuanMTTranslator implements TranslatorEngine {
         reject(new Error('Hunyuan-MT initialization timed out'))
       }, 5 * 60_000)
 
-      const initHandler = (msg: any): void => {
+      const initHandler = (msg: SLMWorkerOutgoingMessage): void => {
         if (!this.worker) return
 
         if (msg.type === 'ready') {
@@ -106,7 +107,7 @@ export class HunyuanMTTranslator implements TranslatorEngine {
 
     // Clear any leftover listeners before registering to prevent duplicates
     this.worker.removeAllListeners('message')
-    this.worker.on('message', (msg: any) => {
+    this.worker.on('message', (msg: SLMWorkerOutgoingMessage) => {
       if (msg.type === 'result' && msg.id) {
         const req = this.pending.get(msg.id)
         if (req) {

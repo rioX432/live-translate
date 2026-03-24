@@ -5,12 +5,18 @@ import type { MoonshineVariant } from '../model-downloader'
 
 const MODELS_SUBDIR = 'moonshine'
 
+/** Minimal interface for the HuggingFace ASR pipeline (avoids complex union types) */
+interface ASRPipeline {
+  (audio: Float32Array, options?: { sampling_rate?: number }): Promise<{ text?: string }>
+  dispose(): Promise<void>
+}
+
 export class MoonshineEngine implements STTEngine {
   readonly id = 'moonshine'
   readonly name = 'Moonshine AI (Fast)'
   readonly isOffline = true
 
-  private pipeline: any = null
+  private pipeline: ASRPipeline | null = null
   private initPromise: Promise<void> | null = null
   private onProgress?: (message: string) => void
   private variant: MoonshineVariant
@@ -39,7 +45,7 @@ export class MoonshineEngine implements STTEngine {
       'automatic-speech-recognition',
       config.modelId,
       { dtype: 'q8' }
-    )
+    ) as unknown as ASRPipeline
 
     this.onProgress?.(`Moonshine ${config.label} model loaded`)
   }
