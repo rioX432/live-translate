@@ -27,5 +27,11 @@
   "offscreen": {
     "reasons": ["USER_MEDIA"],
     "justification": "Capture tab audio via tabCapture API and stream PCM data to the Live Translate desktop app for real-time speech translation."
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["audio-processor.js"],
+      "matches": []
+    }
+  ]
 }
