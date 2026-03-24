@@ -1,46 +1,28 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { useAudioCapture } from '../hooks/useAudioCapture'
-
-/** Supported language codes — must match Language type in types.ts */
-type Language = 'ja' | 'en' | 'zh' | 'ko' | 'fr' | 'de' | 'es' | 'pt' | 'ru' | 'it' | 'nl' | 'pl' | 'ar' | 'th' | 'vi' | 'id'
-type SourceLanguage = 'auto' | Language
-
-const LANGUAGE_LABELS: Record<Language, string> = {
-  ja: 'Japanese',
-  en: 'English',
-  zh: 'Chinese',
-  ko: 'Korean',
-  fr: 'French',
-  de: 'German',
-  es: 'Spanish',
-  pt: 'Portuguese',
-  ru: 'Russian',
-  it: 'Italian',
-  nl: 'Dutch',
-  pl: 'Polish',
-  ar: 'Arabic',
-  th: 'Thai',
-  vi: 'Vietnamese',
-  id: 'Indonesian'
-}
-
-const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
-
-/** Wrap a promise with a timeout to prevent UI freezes when main process hangs */
-function withIpcTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout>
-  const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
-  })
-  return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
-}
-
-type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-ct2-opus' | 'offline-madlad-400' | 'offline-slm' | 'offline-hunyuan-mt' | 'offline-hunyuan-mt-15' | 'offline-ane' | 'offline-hybrid'
-
-interface DisplayInfo {
-  id: number
-  label: string
-}
+import {
+  AudioSettings,
+  LanguageSettings,
+  STTSettings,
+  TranslatorSettings,
+  SubtitleSettings,
+  SessionControls
+} from './settings'
+import {
+  LANGUAGE_LABELS,
+  withIpcTimeout
+} from './settings/shared'
+import type {
+  DisplayInfo,
+  EngineMode,
+  Language,
+  MoonshineVariantType,
+  SlmModelSizeType,
+  SourceLanguage,
+  SttEngineType,
+  SubtitlePositionType,
+  WhisperVariantType
+} from './settings/shared'
 
 function SettingsPanel(): React.JSX.Element {
   const [engineMode, setEngineMode] = useState<EngineMode>('offline-hybrid')
@@ -63,28 +45,26 @@ function SettingsPanel(): React.JSX.Element {
   const [sourceLanguage, setSourceLanguage] = useState<SourceLanguage>('auto')
   const [targetLanguage, setTargetLanguage] = useState<Language>('en')
 
-  const [sttEngine, setSttEngine] = useState<'whisper-local' | 'mlx-whisper' | 'moonshine'>('whisper-local')
-  const [whisperVariant, setWhisperVariant] = useState<'kotoba-v2.0' | 'large-v3-turbo'>('kotoba-v2.0')
-  const [moonshineVariant, setMoonshineVariant] = useState<'tiny' | 'base'>('base')
+  const [sttEngine, setSttEngine] = useState<SttEngineType>('whisper-local')
+  const [whisperVariant, setWhisperVariant] = useState<WhisperVariantType>('kotoba-v2.0')
+  const [moonshineVariant, setMoonshineVariant] = useState<MoonshineVariantType>('base')
 
   const [subtitleFontSize, setSubtitleFontSize] = useState(30)
   const [subtitleSourceColor, setSubtitleSourceColor] = useState('#ffffff')
   const [subtitleTranslatedColor, setSubtitleTranslatedColor] = useState('#7dd3fc')
   const [subtitleBgOpacity, setSubtitleBgOpacity] = useState(78)
-  const [subtitlePosition, setSubtitlePosition] = useState<'top' | 'bottom'>('bottom')
+  const [subtitlePosition, setSubtitlePosition] = useState<SubtitlePositionType>('bottom')
 
   const [sessions, setSessions] = useState<Array<{ id: string; startedAt: number; engineMode: string; entryCount: number }>>([])
 
   const [slmKvCacheQuant, setSlmKvCacheQuant] = useState(true)
-  const [slmModelSize, setSlmModelSize] = useState<'4b' | '12b'>('4b')
+  const [slmModelSize, setSlmModelSize] = useState<SlmModelSizeType>('4b')
   const [slmSpeculativeDecoding, setSlmSpeculativeDecoding] = useState(false)
   const [draftModelAvailable, setDraftModelAvailable] = useState(false)
   const [simulMtEnabled, setSimulMtEnabled] = useState(false)
   const [simulMtWaitK, setSimulMtWaitK] = useState(3)
 
   const [glossaryTerms, setGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
-  const [newGlossarySource, setNewGlossarySource] = useState('')
-  const [newGlossaryTarget, setNewGlossaryTarget] = useState('')
 
   const [platform, setPlatform] = useState<string>('darwin')
 
@@ -137,11 +117,11 @@ function SettingsPanel(): React.JSX.Element {
       if (s.microsoftApiKey) setMicrosoftApiKey(s.microsoftApiKey as string)
       if (s.microsoftRegion) setMicrosoftRegion(s.microsoftRegion as string)
       if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
-      if (s.sttEngine) setSttEngine(s.sttEngine as 'whisper-local' | 'mlx-whisper' | 'moonshine')
-      if (s.whisperVariant) setWhisperVariant(s.whisperVariant as 'kotoba-v2.0' | 'large-v3-turbo')
-      if (s.moonshineVariant) setMoonshineVariant(s.moonshineVariant as 'tiny' | 'base')
+      if (s.sttEngine) setSttEngine(s.sttEngine as SttEngineType)
+      if (s.whisperVariant) setWhisperVariant(s.whisperVariant as WhisperVariantType)
+      if (s.moonshineVariant) setMoonshineVariant(s.moonshineVariant as MoonshineVariantType)
       if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(s.slmKvCacheQuant as boolean)
-      if (s.slmModelSize) setSlmModelSize(s.slmModelSize as '4b' | '12b')
+      if (s.slmModelSize) setSlmModelSize(s.slmModelSize as SlmModelSizeType)
       if (s.slmSpeculativeDecoding !== undefined) setSlmSpeculativeDecoding(s.slmSpeculativeDecoding as boolean)
       if (s.glossaryTerms) setGlossaryTerms(s.glossaryTerms as Array<{ source: string; target: string }>)
       if (s.simulMtEnabled !== undefined) setSimulMtEnabled(s.simulMtEnabled as boolean)
@@ -154,7 +134,7 @@ function SettingsPanel(): React.JSX.Element {
         if (sub.sourceTextColor) setSubtitleSourceColor(sub.sourceTextColor as string)
         if (sub.translatedTextColor) setSubtitleTranslatedColor(sub.translatedTextColor as string)
         if (sub.backgroundOpacity !== undefined) setSubtitleBgOpacity(sub.backgroundOpacity as number)
-        if (sub.position) setSubtitlePosition(sub.position as 'top' | 'bottom')
+        if (sub.position) setSubtitlePosition(sub.position as SubtitlePositionType)
       }
 
       // Auto-expand API section if an API engine is saved
@@ -478,8 +458,19 @@ function SettingsPanel(): React.JSX.Element {
     window.api.moveSubtitleToDisplay(displayId)
   }
 
-  // Helper: is current engine an API engine?
-  const isApiEngine = ['rotation', 'online', 'online-deepl', 'online-gemini'].includes(engineMode)
+  const handleGenerateSummary = async (): Promise<void> => {
+    if (!lastTranscriptPath) return
+    setIsSummarizing(true)
+    setStatus('Generating meeting summary...')
+    const result = await withIpcTimeout(window.api.generateSummary(lastTranscriptPath), 120_000, 'generateSummary')
+    setIsSummarizing(false)
+    if (result.summary) {
+      setSummaryText(result.summary)
+      setStatus('Summary generated')
+    } else {
+      setStatus(`Summary failed: ${result.error}`)
+    }
+  }
 
   // Current engine display name
   const engineDisplayName = (): string => {
@@ -517,11 +508,10 @@ function SettingsPanel(): React.JSX.Element {
   const languageDisplayName = (): string => {
     const src = sourceLanguage === 'auto' ? 'Auto-detect' : LANGUAGE_LABELS[sourceLanguage]
     const tgt = LANGUAGE_LABELS[targetLanguage]
-    return `${src} → ${tgt}`
+    return `${src} \u2192 ${tgt}`
   }
 
-  // Does the current engine use SLM options?
-  const showSlmOptions = ['offline-slm', 'offline-hunyuan-mt', 'offline-hunyuan-mt-15', 'offline-hybrid'].includes(engineMode)
+  const disabled = isRunning || isStarting
 
   return (
     <div style={containerStyle}>
@@ -580,38 +570,7 @@ function SettingsPanel(): React.JSX.Element {
       )}
 
       {/* Microphone Selection — always visible */}
-      <Section label="Microphone">
-        <select
-          value={audio.selectedDevice}
-          onChange={(e) => audio.setSelectedDevice(e.target.value)}
-          style={selectStyle}
-          disabled={isRunning || isStarting}
-          aria-label="Microphone device"
-        >
-          {audio.devices.map((d) => (
-            <option key={d.deviceId} value={d.deviceId}>
-              {d.label}
-            </option>
-          ))}
-        </select>
-        {/* Volume meter */}
-        <div style={{ marginTop: '6px', height: '4px', background: '#1e293b', borderRadius: '2px' }}>
-          <div
-            style={{
-              height: '100%',
-              width: `${audio.volume * 100}%`,
-              background: audio.volume > 0.7 ? '#ef4444' : '#22c55e',
-              borderRadius: '2px',
-              transition: 'width 0.1s'
-            }}
-          />
-        </div>
-        {audio.permissionError && (
-          <div style={{ marginTop: '6px', fontSize: '12px', color: '#ef4444' }}>
-            {audio.permissionError}
-          </div>
-        )}
-      </Section>
+      <AudioSettings audio={audio} disabled={disabled} />
 
       {/* Current config summary — always visible */}
       <div style={{
@@ -672,792 +631,97 @@ function SettingsPanel(): React.JSX.Element {
       {/* Advanced Settings content */}
       {showAdvanced && (
         <div style={{ marginBottom: '16px' }}>
-          {/* Language Settings */}
-          <Section label="Language">
-            <div style={{ display: 'flex', gap: '12px' }}>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>
-                  Source Language
-                </div>
-                <select
-                  value={sourceLanguage}
-                  onChange={(e) => setSourceLanguage(e.target.value as SourceLanguage)}
-                  style={selectStyle}
-                  disabled={isRunning || isStarting}
-                  aria-label="Source language"
-                >
-                  <option value="auto">Auto-detect</option>
-                  {ALL_LANGUAGES.map((lang) => (
-                    <option key={lang} value={lang}>{LANGUAGE_LABELS[lang]}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>
-                  Target Language
-                </div>
-                <select
-                  value={targetLanguage}
-                  onChange={(e) => setTargetLanguage(e.target.value as Language)}
-                  style={selectStyle}
-                  disabled={isRunning || isStarting}
-                  aria-label="Target language"
-                >
-                  {ALL_LANGUAGES.map((lang) => (
-                    <option key={lang} value={lang}>{LANGUAGE_LABELS[lang]}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            {sourceLanguage !== 'auto' && sourceLanguage === targetLanguage && (
-              <div style={{ marginTop: '6px', fontSize: '11px', color: '#f59e0b' }}>
-                Source and target languages are the same. Translation will fall back to ja/en swap.
-              </div>
-            )}
-          </Section>
+          <LanguageSettings
+            sourceLanguage={sourceLanguage}
+            onSourceLanguageChange={setSourceLanguage}
+            targetLanguage={targetLanguage}
+            onTargetLanguageChange={setTargetLanguage}
+            disabled={disabled}
+          />
 
-          {/* STT Engine */}
-          <Section label="Speech Recognition">
-            <select
-              value={sttEngine}
-              onChange={(e) => setSttEngine(e.target.value as 'whisper-local' | 'mlx-whisper' | 'moonshine')}
-              style={selectStyle}
-              disabled={isRunning || isStarting}
-              aria-label="STT engine"
-            >
-              <option value="whisper-local">Whisper (whisper.cpp)</option>
-              {platform === 'darwin' && (
-                <option value="mlx-whisper">mlx-whisper (Apple Silicon, faster)</option>
-              )}
-              <option value="moonshine">Moonshine AI (ultra-fast, experimental)</option>
-            </select>
-            {sttEngine === 'whisper-local' && (
-              <div style={{ marginTop: '8px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>
-                  Whisper Model
-                </div>
-                <select
-                  value={whisperVariant}
-                  onChange={(e) => setWhisperVariant(e.target.value as 'kotoba-v2.0' | 'large-v3-turbo')}
-                  style={selectStyle}
-                  disabled={isRunning || isStarting}
-                  aria-label="Whisper model variant"
-                >
-                  <option value="kotoba-v2.0">Kotoba Whisper v2.0 (Japanese-optimized, ~540MB)</option>
-                  <option value="large-v3-turbo">Large v3 Turbo (Multilingual, 6x faster, ~600MB)</option>
-                </select>
-                {whisperVariant === 'large-v3-turbo' && (
-                  <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
-                    OpenAI large-v3-turbo: 809M params, 4 decoder layers, within 1-2% WER of large-v3.
-                  </div>
-                )}
-              </div>
-            )}
-            {sttEngine === 'moonshine' && (
-              <div style={{ marginTop: '8px' }}>
-                <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>
-                  Moonshine Model
-                </div>
-                <select
-                  value={moonshineVariant}
-                  onChange={(e) => setMoonshineVariant(e.target.value as 'tiny' | 'base')}
-                  style={selectStyle}
-                  disabled={isRunning || isStarting}
-                  aria-label="Moonshine model variant"
-                >
-                  <option value="base">Base — 61M params, best accuracy (~130MB)</option>
-                  <option value="tiny">Tiny — 27M params, fastest (~60MB)</option>
-                </select>
-                <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
-                  English-focused. Japanese/CJK accuracy is unverified — switch to Whisper if results are poor.
-                </div>
-              </div>
-            )}
-          </Section>
+          <STTSettings
+            sttEngine={sttEngine}
+            onSttEngineChange={setSttEngine}
+            whisperVariant={whisperVariant}
+            onWhisperVariantChange={setWhisperVariant}
+            moonshineVariant={moonshineVariant}
+            onMoonshineVariantChange={setMoonshineVariant}
+            platform={platform}
+            disabled={disabled}
+          />
 
-          {/* Offline Translation Engines */}
-          <Section label="Translation Engine" role="radiogroup">
-            <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-              Offline
-            </div>
-            <label style={radioLabelStyle}>
-              <input
-                type="radio"
-                name="engine"
-                checked={engineMode === 'offline-hybrid'}
-                onChange={() => setEngineMode('offline-hybrid')}
-                disabled={isRunning || isStarting}
-              />
-              <div>
-                <div style={{ fontWeight: 500 }}>Hybrid (OPUS-MT + TranslateGemma)</div>
-                <div style={{ fontSize: '12px', color: '#94a3b8' }}>Instant draft + LLM refinement — best offline quality</div>
-              </div>
-            </label>
-            <label style={radioLabelStyle}>
-              <input
-                type="radio"
-                name="engine"
-                checked={engineMode === 'offline-slm'}
-                onChange={() => setEngineMode('offline-slm')}
-                disabled={isRunning || isStarting}
-              />
-              <div>
-                <div style={{ fontWeight: 500 }}>TranslateGemma</div>
-                <div style={{ fontSize: '12px', color: '#94a3b8' }}>GPU-accelerated offline translation</div>
-              </div>
-            </label>
-            <label style={radioLabelStyle}>
-              <input
-                type="radio"
-                name="engine"
-                checked={engineMode === 'offline-hunyuan-mt-15'}
-                onChange={() => setEngineMode('offline-hunyuan-mt-15')}
-                disabled={isRunning || isStarting}
-              />
-              <div>
-                <div style={{ fontWeight: 500 }}>HY-MT1.5-1.8B (Recommended)</div>
-                <div style={{ fontSize: '12px', color: '#94a3b8' }}>36 languages, ~1.1GB — fast and lightweight</div>
-              </div>
-            </label>
-            <label style={radioLabelStyle}>
-              <input
-                type="radio"
-                name="engine"
-                checked={engineMode === 'offline-hunyuan-mt'}
-                onChange={() => setEngineMode('offline-hunyuan-mt')}
-                disabled={isRunning || isStarting}
-              />
-              <div>
-                <div style={{ fontWeight: 500 }}>Hunyuan-MT 7B (WMT25 Winner)</div>
-                <div style={{ fontSize: '12px', color: '#94a3b8' }}>33 languages, ~4.7GB download</div>
-              </div>
-            </label>
-            <label style={radioLabelStyle}>
-              <input
-                type="radio"
-                name="engine"
-                checked={engineMode === 'offline-opus'}
-                onChange={() => setEngineMode('offline-opus')}
-                disabled={isRunning || isStarting}
-              />
-              <div>
-                <div style={{ fontWeight: 500 }}>OPUS-MT</div>
-                <div style={{ fontSize: '12px', color: '#94a3b8' }}>Lightweight, ~100MB — fast but basic</div>
-              </div>
-            </label>
-            <label style={radioLabelStyle}>
-              <input
-                type="radio"
-                name="engine"
-                checked={engineMode === 'offline-ct2-opus'}
-                onChange={() => setEngineMode('offline-ct2-opus')}
-                disabled={isRunning || isStarting}
-              />
-              <div>
-                <div style={{ fontWeight: 500 }}>OPUS-MT (CTranslate2)</div>
-                <div style={{ fontSize: '12px', color: '#94a3b8' }}>6-10x faster, requires Python 3</div>
-              </div>
-            </label>
-            <label style={radioLabelStyle}>
-              <input
-                type="radio"
-                name="engine"
-                checked={engineMode === 'offline-madlad-400'}
-                onChange={() => setEngineMode('offline-madlad-400')}
-                disabled={isRunning || isStarting}
-              />
-              <div>
-                <div style={{ fontWeight: 500 }}>Madlad-400 (450+ Languages)</div>
-                <div style={{ fontSize: '12px', color: '#94a3b8' }}>Google T5-based, ~1.5GB, requires Python 3</div>
-              </div>
-            </label>
-            {platform === 'darwin' && (
-              <label style={radioLabelStyle}>
-                <input
-                  type="radio"
-                  name="engine"
-                  checked={engineMode === 'offline-ane'}
-                  onChange={() => setEngineMode('offline-ane')}
-                  disabled={isRunning || isStarting}
-                />
-                <div>
-                  <div style={{ fontWeight: 500 }}>ANEMLL (Apple Neural Engine)</div>
-                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Ultra-low power, Apple Silicon only</div>
-                </div>
-              </label>
-            )}
+          <TranslatorSettings
+            engineMode={engineMode}
+            onEngineModeChange={setEngineMode}
+            platform={platform}
+            disabled={disabled}
+            gpuInfo={gpuInfo}
+            slmModelSize={slmModelSize}
+            onSlmModelSizeChange={setSlmModelSize}
+            slmKvCacheQuant={slmKvCacheQuant}
+            onSlmKvCacheQuantChange={setSlmKvCacheQuant}
+            slmSpeculativeDecoding={slmSpeculativeDecoding}
+            onSlmSpeculativeDecodingChange={setSlmSpeculativeDecoding}
+            draftModelAvailable={draftModelAvailable}
+            simulMtEnabled={simulMtEnabled}
+            onSimulMtEnabledChange={setSimulMtEnabled}
+            simulMtWaitK={simulMtWaitK}
+            onSimulMtWaitKChange={setSimulMtWaitK}
+            apiKey={apiKey}
+            onApiKeyChange={setApiKey}
+            deeplApiKey={deeplApiKey}
+            onDeeplApiKeyChange={setDeeplApiKey}
+            geminiApiKey={geminiApiKey}
+            onGeminiApiKeyChange={setGeminiApiKey}
+            microsoftApiKey={microsoftApiKey}
+            onMicrosoftApiKeyChange={setMicrosoftApiKey}
+            microsoftRegion={microsoftRegion}
+            onMicrosoftRegionChange={setMicrosoftRegion}
+            showApiOptions={showApiOptions}
+            onShowApiOptionsChange={setShowApiOptions}
+            glossaryTerms={glossaryTerms}
+            onGlossaryTermsChange={setGlossaryTerms}
+          />
 
-            {/* SLM sub-options */}
-            {showSlmOptions && (
-              <>
-                {gpuInfo && !gpuInfo.hasGpu && (
-                  <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 4px 24px' }}>
-                    No GPU detected — translation may be slow on CPU-only systems
-                  </div>
-                )}
-                <div style={{ paddingLeft: '24px', display: 'flex', flexDirection: 'column', gap: '2px', marginTop: '4px' }}>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '2px' }}>Model Size</div>
-                  <label style={radioLabelStyle}>
-                    <input
-                      type="radio"
-                      name="slm-model-size"
-                      checked={slmModelSize === '4b'}
-                      onChange={() => setSlmModelSize('4b')}
-                      disabled={isRunning || isStarting}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 500, fontSize: '12px' }}>4B (Faster, ~2.6GB)</div>
-                    </div>
-                  </label>
-                  <label style={radioLabelStyle}>
-                    <input
-                      type="radio"
-                      name="slm-model-size"
-                      checked={slmModelSize === '12b'}
-                      onChange={() => setSlmModelSize('12b')}
-                      disabled={isRunning || isStarting}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 500, fontSize: '12px' }}>12B (Higher quality, ~7.3GB)</div>
-                    </div>
-                  </label>
-                </div>
-                <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
-                  <input
-                    type="checkbox"
-                    checked={slmKvCacheQuant}
-                    onChange={(e) => setSlmKvCacheQuant(e.target.checked)}
-                    disabled={isRunning || isStarting}
-                  />
-                  <div>
-                    <div style={{ fontWeight: 500, fontSize: '12px' }}>KV cache quantization (Q8_0)</div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>Reduces VRAM ~50%</div>
-                  </div>
-                </label>
-                {slmModelSize === '12b' && (
-                  <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
-                    <input
-                      type="checkbox"
-                      checked={slmSpeculativeDecoding}
-                      onChange={(e) => setSlmSpeculativeDecoding(e.target.checked)}
-                      disabled={isRunning || isStarting || !draftModelAvailable}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 500, fontSize: '12px' }}>Speculative decoding (4B draft + 12B verify)</div>
-                      <div style={{ fontSize: '11px', color: '#94a3b8' }}>2-3x throughput, requires both models in VRAM (~10GB)</div>
-                      {!draftModelAvailable && (
-                        <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '2px' }}>
-                          Download the 4B model first
-                        </div>
-                      )}
-                    </div>
-                  </label>
-                )}
-                <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
-                  <input
-                    type="checkbox"
-                    checked={simulMtEnabled}
-                    onChange={(e) => setSimulMtEnabled(e.target.checked)}
-                    disabled={isRunning || isStarting}
-                  />
-                  <div>
-                    <div style={{ fontWeight: 500, fontSize: '12px' }}>Simultaneous translation (SimulMT)</div>
-                    <div style={{ fontSize: '11px', color: '#94a3b8' }}>Start translating before speaker finishes</div>
-                  </div>
-                </label>
-                {simulMtEnabled && (
-                  <div style={{ paddingLeft: '48px', marginTop: '-4px', marginBottom: '4px' }}>
-                    <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
-                      Wait-k: start after {simulMtWaitK} confirmed words
-                    </div>
-                    <input
-                      type="range"
-                      aria-label="Wait-k value"
-                      min={1}
-                      max={10}
-                      value={simulMtWaitK}
-                      onChange={(e) => setSimulMtWaitK(Number(e.target.value))}
-                      disabled={isRunning || isStarting}
-                      style={{ width: '100%' }}
-                    />
-                  </div>
-                )}
-              </>
-            )}
-
-            {/* API Translation — collapsed by default */}
-            <div style={{ marginTop: '12px' }}>
-              <button
-                onClick={() => setShowApiOptions(!showApiOptions)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  color: '#64748b',
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  textTransform: 'uppercase',
-                  letterSpacing: '0.05em',
-                  cursor: 'pointer',
-                  padding: '4px 0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
-              >
-                <span style={{ transform: showApiOptions ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', fontSize: '10px' }}>
-                  ▶
-                </span>
-                API Translation (requires internet)
-              </button>
-
-              {showApiOptions && (
-                <div style={{ marginTop: '4px' }}>
-                  <label style={radioLabelStyle}>
-                    <input
-                      type="radio"
-                      name="engine"
-                      checked={engineMode === 'rotation'}
-                      onChange={() => setEngineMode('rotation')}
-                      disabled={isRunning || isStarting}
-                    />
-                    <div>
-                      <div style={{ fontWeight: 500 }}>Auto Rotation — up to 4M+ chars/month free</div>
-                      <div style={{ fontSize: '12px', color: '#94a3b8' }}>Azure → Google → DeepL → Gemini</div>
-                    </div>
-                  </label>
-                  <label style={radioLabelStyle}>
-                    <input
-                      type="radio"
-                      name="engine"
-                      checked={engineMode === 'online'}
-                      onChange={() => setEngineMode('online')}
-                      disabled={isRunning || isStarting}
-                    />
-                    <div style={{ fontWeight: 500 }}>Google Translation</div>
-                  </label>
-                  <label style={radioLabelStyle}>
-                    <input
-                      type="radio"
-                      name="engine"
-                      checked={engineMode === 'online-deepl'}
-                      onChange={() => setEngineMode('online-deepl')}
-                      disabled={isRunning || isStarting}
-                    />
-                    <div style={{ fontWeight: 500 }}>DeepL</div>
-                  </label>
-                  <label style={radioLabelStyle}>
-                    <input
-                      type="radio"
-                      name="engine"
-                      checked={engineMode === 'online-gemini'}
-                      onChange={() => setEngineMode('online-gemini')}
-                      disabled={isRunning || isStarting}
-                    />
-                    <div style={{ fontWeight: 500 }}>Gemini 2.5 Flash</div>
-                  </label>
-
-                  {/* API Keys */}
-                  {isApiEngine && (
-                    <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {(engineMode === 'rotation' || engineMode === 'online') && (
-                        <input
-                          type="password"
-                          value={apiKey}
-                          onChange={(e) => setApiKey(e.target.value)}
-                          placeholder="Google Cloud Translation key"
-                          style={inputStyle}
-                          disabled={isRunning || isStarting}
-                        />
-                      )}
-                      {(engineMode === 'rotation' || engineMode === 'online-deepl') && (
-                        <input
-                          type="password"
-                          value={deeplApiKey}
-                          onChange={(e) => setDeeplApiKey(e.target.value)}
-                          placeholder="DeepL API key"
-                          style={inputStyle}
-                          disabled={isRunning || isStarting}
-                        />
-                      )}
-                      {(engineMode === 'rotation' || engineMode === 'online-gemini') && (
-                        <input
-                          type="password"
-                          value={geminiApiKey}
-                          onChange={(e) => setGeminiApiKey(e.target.value)}
-                          placeholder="Gemini API key"
-                          style={inputStyle}
-                          disabled={isRunning || isStarting}
-                        />
-                      )}
-                      {engineMode === 'rotation' && (
-                        <>
-                          <input
-                            type="password"
-                            value={microsoftApiKey}
-                            onChange={(e) => setMicrosoftApiKey(e.target.value)}
-                            placeholder="Azure Microsoft Translator key"
-                            style={inputStyle}
-                            disabled={isRunning || isStarting}
-                          />
-                          <input
-                            type="text"
-                            value={microsoftRegion}
-                            onChange={(e) => setMicrosoftRegion(e.target.value)}
-                            placeholder="Azure region (e.g. eastus)"
-                            style={inputStyle}
-                            disabled={isRunning || isStarting}
-                          />
-                        </>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </Section>
-
-          {/* Glossary */}
-          <Section label="Translation Glossary">
-            <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>
-              Define fixed translations for specific terms (e.g. proper nouns).
-            </div>
-            {glossaryTerms.length > 0 && (
-              <div style={{ marginBottom: '8px' }}>
-                {glossaryTerms.map((term, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '4px 0',
-                      borderBottom: '1px solid #1e293b',
-                      fontSize: '12px'
-                    }}
-                  >
-                    <span style={{ flex: 1, color: '#e2e8f0' }}>{term.source}</span>
-                    <span style={{ color: '#64748b' }}>&rarr;</span>
-                    <span style={{ flex: 1, color: '#93c5fd' }}>{term.target}</span>
-                    <button
-                      onClick={() => {
-                        const updated = glossaryTerms.filter((_, i) => i !== idx)
-                        setGlossaryTerms(updated)
-                        window.api.saveGlossary(updated)
-                      }}
-                      disabled={isRunning}
-                      style={{
-                        padding: '2px 6px',
-                        fontSize: '11px',
-                        background: '#334155',
-                        color: '#ef4444',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: isRunning ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      Remove
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-              <input
-                type="text"
-                value={newGlossarySource}
-                onChange={(e) => setNewGlossarySource(e.target.value)}
-                placeholder="Source term"
-                style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
-                disabled={isRunning}
-              />
-              <input
-                type="text"
-                value={newGlossaryTarget}
-                onChange={(e) => setNewGlossaryTarget(e.target.value)}
-                placeholder="Translation"
-                style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
-                disabled={isRunning}
-              />
-              <button
-                onClick={() => {
-                  if (!newGlossarySource.trim() || !newGlossaryTarget.trim()) return
-                  const updated = [...glossaryTerms, { source: newGlossarySource.trim(), target: newGlossaryTarget.trim() }]
-                  setGlossaryTerms(updated)
-                  window.api.saveGlossary(updated)
-                  setNewGlossarySource('')
-                  setNewGlossaryTarget('')
-                }}
-                disabled={isRunning || !newGlossarySource.trim() || !newGlossaryTarget.trim()}
-                style={{
-                  padding: '8px 12px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  background: '#334155',
-                  color: '#e2e8f0',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: (isRunning || !newGlossarySource.trim() || !newGlossaryTarget.trim()) ? 'not-allowed' : 'pointer',
-                  whiteSpace: 'nowrap'
-                }}
-              >
-                Add
-              </button>
-            </div>
-          </Section>
-
-          {/* Subtitle Appearance */}
-          <Section label="Subtitle Appearance">
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div>
-                <div style={sliderLabelStyle}>Font Size: {subtitleFontSize}px</div>
-                <input
-                  type="range"
-                  aria-label="Subtitle font size"
-                  min={20}
-                  max={48}
-                  value={subtitleFontSize}
-                  onChange={(e) => {
-                    const v = Number(e.target.value)
-                    setSubtitleFontSize(v)
-                    pushSubtitleSettings({ fontSize: v })
-                  }}
-                  style={{ width: '100%' }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '12px' }}>
-                <div style={{ flex: 1 }}>
-                  <div style={sliderLabelStyle}>Source Text</div>
-                  <input
-                    type="color"
-                    value={subtitleSourceColor}
-                    onChange={(e) => {
-                      setSubtitleSourceColor(e.target.value)
-                      pushSubtitleSettings({ sourceTextColor: e.target.value })
-                    }}
-                    style={colorInputStyle}
-                  />
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={sliderLabelStyle}>Translated Text</div>
-                  <input
-                    type="color"
-                    value={subtitleTranslatedColor}
-                    onChange={(e) => {
-                      setSubtitleTranslatedColor(e.target.value)
-                      pushSubtitleSettings({ translatedTextColor: e.target.value })
-                    }}
-                    style={colorInputStyle}
-                  />
-                </div>
-              </div>
-              <div>
-                <div style={sliderLabelStyle}>Background Opacity: {subtitleBgOpacity}%</div>
-                <input
-                  type="range"
-                  aria-label="Subtitle background opacity"
-                  min={0}
-                  max={100}
-                  value={subtitleBgOpacity}
-                  onChange={(e) => {
-                    const v = Number(e.target.value)
-                    setSubtitleBgOpacity(v)
-                    pushSubtitleSettings({ backgroundOpacity: v })
-                  }}
-                  style={{ width: '100%' }}
-                />
-              </div>
-              <div>
-                <div style={sliderLabelStyle}>Position</div>
-                <select
-                  value={subtitlePosition}
-                  onChange={(e) => {
-                    const v = e.target.value as 'top' | 'bottom'
-                    setSubtitlePosition(v)
-                    pushSubtitleSettings({ position: v })
-                  }}
-                  style={selectStyle}
-                >
-                  <option value="bottom">Bottom</option>
-                  <option value="top">Top</option>
-                </select>
-              </div>
-            </div>
-          </Section>
-
-          {/* Display Selection */}
-          <Section label="Subtitle Display">
-            <select
-              value={selectedDisplay}
-              onChange={(e) => handleDisplayChange(Number(e.target.value))}
-              style={selectStyle}
-              aria-label="Subtitle display"
-            >
-              {displays.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.label}
-                </option>
-              ))}
-            </select>
-          </Section>
+          <SubtitleSettings
+            fontSize={subtitleFontSize}
+            onFontSizeChange={(v) => { setSubtitleFontSize(v); pushSubtitleSettings({ fontSize: v }) }}
+            sourceColor={subtitleSourceColor}
+            onSourceColorChange={(v) => { setSubtitleSourceColor(v); pushSubtitleSettings({ sourceTextColor: v }) }}
+            translatedColor={subtitleTranslatedColor}
+            onTranslatedColorChange={(v) => { setSubtitleTranslatedColor(v); pushSubtitleSettings({ translatedTextColor: v }) }}
+            bgOpacity={subtitleBgOpacity}
+            onBgOpacityChange={(v) => { setSubtitleBgOpacity(v); pushSubtitleSettings({ backgroundOpacity: v }) }}
+            position={subtitlePosition}
+            onPositionChange={(v) => { setSubtitlePosition(v); pushSubtitleSettings({ position: v }) }}
+            displays={displays}
+            selectedDisplay={selectedDisplay}
+            onDisplayChange={handleDisplayChange}
+          />
         </div>
       )}
 
-      {/* Start/Stop Button — always visible */}
-      <button
-        aria-label={isRunning ? 'Stop translation' : 'Start translation'}
-        onClick={isRunning ? handleStop : handleStart}
-        style={{
-          ...buttonStyle,
-          background: isRunning ? '#dc2626' : isStarting ? '#6b7280' : '#16a34a'
-        }}
-        disabled={isStarting || (!isRunning && (
-          (engineMode === 'online' && !apiKey) ||
-          (engineMode === 'online-deepl' && !deeplApiKey) ||
-          (engineMode === 'online-gemini' && !geminiApiKey) ||
-          (engineMode === 'rotation' && !microsoftApiKey && !apiKey && !deeplApiKey && !geminiApiKey)
-        ))}
-      >
-        {isStarting ? 'Starting...' : isRunning ? '⏹ Stop' : '▶ Start'}
-      </button>
-
-      {/* Status */}
-      <div style={statusStyle} aria-live="polite">
-        <span style={{ color: isRunning ? '#22c55e' : '#64748b' }}>
-          {isRunning ? '●' : '○'}
-        </span>{' '}
-        {status}
-        {sessionDuration && (
-          <span style={{ marginLeft: '8px', color: '#94a3b8' }}>
-            ({sessionDuration})
-          </span>
-        )}
-      </div>
-
-      {/* Meeting Summary */}
-      {lastTranscriptPath && !isRunning && (
-        <div style={{
-          marginTop: '12px',
-          background: '#1e293b',
-          border: '1px solid #334155',
-          borderRadius: '8px',
-          padding: '12px 16px'
-        }}>
-          {!summaryText && !isSummarizing && (
-            <button
-              onClick={async () => {
-                setIsSummarizing(true)
-                setStatus('Generating meeting summary...')
-                const result = await withIpcTimeout(window.api.generateSummary(lastTranscriptPath), 120_000, 'generateSummary')
-                setIsSummarizing(false)
-                if (result.summary) {
-                  setSummaryText(result.summary)
-                  setStatus('Summary generated')
-                } else {
-                  setStatus(`Summary failed: ${result.error}`)
-                }
-              }}
-              style={{
-                ...buttonStyle,
-                background: '#6366f1',
-                fontSize: '13px',
-                padding: '8px',
-                marginTop: 0
-              }}
-            >
-              Generate Meeting Summary
-            </button>
-          )}
-          {isSummarizing && (
-            <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center' }}>
-              Generating summary...
-            </div>
-          )}
-          {summaryText && (
-            <div>
-              <div style={{ fontSize: '12px', fontWeight: 600, color: '#94a3b8', marginBottom: '8px' }}>
-                MEETING SUMMARY
-              </div>
-              <pre style={{
-                fontSize: '12px',
-                color: '#e2e8f0',
-                whiteSpace: 'pre-wrap',
-                lineHeight: 1.5,
-                margin: 0
-              }}>
-                {summaryText}
-              </pre>
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(summaryText)
-                  setStatus('Summary copied to clipboard')
-                }}
-                style={{
-                  ...buttonStyle,
-                  background: '#334155',
-                  fontSize: '12px',
-                  padding: '6px',
-                  marginTop: '8px'
-                }}
-              >
-                Copy to Clipboard
-              </button>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Session History */}
-      {sessions.length > 0 && (
-        <Section label="Session History">
-          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
-            {sessions.slice(0, 10).map((s) => (
-              <div key={s.id} style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '6px 0',
-                borderBottom: '1px solid #1e293b',
-                fontSize: '12px'
-              }}>
-                <div>
-                  <div style={{ color: '#e2e8f0' }}>{new Date(s.startedAt).toLocaleString()}</div>
-                  <div style={{ color: '#94a3b8' }}>{s.engineMode} — {s.entryCount} entries</div>
-                </div>
-                <button
-                  onClick={async () => {
-                    const result = await withIpcTimeout(window.api.exportSession(s.id, 'text'), 10_000, 'exportSession')
-                    if (result.content) {
-                      navigator.clipboard.writeText(result.content)
-                      setStatus('Session exported to clipboard')
-                    }
-                  }}
-                  style={{
-                    padding: '4px 8px',
-                    fontSize: '11px',
-                    background: '#334155',
-                    color: '#94a3b8',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Export
-                </button>
-              </div>
-            ))}
-          </div>
-        </Section>
-      )}
+      {/* Session controls — always visible */}
+      <SessionControls
+        isRunning={isRunning}
+        isStarting={isStarting}
+        engineMode={engineMode}
+        apiKey={apiKey}
+        deeplApiKey={deeplApiKey}
+        geminiApiKey={geminiApiKey}
+        microsoftApiKey={microsoftApiKey}
+        status={status}
+        sessionDuration={sessionDuration}
+        onStart={handleStart}
+        onStop={handleStop}
+        lastTranscriptPath={lastTranscriptPath}
+        summaryText={summaryText}
+        isSummarizing={isSummarizing}
+        onGenerateSummary={handleGenerateSummary}
+        onSetStatus={setStatus}
+        sessions={sessions}
+      />
     </div>
-  )
-}
-
-function Section({ label, children, role }: { label: string; children: React.ReactNode; role?: string }): React.JSX.Element {
-  return (
-    <section style={{ marginBottom: '18px' }} role={role} aria-label={label}>
-      <label style={sectionLabelStyle}>{label}</label>
-      {children}
-    </section>
   )
 }
 
@@ -1476,76 +740,6 @@ const titleStyle: React.CSSProperties = {
   marginBottom: '20px',
   color: '#f8fafc',
   letterSpacing: '-0.02em'
-}
-
-const sectionLabelStyle: React.CSSProperties = {
-  fontSize: '12px',
-  fontWeight: 600,
-  color: '#94a3b8',
-  textTransform: 'uppercase',
-  letterSpacing: '0.05em',
-  display: 'block',
-  marginBottom: '6px'
-}
-
-const selectStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  fontSize: '13px',
-  background: '#1e293b',
-  color: '#e2e8f0',
-  border: '1px solid #334155',
-  borderRadius: '6px'
-}
-
-const inputStyle: React.CSSProperties = {
-  ...selectStyle,
-  fontFamily: 'monospace'
-}
-
-const radioLabelStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'flex-start',
-  gap: '8px',
-  fontSize: '13px',
-  color: '#e2e8f0',
-  cursor: 'pointer',
-  padding: '6px 0'
-}
-
-const buttonStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '12px',
-  fontSize: '15px',
-  fontWeight: 700,
-  border: 'none',
-  borderRadius: '8px',
-  cursor: 'pointer',
-  color: '#fff',
-  marginTop: '8px'
-}
-
-const sliderLabelStyle: React.CSSProperties = {
-  fontSize: '12px',
-  color: '#94a3b8',
-  marginBottom: '4px'
-}
-
-const colorInputStyle: React.CSSProperties = {
-  width: '100%',
-  height: '32px',
-  padding: '2px',
-  background: '#1e293b',
-  border: '1px solid #334155',
-  borderRadius: '6px',
-  cursor: 'pointer'
-}
-
-const statusStyle: React.CSSProperties = {
-  marginTop: '12px',
-  fontSize: '12px',
-  color: '#94a3b8',
-  textAlign: 'center'
 }
 
 export default SettingsPanel
