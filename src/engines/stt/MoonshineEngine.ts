@@ -11,6 +11,7 @@ export class MoonshineEngine implements STTEngine {
   readonly isOffline = true
 
   private pipeline: any = null
+  private initPromise: Promise<void> | null = null
   private onProgress?: (message: string) => void
   private variant: MoonshineVariant
 
@@ -20,6 +21,12 @@ export class MoonshineEngine implements STTEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.initPromise) return this.initPromise
+    this.initPromise = this.doInitialize()
+    return this.initPromise
+  }
+
+  private async doInitialize(): Promise<void> {
     if (this.pipeline) return
 
     const config = MOONSHINE_VARIANTS[this.variant]
@@ -85,5 +92,6 @@ export class MoonshineEngine implements STTEngine {
       console.error('[moonshine] Error during pipeline disposal:', err)
     }
     this.pipeline = null
+    this.initPromise = null
   }
 }

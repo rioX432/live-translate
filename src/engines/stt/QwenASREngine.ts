@@ -50,6 +50,7 @@ export class QwenASREngine implements STTEngine {
   readonly isOffline = true
 
   private process: ChildProcess | null = null
+  private initPromise: Promise<void> | null = null
   private variant: QwenASRVariant
   private onProgress?: (message: string) => void
   private pendingRequests = new Map<number, (data: any) => void>()
@@ -68,6 +69,12 @@ export class QwenASREngine implements STTEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.initPromise) return this.initPromise
+    this.initPromise = this.doInitialize()
+    return this.initPromise
+  }
+
+  private async doInitialize(): Promise<void> {
     if (this.process) return
 
     const config = QWEN_ASR_VARIANTS[this.variant]
@@ -218,6 +225,7 @@ export class QwenASREngine implements STTEngine {
     for (const resolve of pending) {
       resolve({ error: 'Engine disposed' })
     }
+    this.initPromise = null
   }
 
   private sendCommand(cmd: Record<string, unknown>): Promise<any> {

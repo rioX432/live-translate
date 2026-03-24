@@ -14,7 +14,7 @@ export class OpusMTTranslator implements TranslatorEngine {
 
   private jaToEn: TranslationPipeline | null = null
   private enToJa: TranslationPipeline | null = null
-  private initializing = false
+  private initPromise: Promise<void> | null = null
   private onProgress?: (message: string) => void
 
   constructor(options?: { onProgress?: (message: string) => void }) {
@@ -22,9 +22,13 @@ export class OpusMTTranslator implements TranslatorEngine {
   }
 
   async initialize(): Promise<void> {
+    if (this.initPromise) return this.initPromise
+    this.initPromise = this.doInitialize()
+    return this.initPromise
+  }
+
+  private async doInitialize(): Promise<void> {
     if (this.jaToEn && this.enToJa) return
-    if (this.initializing) return
-    this.initializing = true
 
     const { pipeline, env } = await import('@huggingface/transformers')
     env.cacheDir = join(app.getPath('userData'), 'models', 'transformers')
@@ -48,9 +52,8 @@ export class OpusMTTranslator implements TranslatorEngine {
     } catch (err) {
       this.jaToEn = null
       this.enToJa = null
+      this.initPromise = null
       throw err
-    } finally {
-      this.initializing = false
     }
   }
 
