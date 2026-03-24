@@ -2,8 +2,8 @@
  * Offscreen document for audio capture and WebSocket streaming.
  *
  * Receives a tab capture stream ID from the background service worker,
- * captures the audio via getUserMedia + AudioWorklet, resamples to 16kHz mono,
- * and streams raw Float32 PCM to the Electron app via WebSocket.
+ * captures the audio via getUserMedia + AudioWorkletNode, resamples to 16kHz
+ * mono, and streams raw Float32 PCM to the Electron app via WebSocket.
  */
 
 const TARGET_SAMPLE_RATE = 16000
@@ -158,19 +158,23 @@ async function startCapture(streamId, port) {
     }
   })
 
-  // Set up AudioContext and processing
+  // Set up AudioContext and AudioWorklet processing
   const sampleRate = mediaStream.getAudioTracks()[0].getSettings().sampleRate || 48000
   audioContext = new AudioContext({ sampleRate })
+
+  // Load the AudioWorkletProcessor module
+  const processorUrl = chrome.runtime.getURL('audio-processor.js')
+  await audioContext.audioWorklet.addModule(processorUrl)
+
   sourceNode = audioContext.createMediaStreamSource(mediaStream)
 
-  // Use ScriptProcessorNode for broad compatibility (AudioWorklet not available in offscreen)
-  const bufferSize = 4096
-  processorNode = audioContext.createScriptProcessor(bufferSize, 1, 1)
+  // Use AudioWorkletNode (replaces deprecated ScriptProcessorNode)
+  processorNode = new AudioWorkletNode(audioContext, 'audio-capture-processor')
 
   const targetSamplesPerBuffer = Math.floor(TARGET_SAMPLE_RATE * (BUFFER_DURATION_MS / 1000))
 
-  processorNode.onaudioprocess = (event) => {
-    const inputData = event.inputBuffer.getChannelData(0)
+  processorNode.port.onmessage = (event) => {
+    const inputData = new Float32Array(event.data.audioData)
 
     // Downsample to 16kHz
     const resampled = downsample(inputData, sampleRate, TARGET_SAMPLE_RATE)
