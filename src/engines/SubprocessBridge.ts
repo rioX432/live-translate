@@ -98,8 +98,8 @@ export abstract class SubprocessBridge {
       console.error(`${prefix} Initialization timed out`)
       try {
         this.process?.kill()
-      } catch {
-        /* ignore */
+      } catch (e) {
+        console.warn(`${prefix} Failed to kill process on timeout:`, e)
       }
       this.process = null
     }, initTimeout)
@@ -175,8 +175,8 @@ export abstract class SubprocessBridge {
       if (this.process) {
         try {
           this.process.kill()
-        } catch {
-          /* ignore */
+        } catch (e) {
+          console.warn(`${prefix} Failed to kill process during init cleanup:`, e)
         }
         this.process = null
       }
@@ -235,15 +235,17 @@ export abstract class SubprocessBridge {
     console.log(`${prefix} Disposing resources`)
     if (this.process) {
       try {
-        this.sendCommand({ action: 'dispose' }).catch(() => {})
+        this.sendCommand({ action: 'dispose' }).catch((e) => {
+          console.warn(`${prefix} Failed to send dispose command:`, e)
+        })
         await new Promise((resolve) => setTimeout(resolve, 500))
-      } catch {
-        /* ignore */
+      } catch (e) {
+        console.warn(`${prefix} Error during dispose command:`, e)
       }
       try {
         this.process.kill()
-      } catch {
-        /* ignore */
+      } catch (e) {
+        console.warn(`${prefix} Failed to kill process during dispose:`, e)
       }
       this.process = null
     }

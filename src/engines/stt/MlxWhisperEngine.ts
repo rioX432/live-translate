@@ -96,7 +96,7 @@ export class MlxWhisperEngine extends SubprocessBridge implements STTEngine {
         timestamp: Date.now()
       }
     } finally {
-      try { unlinkSync(tempPath) } catch { /* ignore */ }
+      try { unlinkSync(tempPath) } catch (e) { console.warn('[mlx-whisper] Failed to delete temp file:', e) }
     }
   }
 }

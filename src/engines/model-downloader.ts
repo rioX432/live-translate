@@ -304,7 +304,7 @@ async function doDownloadWithResume(
       // If server doesn't support Range, start over
       if (response.status === 200 && existingSize > 0) {
         existingSize = 0
-        try { unlinkSync(partialPath) } catch { /* ignore */ }
+        try { unlinkSync(partialPath) } catch (e) { console.warn('[model-downloader] Failed to remove partial file for restart:', e) }
       }
 
       if (!response.ok && response.status !== 206) {
@@ -370,7 +370,7 @@ async function doDownloadWithResume(
 
     } catch (err) {
       if (attempt >= MAX_RETRIES) {
-        try { if (existsSync(partialPath)) unlinkSync(partialPath) } catch { /* ignore */ }
+        try { if (existsSync(partialPath)) unlinkSync(partialPath) } catch (e) { console.warn('[model-downloader] Failed to clean up partial file after max retries:', e) }
         throw err
       }
       const delay = RETRY_DELAYS[attempt]

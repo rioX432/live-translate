@@ -71,7 +71,7 @@ export class HunyuanMTTranslator implements TranslatorEngine {
     await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(() => {
         this.worker?.removeListener('message', initHandler)
-        try { this.worker?.kill() } catch { /* ignore */ }
+        try { this.worker?.kill() } catch (e) { console.warn('[hunyuan-mt] Failed to kill worker on timeout:', e) }
         this.worker = null
         reject(new Error('Hunyuan-MT initialization timed out'))
       }, 5 * 60_000)
