@@ -221,7 +221,7 @@ function SettingsPanel(): React.JSX.Element {
       unsub2()
       unsub3()
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- callbacks use stable refs internally
+   
   }, [])
 
   // Listen for status updates from main process
