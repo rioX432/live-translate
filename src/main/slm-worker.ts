@@ -14,15 +14,30 @@
  *   Worker → Main: { type: 'error', id?: string, message: string }
  */
 
+import type { Llama, LlamaModel, LlamaContext } from 'node-llama-cpp'
 import { LANG_NAMES_EN, LANG_NAMES_ZH } from '../engines/language-names'
 
 type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15'
 
-let llama: any = null
-let model: any = null
-let context: any = null
-let draftModel: any = null
-let draftContext: any = null
+/** IPC messages sent from the main process to this worker */
+type WorkerIncomingMessage =
+  | { type: 'init'; modelPath: string; kvCacheQuant?: boolean; modelType?: ModelType; draftModelPath?: string }
+  | { type: 'translate'; id: string; text: string; from: string; to: string; context?: TranslateContextPayload }
+  | { type: 'translate-incremental'; id: string; text: string; previousOutput: string; from: string; to: string; context?: TranslateContextPayload }
+  | { type: 'summarize'; id: string; transcript: string }
+  | { type: 'dispose' }
+
+interface TranslateContextPayload {
+  previousSegments?: Array<{ source: string; translated: string; speakerId?: string }>
+  glossary?: Array<{ source: string; target: string }>
+  speakerId?: string
+}
+
+let llama: Llama | null = null
+let model: LlamaModel | null = null
+let context: LlamaContext | null = null
+let draftModel: LlamaModel | null = null
+let draftContext: LlamaContext | null = null
 let speculativeEnabled = false
 let requestQueue: Promise<void> = Promise.resolve()
 let activeModelType: ModelType = 'translategemma'
@@ -145,7 +160,7 @@ async function handleTranslate(
     const { LlamaChatSession, DraftSequenceTokenPredictor } = await import('node-llama-cpp')
 
     // Create context sequence, optionally with speculative decoding
-    let contextSequence: any
+    let contextSequence: ReturnType<LlamaContext['getSequence']>
     if (speculativeEnabled && draftContext) {
       const draftSequence = draftContext.getSequence()
       contextSequence = context.getSequence({
@@ -388,7 +403,7 @@ async function handleDispose(): Promise<void> {
 
 // Listen for messages from main process
 // Serialize translate/summarize requests to prevent concurrent context access
-process.parentPort!.on('message', (e: { data: any }) => {
+process.parentPort!.on('message', (e: { data: WorkerIncomingMessage }) => {
   const msg = e.data
 
   const handleMessage = async (): Promise<void> => {
@@ -413,7 +428,7 @@ process.parentPort!.on('message', (e: { data: any }) => {
     } catch (err) {
       process.parentPort!.postMessage({
         type: 'error',
-        id: msg.id,
+        id: 'id' in msg ? msg.id : undefined,
         message: err instanceof Error ? err.message : String(err)
       })
     }

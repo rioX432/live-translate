@@ -18,7 +18,7 @@ import { createMainWindow, createSubtitleWindow, registerDisplayHandlers } from 
 import { registerAudioHandlers } from './audio-handlers'
 import { registerIpcHandlers } from './ipc-handlers'
 import type { AppContext } from './app-context'
-import type { TranslationResult } from '../engines/types'
+import type { TranslationResult, STTEngine, TranslatorEngine, E2ETranslationEngine } from '../engines/types'
 import type { WhisperVariant, MoonshineVariant } from '../engines/model-downloader'
 
 // Shared mutable state
@@ -92,15 +92,19 @@ function initPipeline(): void {
     })
   ))
   // Auto-register discovered plugins (#145)
+  // Plugin factories are async (return Promise<Engine>) — the pipeline handles this
+  // via `await Promise.resolve(factory())`, so the cast to sync factory is safe at runtime.
   for (const plugin of discoverPlugins()) {
     const { manifest } = plugin
-    const factory = () => loadPluginEngine(plugin)
     if (manifest.engineType === 'stt') {
-      ctx.pipeline.registerSTT(manifest.engineId, factory as any)
+      const factory = (() => loadPluginEngine(plugin)) as unknown as () => STTEngine
+      ctx.pipeline.registerSTT(manifest.engineId, factory)
     } else if (manifest.engineType === 'translator') {
-      ctx.pipeline.registerTranslator(manifest.engineId, factory as any)
+      const factory = (() => loadPluginEngine(plugin)) as unknown as () => TranslatorEngine
+      ctx.pipeline.registerTranslator(manifest.engineId, factory)
     } else if (manifest.engineType === 'e2e') {
-      ctx.pipeline.registerE2E(manifest.engineId, factory as any)
+      const factory = (() => loadPluginEngine(plugin)) as unknown as () => E2ETranslationEngine
+      ctx.pipeline.registerE2E(manifest.engineId, factory)
     }
     console.log(`[plugin] Registered ${manifest.engineType} plugin: ${manifest.name} (${manifest.engineId})`)
   }

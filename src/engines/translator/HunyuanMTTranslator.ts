@@ -5,6 +5,12 @@ import { getGGUFDir, downloadGGUF, getHunyuanMTVariants } from '../model-downloa
 
 const TRANSLATE_TIMEOUT_MS = 30_000
 
+/** IPC messages sent from the slm-worker back to the main process */
+type WorkerMessage =
+  | { type: 'ready' }
+  | { type: 'result'; id: string; text: string }
+  | { type: 'error'; id?: string; message: string }
+
 interface PendingRequest {
   resolve: (text: string) => void
   reject: (err: Error) => void
@@ -76,7 +82,7 @@ export class HunyuanMTTranslator implements TranslatorEngine {
         reject(new Error('Hunyuan-MT initialization timed out'))
       }, 5 * 60_000)
 
-      const initHandler = (msg: any): void => {
+      const initHandler = (msg: WorkerMessage): void => {
         if (!this.worker) return
 
         if (msg.type === 'ready') {
@@ -106,7 +112,7 @@ export class HunyuanMTTranslator implements TranslatorEngine {
 
     // Clear any leftover listeners before registering to prevent duplicates
     this.worker.removeAllListeners('message')
-    this.worker.on('message', (msg: any) => {
+    this.worker.on('message', (msg: WorkerMessage) => {
       if (msg.type === 'result' && msg.id) {
         const req = this.pending.get(msg.id)
         if (req) {
