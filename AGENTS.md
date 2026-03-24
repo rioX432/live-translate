@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents working with this repository.
 
 ## Project Overview
 
-Live Translate is a real-time speech translation overlay app for presentations and meetings. It captures microphone audio via Silero VAD, performs speech-to-text with pluggable STT engines (Whisper, mlx-whisper, Moonshine), translates via pluggable translation engines (Google, DeepL, Azure, Gemini, OPUS-MT, TranslateGemma 4B), and displays subtitles on an external display. Features GPU-accelerated offline translation, speaker diarization, meeting summaries, and a plugin system.
+Live Translate is a real-time speech translation overlay app for presentations and meetings. It captures microphone audio via Silero VAD, performs speech-to-text with pluggable STT engines (Whisper Local, MLX Whisper), translates via pluggable translation engines (OPUS-MT, Hunyuan-MT 7B, Google, DeepL, Gemini), and displays subtitles on an external display. Features GPU-accelerated offline translation, speaker diarization, meeting summaries, and a plugin system.
 
 ## Commands
 
@@ -26,12 +26,12 @@ npm install          # Install deps (postinstall fixes whisper-node-addon)
 ### Tech Stack
 - Electron + React + TypeScript
 - electron-vite (build tooling)
-- whisper-node-addon (whisper.cpp native binding)
-- mlx-whisper (Python subprocess bridge, Apple Silicon)
-- Moonshine AI (ONNX via @huggingface/transformers)
-- node-llama-cpp (TranslateGemma 4B/12B, meeting summaries, UtilityProcess)
+- whisper-node-addon (whisper.cpp native binding — primary STT)
+- mlx-whisper (Python subprocess bridge, Apple Silicon — JA CER 8.1%, EN WER 3.8%)
+- node-llama-cpp (Hunyuan-MT 7B quality translation, meeting summaries, UtilityProcess)
 - @ricky0123/vad-web (Silero VAD)
-- Multiple translation backends (Google, DeepL, Azure, Gemini, OPUS-MT, TranslateGemma)
+- Primary translation: OPUS-MT (279ms, offline), Hunyuan-MT 7B (3.7s, quality), Google, DeepL, Gemini
+- Experimental (hidden): TranslateGemma, HY-MT1.5, CT2 OPUS-MT, CT2 Madlad-400, ANE
 - Local Agreement algorithm for streaming subtitle display
 
 ### Module Structure
@@ -51,7 +51,7 @@ live-translate/
 │   ├── preload/                 # Context bridge (renderer ↔ main IPC)
 │   ├── renderer/
 │   │   ├── components/
-│   │   │   ├── SettingsPanel.tsx    # Control panel (auto + 7 engines, STT, subtitles)
+│   │   │   ├── SettingsPanel.tsx    # Control panel (5 primary engines, STT, subtitles)
 │   │   │   └── SubtitleOverlay.tsx  # Transparent subtitle window (speaker labels)
 │   │   └── hooks/
 │   │       └── useAudioCapture.ts   # Mic/virtual audio capture via Silero VAD
@@ -61,16 +61,15 @@ live-translate/
 │   │   ├── gpu-detector.ts      # GPU detection via node-llama-cpp
 │   │   ├── plugin-loader.ts     # Engine plugin manifest + loading
 │   │   ├── stt/
-│   │   │   ├── WhisperLocalEngine.ts    # whisper.cpp + hallucination filter
-│   │   │   ├── MlxWhisperEngine.ts      # mlx-whisper (Python bridge)
-│   │   │   └── MoonshineEngine.ts       # Moonshine AI (ONNX)
+│   │   │   ├── WhisperLocalEngine.ts    # whisper.cpp + hallucination filter (primary)
+│   │   │   └── MlxWhisperEngine.ts      # mlx-whisper (Apple Silicon, primary)
 │   │   └── translator/
 │   │       ├── GoogleTranslator.ts
 │   │       ├── DeepLTranslator.ts
 │   │       ├── GeminiTranslator.ts
 │   │       ├── MicrosoftTranslator.ts
 │   │       ├── OpusMTTranslator.ts
-│   │       ├── SLMTranslator.ts         # TranslateGemma 4B/12B (UtilityProcess)
+│   │       ├── SLMTranslator.ts         # LLM-based translation (UtilityProcess, experimental)
 │   │       └── ApiRotationController.ts # Multi-provider rotation
 │   ├── pipeline/
 │   │   ├── TranslationPipeline.ts  # Orchestration, streaming, auto-recovery
@@ -109,13 +108,13 @@ live-translate/
 - Only translates newly confirmed text to minimize API calls
 
 **UtilityProcess Isolation**
-- TranslateGemma 4B runs in Electron UtilityProcess via node-llama-cpp
+- LLM-based engines (Hunyuan-MT 7B, TranslateGemma) run in Electron UtilityProcess via node-llama-cpp
 - SLMTranslator acts as IPC proxy (request/response with timeout)
 - Also handles meeting summary generation
 
 **Engine Auto-Selection**
 - GPU detection via node-llama-cpp `getGpuDeviceNames()`
-- Auto mode: API rotation (if keys) → TranslateGemma (if GPU) → OPUS-MT
+- Auto mode: API rotation (if keys) → Hunyuan-MT 7B (if GPU, quality) → OPUS-MT (fast default)
 
 **Plugin System**
 - Plugins in `userData/plugins/` with `live-translate-plugin.json` manifest
