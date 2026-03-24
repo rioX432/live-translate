@@ -30,6 +30,7 @@ export class HunyuanMTBench implements BenchmarkEngine {
   private llama: any = null
   private model: any = null
   private context: any = null
+  private session: any = null
 
   constructor(options?: HunyuanMTBenchOptions) {
     const modelFile = options?.modelFile ?? DEFAULT_MODEL_FILE
@@ -58,12 +59,15 @@ export class HunyuanMTBench implements BenchmarkEngine {
     this.model = await this.llama.loadModel({ modelPath: this.modelPath })
     this.context = await this.model.createContext({ contextSize: 2048 })
 
+    const { LlamaChatSession } = await import('node-llama-cpp')
+    this.session = new LlamaChatSession({ contextSequence: this.context.getSequence() })
+
     console.log('[hunyuan-mt] Model loaded')
   }
 
   async translate(text: string, direction: Direction): Promise<string> {
     if (!text.trim()) return ''
-    if (!this.context) {
+    if (!this.session) {
       throw new Error('[hunyuan-mt] Not initialized')
     }
 
@@ -73,10 +77,10 @@ export class HunyuanMTBench implements BenchmarkEngine {
     // Hunyuan-MT prompt format: for non-Chinese language pairs, use English prompt
     const prompt = `Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
 
-    const { LlamaChatSession } = await import('node-llama-cpp')
-    const session = new LlamaChatSession({ contextSequence: this.context.getSequence() })
+    // Reset session context for each independent translation
+    this.session.resetChatHistory()
 
-    const response = await session.prompt(prompt, {
+    const response = await this.session.prompt(prompt, {
       temperature: 0.7,
       maxTokens: 512,
       topK: 20,
@@ -84,11 +88,14 @@ export class HunyuanMTBench implements BenchmarkEngine {
       repeatPenalty: { penalty: 1.05 }
     })
 
-    session.dispose?.()
     return response.trim()
   }
 
   async dispose(): Promise<void> {
+    if (this.session) {
+      this.session.dispose?.()
+      this.session = null
+    }
     if (this.context) {
       await this.context.dispose?.()
       this.context = null

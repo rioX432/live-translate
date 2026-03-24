@@ -1,51 +1,82 @@
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'url'
+import { readFileSync } from 'fs'
 import type { STTBenchmarkEngine } from '../stt-types.js'
-import { PythonBridge } from '../bridge-utils.js'
-
-const __dirname = dirname(fileURLToPath(import.meta.url))
-const BRIDGE_SCRIPT = join(__dirname, '..', '..', 'resources', 'moonshine-bridge.py')
 
 /**
- * Moonshine STT benchmark engine (Useful Sensors).
- * Lightweight on-device speech recognition optimized for edge.
- * Uses a Python bridge subprocess.
+ * Moonshine STT benchmark engine using @huggingface/transformers (Node.js, no Python).
+ * Matches the app's MoonshineEngine implementation.
  */
 export class MoonshineBench implements STTBenchmarkEngine {
   readonly id = 'moonshine'
   readonly label = 'Moonshine (Edge)'
 
-  private bridge: PythonBridge
+  private pipeline: any = null
   private model: string
 
   constructor(options?: { model?: string }) {
-    this.model = options?.model ?? 'moonshine/base'
-    this.bridge = new PythonBridge(BRIDGE_SCRIPT)
+    this.model = options?.model ?? 'onnx-community/moonshine-base-ONNX'
   }
 
   async initialize(): Promise<void> {
-    await this.bridge.start()
-    const result = await this.bridge.send(
-      { action: 'init', model: this.model },
-      180_000
+    if (this.pipeline) return
+
+    console.log(`[moonshine] Loading model: ${this.model}...`)
+    const { join } = await import('path')
+    const { homedir } = await import('os')
+    const { pipeline, env } = await import('@huggingface/transformers')
+    env.cacheDir = join(homedir(), '.cache', 'huggingface', 'transformers')
+
+    this.pipeline = await pipeline(
+      'automatic-speech-recognition',
+      this.model,
+      { dtype: 'q8' }
     )
-    console.log(`[moonshine] Initialized: ${JSON.stringify(result)}`)
+    console.log('[moonshine] Model loaded')
   }
 
   async transcribe(audioPath: string): Promise<{ text: string; language?: string }> {
-    const result = await this.bridge.send({
-      action: 'transcribe',
-      audio_path: audioPath,
-      sample_rate: 16000
-    })
-
-    return {
-      text: String(result.text ?? ''),
-      language: result.language ? String(result.language) : undefined
+    if (!this.pipeline) {
+      throw new Error('[moonshine] Not initialized')
     }
+
+    // Read WAV file and extract raw PCM float32 samples
+    const wavBuffer = readFileSync(audioPath)
+    const float32Data = wavToFloat32(wavBuffer)
+
+    const result = await this.pipeline(float32Data, { sampling_rate: 16000 })
+    const text = (result as any).text ?? ''
+
+    return { text: text.trim() }
   }
 
   async dispose(): Promise<void> {
-    await this.bridge.stop()
+    if (this.pipeline) {
+      await this.pipeline.dispose?.()
+      this.pipeline = null
+    }
   }
+}
+
+/**
+ * Parse a 16-bit PCM WAV file into Float32Array.
+ * Assumes 16kHz mono WAV (standard for STT).
+ */
+function wavToFloat32(buffer: Buffer): Float32Array {
+  // Find 'data' chunk
+  let offset = 12 // skip RIFF header
+  while (offset < buffer.length - 8) {
+    const chunkId = buffer.toString('ascii', offset, offset + 4)
+    const chunkSize = buffer.readUInt32LE(offset + 4)
+    if (chunkId === 'data') {
+      const dataStart = offset + 8
+      const numSamples = chunkSize / 2 // 16-bit = 2 bytes per sample
+      const float32 = new Float32Array(numSamples)
+      for (let i = 0; i < numSamples; i++) {
+        const sample = buffer.readInt16LE(dataStart + i * 2)
+        float32[i] = sample / 32768.0
+      }
+      return float32
+    }
+    offset += 8 + chunkSize
+  }
+  throw new Error('No data chunk found in WAV file')
 }
