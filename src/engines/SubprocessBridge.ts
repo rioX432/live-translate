@@ -1,4 +1,11 @@
 import { spawn, type ChildProcess } from 'child_process'
+import {
+  BRIDGE_DISPOSE_GRACE_MS,
+  BRIDGE_STDERR_MAX_LINES,
+  BRIDGE_STDERR_WINDOW_MS,
+  BRIDGE_MAX_PENDING_REQUESTS,
+  BRIDGE_PENDING_TIMEOUT_MS
+} from './constants'
 
 /**
  * Spawn configuration returned by subclasses to define how the Python bridge
@@ -36,7 +43,7 @@ export type InitResult = Record<string, unknown>
 export abstract class SubprocessBridge {
   protected process: ChildProcess | null = null
   private initPromise: Promise<void> | null = null
-  private pendingRequests = new Map<number, (data: Record<string, unknown>) => void>()
+  private pendingRequests = new Map<number, { resolve: (data: Record<string, unknown>) => void; timer: ReturnType<typeof setTimeout> }>()
   private nextRequestId = 0
   private buffer = ''
   private stderrRateLimit = { count: 0, lastReset: Date.now() }
@@ -95,11 +102,11 @@ export abstract class SubprocessBridge {
     }
 
     const timer = setTimeout(() => {
-      console.error(`${prefix} Initialization timed out`)
+      console.error(`${prefix} bridge initialization timed out`)
       try {
         this.process?.kill()
       } catch (e) {
-        console.warn(`${prefix} Failed to kill process on timeout:`, e)
+        console.warn(`${prefix} bridge: failed to kill process on timeout:`, e)
       }
       this.process = null
     }, initTimeout)
@@ -115,7 +122,7 @@ export abstract class SubprocessBridge {
 
     this.process.on('error', (err) => {
       clearTimeout(timer)
-      console.error(`${prefix} Failed to start Python bridge:`, err.message)
+      console.error(`${prefix} bridge failed to start:`, err.message)
       this.process = null
     })
 
@@ -136,28 +143,30 @@ export abstract class SubprocessBridge {
 
           const reqId = msg._reqId as number | undefined
           if (reqId !== undefined && this.pendingRequests.has(reqId)) {
-            this.pendingRequests.get(reqId)!(msg)
+            const pending = this.pendingRequests.get(reqId)!
             this.pendingRequests.delete(reqId)
+            clearTimeout(pending.timer)
+            pending.resolve(msg)
           }
         } catch {
-          console.warn(`${prefix} Invalid JSON from bridge:`, line)
+          console.warn(`${prefix} bridge invalid JSON:`, line)
         }
       }
     })
 
     this.process.stderr!.on('data', (data: Buffer) => {
       const now = Date.now()
-      if (now - this.stderrRateLimit.lastReset > 5000) {
+      if (now - this.stderrRateLimit.lastReset > BRIDGE_STDERR_WINDOW_MS) {
         this.stderrRateLimit = { count: 0, lastReset: now }
       }
-      if (this.stderrRateLimit.count < 10) {
+      if (this.stderrRateLimit.count < BRIDGE_STDERR_MAX_LINES) {
         this.stderrRateLimit.count++
-        console.warn(`${prefix} stderr:`, data.toString().trim())
+        console.warn(`${prefix} bridge stderr:`, data.toString().trim())
       }
     })
 
     this.process.on('exit', (code) => {
-      console.log(`${prefix} Bridge exited with code ${code}`)
+      console.log(`${prefix} bridge exited with code ${code}`)
       this.process = null
     })
 
@@ -176,7 +185,7 @@ export abstract class SubprocessBridge {
         try {
           this.process.kill()
         } catch (e) {
-          console.warn(`${prefix} Failed to kill process during init cleanup:`, e)
+          console.warn(`${prefix} bridge: failed to kill process during init cleanup:`, e)
         }
         this.process = null
       }
@@ -188,6 +197,8 @@ export abstract class SubprocessBridge {
 
   /**
    * Send a JSON command to the bridge and wait for a response.
+   * Enforces a max pending request limit — if exceeded, the oldest request
+   * is rejected to prevent unbounded memory growth.
    * @param cmd - The command object (action + data)
    * @param timeout - Optional timeout override in ms
    */
@@ -201,6 +212,15 @@ export abstract class SubprocessBridge {
         return
       }
 
+      // Evict the oldest pending request if at capacity
+      if (this.pendingRequests.size >= BRIDGE_MAX_PENDING_REQUESTS) {
+        const oldestKey = this.pendingRequests.keys().next().value!
+        const oldest = this.pendingRequests.get(oldestKey)!
+        this.pendingRequests.delete(oldestKey)
+        clearTimeout(oldest.timer)
+        oldest.resolve({ error: 'Evicted: pending request limit exceeded' })
+      }
+
       const reqId = this.nextRequestId++ % 0xffffff
 
       const timeoutMs = timeout ?? this.getCommandTimeout()
@@ -209,10 +229,10 @@ export abstract class SubprocessBridge {
         reject(new Error('Bridge command timed out'))
       }, timeoutMs)
 
-      this.pendingRequests.set(reqId, (data) => {
+      this.pendingRequests.set(reqId, { resolve: (data) => {
         clearTimeout(timer)
         resolve(data)
-      })
+      }, timer })
 
       const written = this.process.stdin.write(
         JSON.stringify({ ...cmd, _reqId: reqId }) + '\n'
@@ -232,28 +252,29 @@ export abstract class SubprocessBridge {
 
   async dispose(): Promise<void> {
     const prefix = this.getLogPrefix()
-    console.log(`${prefix} Disposing resources`)
+    console.log(`${prefix} bridge disposing resources`)
     if (this.process) {
       try {
         this.sendCommand({ action: 'dispose' }).catch((e) => {
-          console.warn(`${prefix} Failed to send dispose command:`, e)
+          console.warn(`${prefix} bridge: failed to send dispose command:`, e)
         })
         await new Promise((resolve) => setTimeout(resolve, 500))
       } catch (e) {
-        console.warn(`${prefix} Error during dispose command:`, e)
+        console.warn(`${prefix} bridge: error during dispose command:`, e)
       }
       try {
         this.process.kill()
       } catch (e) {
-        console.warn(`${prefix} Failed to kill process during dispose:`, e)
+        console.warn(`${prefix} bridge: failed to kill process during dispose:`, e)
       }
       this.process = null
     }
     // Snapshot pending requests to avoid concurrent modification
     const pending = Array.from(this.pendingRequests.values())
     this.pendingRequests.clear()
-    for (const resolve of pending) {
-      resolve({ error: 'Engine disposed' })
+    for (const entry of pending) {
+      clearTimeout(entry.timer)
+      entry.resolve({ error: 'Engine disposed' })
     }
     this.initPromise = null
   }

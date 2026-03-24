@@ -5,9 +5,7 @@ import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 import { ALL_LANGUAGES } from '../types'
 import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
-
-const TRANSCRIBE_TIMEOUT_MS = 30_000
-const INIT_TIMEOUT_MS = 120_000
+import { QWEN_ASR_TRANSCRIBE_TIMEOUT_MS, QWEN_ASR_INIT_TIMEOUT_MS } from '../constants'
 
 /** Qwen3-ASR model variant */
 export type QwenASRVariant = '0.6b' | '1.7b'
@@ -69,11 +67,11 @@ export class QwenASREngine extends SubprocessBridge implements STTEngine {
   }
 
   protected getInitTimeout(): number {
-    return INIT_TIMEOUT_MS
+    return QWEN_ASR_INIT_TIMEOUT_MS
   }
 
   protected getCommandTimeout(): number {
-    return TRANSCRIBE_TIMEOUT_MS
+    return QWEN_ASR_TRANSCRIBE_TIMEOUT_MS
   }
 
   protected getSpawnConfig(): SpawnConfig {

@@ -397,7 +397,7 @@ async function handleDispose(): Promise<void> {
       llama = null
     }
   } finally {
-    process.exit(0)
+    process.parentPort!.postMessage({ type: 'disposed' })
   }
 }
 

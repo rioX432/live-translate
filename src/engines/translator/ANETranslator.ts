@@ -1,9 +1,7 @@
 import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
-
-const TRANSLATE_TIMEOUT_MS = 30_000
-const INIT_TIMEOUT_MS = 600_000 // 10 min — first-run CoreML conversion can be slow
+import { ANE_TRANSLATE_TIMEOUT_MS, ANE_INIT_TIMEOUT_MS } from '../constants'
 
 /**
  * ANEMLL Apple Neural Engine translator (#241).
@@ -39,11 +37,11 @@ export class ANETranslator extends SubprocessBridge implements TranslatorEngine 
   }
 
   protected getInitTimeout(): number {
-    return INIT_TIMEOUT_MS
+    return ANE_INIT_TIMEOUT_MS
   }
 
   protected getCommandTimeout(): number {
-    return TRANSLATE_TIMEOUT_MS
+    return ANE_TRANSLATE_TIMEOUT_MS
   }
 
   protected getSpawnConfig(): SpawnConfig {
