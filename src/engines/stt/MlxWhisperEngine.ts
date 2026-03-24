@@ -116,11 +116,13 @@ function findPython3WithMlxWhisper(): string {
     } catch { /* mlx_whisper not installed in this venv */ }
   }
 
-  // Fall back to system python3
-  try {
-    execSync('python3 -c "import mlx_whisper"', { stdio: 'ignore', timeout: 5000 })
-    return 'python3'
-  } catch { /* not available */ }
+  // Try versioned python binaries (prefer 3.12/3.13 over 3.14 due to native extension compatibility)
+  for (const bin of ['python3.12', 'python3.13', 'python3']) {
+    try {
+      execSync(`${bin} -c "import mlx_whisper"`, { stdio: 'ignore', timeout: 5000 })
+      return bin
+    } catch { /* not available or mlx_whisper not installed */ }
+  }
 
   throw new Error('mlx-whisper not found')
 }

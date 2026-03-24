@@ -30,7 +30,7 @@ export interface NoiseSuppressionProcessor {
   destroy: () => Promise<void>
 }
 
-const STREAMING_INTERVAL_MS = 2000
+const STREAMING_INTERVAL_MS = 1000
 const SAMPLE_RATE = 16000
 
 export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): UseAudioCaptureReturn {
@@ -160,10 +160,10 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
         return rawStream
       },
       // Override with more sensitive thresholds for real-time translation
-      positiveSpeechThreshold: 0.3,
-      negativeSpeechThreshold: 0.15,
-      redemptionMs: 1400,
-      minSpeechMs: 400,
+      positiveSpeechThreshold: 0.25,
+      negativeSpeechThreshold: 0.1,
+      redemptionMs: 800,
+      minSpeechMs: 250,
       // ScriptProcessor for Electron compatibility
       processorType: 'ScriptProcessor',
       // Serve ONNX model and WASM from public/vad/
@@ -178,7 +178,7 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
 
         // #53: accumulate frames in circular buffer during speech
         if (isSpeakingRef.current) {
-          const maxFrames = Math.floor((30 * SAMPLE_RATE) / frame.length)
+          const maxFrames = Math.floor((5 * SAMPLE_RATE) / frame.length)
           const buf = rollingBufferRef.current
           if (buf.length < maxFrames && !rollingBufferFullRef.current) {
             buf.push(new Float32Array(frame))

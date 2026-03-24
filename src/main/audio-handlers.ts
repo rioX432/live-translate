@@ -60,11 +60,14 @@ export function registerAudioHandlers(ctx: AppContext): void {
     const chunk = toValidAudioChunk(audioData)
     if (!chunk) return null
 
+    const t0 = performance.now()
     try {
-      return await ctx.pipeline.process(chunk, 16000)
+      const result = await ctx.pipeline.process(chunk, 16000)
+      const elapsed = (performance.now() - t0).toFixed(0)
+      if (result) log.info(`process-audio: ${elapsed}ms, ${(chunk.length / 16000).toFixed(1)}s audio`)
+      return result
     } catch (err) {
       log.error('Pipeline error:', err)
-      // #43: propagate error to renderer
       const message = sanitizeErrorMessage(err instanceof Error ? err.message : String(err))
       ctx.mainWindow?.webContents.send('status-update', `Processing error: ${message}`)
       return null
@@ -78,8 +81,12 @@ export function registerAudioHandlers(ctx: AppContext): void {
     const chunk = toValidAudioChunk(audioData)
     if (!chunk) return null
 
+    const t0 = performance.now()
     try {
-      return await ctx.pipeline.processStreaming(chunk, 16000)
+      const result = await ctx.pipeline.processStreaming(chunk, 16000)
+      const elapsed = (performance.now() - t0).toFixed(0)
+      if (result) log.info(`streaming: ${elapsed}ms, ${(chunk.length / 16000).toFixed(1)}s audio`)
+      return result
     } catch (err) {
       log.error('Streaming pipeline error:', err)
       return null
@@ -93,8 +100,12 @@ export function registerAudioHandlers(ctx: AppContext): void {
     const chunk = toValidAudioChunk(audioData)
     if (!chunk) return null
 
+    const t0 = performance.now()
     try {
-      return await ctx.pipeline.finalizeStreaming(chunk, 16000)
+      const result = await ctx.pipeline.finalizeStreaming(chunk, 16000)
+      const elapsed = (performance.now() - t0).toFixed(0)
+      if (result) log.info(`finalize: ${elapsed}ms, ${(chunk.length / 16000).toFixed(1)}s audio`)
+      return result
     } catch (err) {
       log.error('Finalize streaming error:', err)
       return null

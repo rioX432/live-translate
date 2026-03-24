@@ -61,6 +61,10 @@ export class OpusMTTranslator implements TranslatorEngine {
     if (!text.trim()) return ''
     if (from === to) return text
 
+    // Filter too-short input that causes hallucinations
+    const trimmed = text.trim()
+    if (trimmed.length < 3) return ''
+
     const pipe = from === 'ja' ? this.jaToEn : this.enToJa
     if (!pipe) {
       console.error(`[opus-mt] Pipeline not initialized for ${from}→${to}`)
@@ -68,7 +72,15 @@ export class OpusMTTranslator implements TranslatorEngine {
     }
 
     const result = await pipe(text)
-    return result[0]?.translation_text || ''
+    const translated = result[0]?.translation_text || ''
+
+    // Detect hallucination: if output is much longer than input, likely garbage
+    if (translated.length > trimmed.length * 5 && trimmed.length < 20) {
+      console.warn(`[opus-mt] Hallucination detected: "${trimmed}" → "${translated.substring(0, 50)}..." (filtered)`)
+      return ''
+    }
+
+    return translated
   }
 
   async dispose(): Promise<void> {
