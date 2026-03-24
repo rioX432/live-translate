@@ -3,12 +3,24 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Translation quality benchmark: OPUS-MT vs TranslateGemma vs Google Translate",
+  "description": "Translation quality benchmark for all translation engines",
   "scripts": {
     "bench": "tsx --expose-gc run.ts",
     "bench:google": "tsx --expose-gc run.ts --engines google",
+    "bench:deepl": "tsx --expose-gc run.ts --engines deepl",
+    "bench:microsoft": "tsx --expose-gc run.ts --engines microsoft",
+    "bench:gemini": "tsx --expose-gc run.ts --engines gemini",
     "bench:opus": "tsx --expose-gc run.ts --engines opus-mt",
-    "bench:gemma": "tsx --expose-gc run.ts --engines translate-gemma"
+    "bench:ct2-opus": "tsx --expose-gc run.ts --engines ct2-opus-mt",
+    "bench:ct2-madlad": "tsx --expose-gc run.ts --engines ct2-madlad400",
+    "bench:gemma": "tsx --expose-gc run.ts --engines translate-gemma",
+    "bench:hunyuan": "tsx --expose-gc run.ts --engines hunyuan-mt",
+    "bench:hunyuan15": "tsx --expose-gc run.ts --engines hunyuan-mt-15",
+    "bench:alma": "tsx --expose-gc run.ts --engines alma-ja",
+    "bench:gemma2jpn": "tsx --expose-gc run.ts --engines gemma2-jpn",
+    "bench:api": "tsx --expose-gc run.ts --engines google,deepl,microsoft,gemini",
+    "bench:local": "tsx --expose-gc run.ts --engines opus-mt,ct2-opus-mt,ct2-madlad400,translate-gemma,hunyuan-mt,hunyuan-mt-15,alma-ja,gemma2-jpn",
+    "bench:all": "tsx --expose-gc run.ts --engines google,deepl,microsoft,gemini,opus-mt,ct2-opus-mt,ct2-madlad400,translate-gemma,hunyuan-mt,hunyuan-mt-15,alma-ja,gemma2-jpn"
   },
   "dependencies": {
     "@huggingface/transformers": "^3.8.0",
