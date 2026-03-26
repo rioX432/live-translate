@@ -36,6 +36,12 @@ interface TranslateContextPayload {
 /** Context size for translation (short segments) */
 const TRANSLATION_CONTEXT_SIZE = 2048
 
+/** Inference parameters for summarization tasks */
+const SUMMARIZATION_PARAMS = {
+  temperature: 0.3,
+  maxTokens: 1024
+} as const
+
 let llama: Llama | null = null
 let model: LlamaModel | null = null
 let context: LlamaContext | null = null
@@ -324,10 +330,7 @@ Be concise and use bullet points.
 Transcript:
 ${transcript}`
 
-    const response = await session.prompt(prompt, {
-      temperature: 0.3,
-      maxTokens: 1024
-    })
+    const response = await session.prompt(prompt, SUMMARIZATION_PARAMS)
 
     session.dispose?.()
 
