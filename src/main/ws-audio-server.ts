@@ -101,6 +101,7 @@ export class WsAudioServer extends EventEmitter {
           if (this.client === ws) {
             this.client = null
           }
+          ws.removeAllListeners()
           this.emit('disconnected')
         })
 
@@ -139,8 +140,9 @@ export class WsAudioServer extends EventEmitter {
 
     this._running = false
 
-    // Close client connection
+    // Close client connection and remove its listeners
     if (this.client) {
+      this.client.removeAllListeners()
       this.client.close(1000, 'Server shutting down')
       this.client = null
     }
