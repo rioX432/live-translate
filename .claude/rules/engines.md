@@ -22,20 +22,21 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 - Lightning Whisper MLX — JA CER 162%
 - Moonshine — JA CER 221%
 
-### Translation Engines (5 primary + 5 experimental)
+### Translation Engines (5 primary + 6 experimental)
 
 **Primary (shown in UI):**
 | Engine | File | JA→EN | EN→JA | Memory | Offline |
 |--------|------|-------|-------|--------|---------|
 | OPUS-MT (fast default) | `OpusMTTranslator.ts` | 279ms | 462ms | 0.98GB | Yes |
-| Hunyuan-MT 7B (quality) | via `SLMTranslator.ts` | 3.7s | 6.3s | 4GB | Yes |
+| Hunyuan-MT 7B (quality) | `HunyuanMTTranslator.ts` | 3.7s | 6.3s | 4GB | Yes |
 | Google Translate | `GoogleTranslator.ts` | Fast | Fast | — | No |
 | DeepL | `DeepLTranslator.ts` | Fast | Fast | — | No |
 | Gemini | `GeminiTranslator.ts` | Fast | Fast | — | No |
 
 **Experimental (hidden from UI):**
-- TranslateGemma — 8s/sentence, too slow for real-time
-- HY-MT1.5, CT2 OPUS-MT, CT2 Madlad-400, ANE — under evaluation
+- HybridTranslator (`HybridTranslator.ts`) — two-stage: OPUS-MT draft + LLM refinement
+- TranslateGemma (via `SLMTranslator.ts`) — 8s/sentence, too slow for real-time
+- HY-MT1.5 (`HunyuanMT15Translator.ts`), CT2 OPUS-MT, CT2 Madlad-400, ANE — under evaluation
 
 **Removed (benchmark failures):**
 - ALMA-Ja, Gemma-2-JPN
@@ -56,7 +57,10 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 - All engines must handle errors internally and log them — pipeline should not crash
 
 ## Pipeline
-- `TranslationPipeline` owns engine lifecycle (init/dispose)
+- `EngineManager` owns engine registration, creation, and lifecycle (init/dispose)
+- `StreamingProcessor` handles streaming audio processing logic
+- `MemoryMonitor` logs process memory usage periodically
+- `TranslationPipeline` orchestrates the overall flow
 - Hot-swap via `switchEngine()` — disposes old engines before creating new ones
 - Cascade mode: STTEngine → TranslatorEngine (all current modes)
 - Results emitted via EventEmitter `result` event
@@ -64,7 +68,7 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 - `SpeakerTracker` assigns speaker IDs based on silence gaps
 
 ## UtilityProcess (LLM Engines)
-- `SLMTranslator` is an IPC proxy to `slm-worker.ts` UtilityProcess
-- Used by Hunyuan-MT 7B (primary quality mode) and TranslateGemma (experimental)
-- Worker handles both translation and meeting summarization
-- Init handler runs first, general message handler registered after init completes
+- Shared `worker-pool.ts` manages a single `slm-worker.ts` UtilityProcess
+- `HunyuanMTTranslator`, `HunyuanMT15Translator`, and `SLMTranslator` all share this worker
+- Worker hot-swaps loaded models via dispose+init sequence without process restart
+- Also handles meeting summary generation
