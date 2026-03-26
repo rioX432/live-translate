@@ -30,8 +30,8 @@ npm install          # Install deps (postinstall fixes whisper-node-addon)
 - mlx-whisper (Python subprocess bridge, Apple Silicon — JA CER 8.1%, EN WER 3.8%)
 - node-llama-cpp (Hunyuan-MT 7B quality translation, meeting summaries, UtilityProcess)
 - @ricky0123/vad-web (Silero VAD)
-- Primary translation: OPUS-MT (279ms, offline), Hunyuan-MT 7B (3.7s, quality), Google, DeepL, Gemini
-- Experimental (hidden): TranslateGemma, HY-MT1.5, CT2 OPUS-MT, CT2 Madlad-400, ANE
+- Primary translation: CT2 OPUS-MT (~200ms, CTranslate2, default offline), Hunyuan-MT 7B (3.7s, quality), Google, DeepL, Gemini
+- Experimental (hidden): TranslateGemma, HY-MT1.5, ONNX OPUS-MT (fallback), CT2 Madlad-400, ANE, Hybrid
 - Local Agreement algorithm for streaming subtitle display
 
 ### Module Structure
@@ -78,12 +78,13 @@ live-translate/
 │   │   │   ├── QwenASREngine.ts         # Qwen ASR (experimental)
 │   │   │   └── SherpaOnnxEngine.ts      # Sherpa-ONNX (experimental)
 │   │   └── translator/
-│   │       ├── OpusMTTranslator.ts       # OPUS-MT (fast default, offline)
+│   │       ├── OpusMTTranslator.ts       # OPUS-MT ONNX (fallback, offline)
+│   │       ├── CT2OpusMTTranslator.ts    # CT2 OPUS-MT (fast default, ~200ms)
 │   │       ├── HunyuanMTTranslator.ts    # Hunyuan-MT 7B (quality, offline)
 │   │       ├── HunyuanMT15Translator.ts  # HY-MT1.5 (experimental)
 │   │       ├── HybridTranslator.ts       # Two-stage: OPUS-MT draft + LLM refine
 │   │       ├── GoogleTranslator.ts
-│   │       ├── DeepLTranslator.ts
+│   │       ├── DeepLTranslator.ts        # Context-aware via API context param
 │   │       ├── GeminiTranslator.ts
 │   │       ├── MicrosoftTranslator.ts
 │   │       ├── SLMTranslator.ts          # TranslateGemma (experimental)
@@ -111,7 +112,9 @@ live-translate/
 ├── scripts/
 │   ├── fix-whisper-addon.js        # postinstall: fix macOS dylib paths
 │   └── after-pack.js              # electron-builder: fix packaged paths
-├── benchmark/                     # Translation quality benchmark (standalone)
+├── benchmark/                     # Translation + STT quality benchmark (standalone)
+│   ├── src/engines/              # Translation benchmark engines (GGUF, API, ONNX)
+│   └── src/stt-engines/          # STT benchmark engines (Whisper, SenseVoice, SherpaOnnx)
 └── models/                        # Auto-downloaded models (gitignored)
 ```
 
@@ -143,7 +146,7 @@ live-translate/
 
 **Engine Auto-Selection**
 - GPU detection via node-llama-cpp `getGpuDeviceNames()`
-- Auto mode: API rotation (if keys) → Hunyuan-MT 7B (if GPU, quality) → OPUS-MT (fast default)
+- Auto mode: API rotation (if keys) → Hunyuan-MT 7B (if GPU, quality) → CT2 OPUS-MT (fast default)
 
 **Plugin System**
 - Plugins in `userData/plugins/` with `live-translate-plugin.json` manifest

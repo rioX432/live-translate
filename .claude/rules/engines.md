@@ -22,21 +22,22 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 - Lightning Whisper MLX — JA CER 162%
 - Moonshine — JA CER 221%
 
-### Translation Engines (5 primary + 6 experimental)
+### Translation Engines (5 primary + 7 experimental)
 
 **Primary (shown in UI):**
-| Engine | File | JA→EN | EN→JA | Memory | Offline |
-|--------|------|-------|-------|--------|---------|
-| OPUS-MT (fast default) | `OpusMTTranslator.ts` | 279ms | 462ms | 0.98GB | Yes |
-| Hunyuan-MT 7B (quality) | `HunyuanMTTranslator.ts` | 3.7s | 6.3s | 4GB | Yes |
-| Google Translate | `GoogleTranslator.ts` | Fast | Fast | — | No |
-| DeepL | `DeepLTranslator.ts` | Fast | Fast | — | No |
-| Gemini | `GeminiTranslator.ts` | Fast | Fast | — | No |
+| Engine | File | JA→EN | EN→JA | Memory | Offline | Context |
+|--------|------|-------|-------|--------|---------|---------|
+| CT2 OPUS-MT (fast default) | `CT2OpusMTTranslator.ts` | ~200ms | ~400ms | ~1GB | Yes | Glossary |
+| Hunyuan-MT 7B (quality) | `HunyuanMTTranslator.ts` | 3.7s | 6.3s | 4GB | Yes | Full |
+| Google Translate | `GoogleTranslator.ts` | Fast | Fast | — | No | — |
+| DeepL | `DeepLTranslator.ts` | Fast | Fast | — | No | API context |
+| Gemini | `GeminiTranslator.ts` | Fast | Fast | — | No | Full |
 
 **Experimental (hidden from UI):**
 - HybridTranslator (`HybridTranslator.ts`) — two-stage: OPUS-MT draft + LLM refinement
 - TranslateGemma (via `SLMTranslator.ts`) — 8s/sentence, too slow for real-time
-- HY-MT1.5 (`HunyuanMT15Translator.ts`), CT2 OPUS-MT, CT2 Madlad-400, ANE — under evaluation
+- ONNX OPUS-MT (`OpusMTTranslator.ts`) — fallback, superseded by CT2 version
+- HY-MT1.5 (`HunyuanMT15Translator.ts`), CT2 Madlad-400, ANE — under evaluation
 
 **Removed (benchmark failures):**
 - ALMA-Ja, Gemma-2-JPN
@@ -72,3 +73,5 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 - `HunyuanMTTranslator`, `HunyuanMT15Translator`, and `SLMTranslator` all share this worker
 - Worker hot-swaps loaded models via dispose+init sequence without process restart
 - Also handles meeting summary generation
+- Per-request profiling logs: prompt build, context creation, inference time, memory (slm-worker)
+- Worker-pool logs round-trip timing for requests > 2s
