@@ -2,8 +2,8 @@ import type { Language } from '../types'
 
 // CJK Unicode ranges: Hiragana, Katakana, CJK Unified Ideographs, CJK Extension A/B, halfwidth katakana
 const CJK_REGEX = /[\u3000-\u30FF\u4E00-\u9FFF\u3400-\u4DBF\uF900-\uFAFF\uFF65-\uFF9F]/g
-// ASCII letters (basic Latin)
-const ASCII_LETTER_REGEX = /[A-Za-z]/g
+// Latin letters including diacritics (é, ñ, ü, etc.)
+const LATIN_LETTER_REGEX = /\p{Script=Latin}/gu
 
 /**
  * Detect whether OPUS-MT output is likely a hallucination.
@@ -63,10 +63,11 @@ function hasScriptMismatch(output: string, targetLang: Language): boolean {
   if (trimmed.length === 0) return false
 
   if (targetLang === 'en') {
-    // For English output, at least 70% should be ASCII letters, digits, spaces, or common punctuation
-    const asciiCount = (trimmed.match(/[\x20-\x7E]/g) || []).length
-    const ratio = asciiCount / trimmed.length
-    // If less than 60% ASCII, likely garbage
+    // For English output, at least 70% should be Latin letters, digits, spaces, or common punctuation
+    // Include Latin-1 Supplement (U+00A0-00FF) and Latin Extended-A/B (U+0100-024F) for diacritics
+    const latinCount = (trimmed.match(/[\x20-\x7E\u00A0-\u024F]/g) || []).length
+    const ratio = latinCount / trimmed.length
+    // If less than 60% Latin/ASCII, likely garbage
     return ratio < 0.6
   }
 
@@ -127,9 +128,9 @@ function hasExcessivePunctuation(output: string): boolean {
   const trimmed = output.trim()
   if (trimmed.length < 3) return false
 
-  // Count alphanumeric + CJK chars
+  // Count alphanumeric + CJK chars (Latin includes diacritics like é, ñ, ü)
   const meaningful =
-    (trimmed.match(ASCII_LETTER_REGEX) || []).length +
+    (trimmed.match(LATIN_LETTER_REGEX) || []).length +
     (trimmed.match(CJK_REGEX) || []).length +
     (trimmed.match(/\d/g) || []).length
 
