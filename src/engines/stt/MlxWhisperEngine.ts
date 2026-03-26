@@ -5,7 +5,7 @@ import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 import { ALL_LANGUAGES } from '../types'
 import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
-import { MLX_WHISPER_TRANSCRIBE_TIMEOUT_MS, MLX_WHISPER_INIT_TIMEOUT_MS } from '../constants'
+import { MLX_WHISPER_TRANSCRIBE_TIMEOUT_MS, MLX_WHISPER_INIT_TIMEOUT_MS, PYTHON_IMPORT_CHECK_TIMEOUT_MS } from '../constants'
 
 export class MlxWhisperEngine extends SubprocessBridge implements STTEngine {
   readonly id = 'mlx-whisper'
@@ -111,7 +111,7 @@ function findPython3WithMlxWhisper(): string {
   for (const p of venvPaths) {
     if (!existsSync(p)) continue
     try {
-      execSync(`${p} -c "import mlx_whisper"`, { stdio: 'ignore', timeout: 5000 })
+      execSync(`${p} -c "import mlx_whisper"`, { stdio: 'ignore', timeout: PYTHON_IMPORT_CHECK_TIMEOUT_MS })
       return p
     } catch { /* mlx_whisper not installed in this venv */ }
   }
@@ -119,7 +119,7 @@ function findPython3WithMlxWhisper(): string {
   // Try versioned python binaries (prefer 3.12/3.13 over 3.14 due to native extension compatibility)
   for (const bin of ['python3.12', 'python3.13', 'python3']) {
     try {
-      execSync(`${bin} -c "import mlx_whisper"`, { stdio: 'ignore', timeout: 5000 })
+      execSync(`${bin} -c "import mlx_whisper"`, { stdio: 'ignore', timeout: PYTHON_IMPORT_CHECK_TIMEOUT_MS })
       return bin
     } catch { /* not available or mlx_whisper not installed */ }
   }

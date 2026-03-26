@@ -60,6 +60,13 @@ export const CT2_MADLAD400_TRANSLATE_TIMEOUT_MS = 15_000
 export const CT2_MADLAD400_INIT_TIMEOUT_MS = 180_000
 
 // ---------------------------------------------------------------------------
+// Python discovery (execSync import checks)
+// ---------------------------------------------------------------------------
+
+/** Timeout for `python3 -c "import ..."` checks when locating a suitable venv (ms) */
+export const PYTHON_IMPORT_CHECK_TIMEOUT_MS = 5_000
+
+// ---------------------------------------------------------------------------
 // STT bridges (mlx-whisper, Qwen-ASR)
 // ---------------------------------------------------------------------------
 

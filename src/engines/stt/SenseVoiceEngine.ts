@@ -5,7 +5,7 @@ import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 import { ALL_LANGUAGES } from '../types'
 import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
-import { SENSEVOICE_TRANSCRIBE_TIMEOUT_MS, SENSEVOICE_INIT_TIMEOUT_MS } from '../constants'
+import { SENSEVOICE_TRANSCRIBE_TIMEOUT_MS, SENSEVOICE_INIT_TIMEOUT_MS, PYTHON_IMPORT_CHECK_TIMEOUT_MS } from '../constants'
 
 /**
  * SenseVoice STT engine using FunASR Python subprocess bridge.
@@ -130,14 +130,14 @@ function findPython3WithFunASR(): string {
   for (const p of venvPaths) {
     if (!existsSync(p)) continue
     try {
-      execSync(`${p} -c "import funasr"`, { stdio: 'ignore', timeout: 5000 })
+      execSync(`${p} -c "import funasr"`, { stdio: 'ignore', timeout: PYTHON_IMPORT_CHECK_TIMEOUT_MS })
       return p
     } catch { /* funasr not installed in this venv */ }
   }
 
   // Fall back to system python3
   try {
-    execSync('python3 -c "import funasr"', { stdio: 'ignore', timeout: 5000 })
+    execSync('python3 -c "import funasr"', { stdio: 'ignore', timeout: PYTHON_IMPORT_CHECK_TIMEOUT_MS })
     return 'python3'
   } catch { /* not available */ }
 

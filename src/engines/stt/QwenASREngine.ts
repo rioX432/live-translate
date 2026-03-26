@@ -5,7 +5,7 @@ import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 import { ALL_LANGUAGES } from '../types'
 import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
-import { QWEN_ASR_TRANSCRIBE_TIMEOUT_MS, QWEN_ASR_INIT_TIMEOUT_MS } from '../constants'
+import { QWEN_ASR_TRANSCRIBE_TIMEOUT_MS, QWEN_ASR_INIT_TIMEOUT_MS, PYTHON_IMPORT_CHECK_TIMEOUT_MS } from '../constants'
 
 /** Qwen3-ASR model variant */
 export type QwenASRVariant = '0.6b' | '1.7b'
@@ -157,14 +157,14 @@ function findPython3WithQwenASR(): string {
   for (const p of venvPaths) {
     if (!existsSync(p)) continue
     try {
-      execSync(`${p} -c "import qwen_asr"`, { stdio: 'ignore', timeout: 5000 })
+      execSync(`${p} -c "import qwen_asr"`, { stdio: 'ignore', timeout: PYTHON_IMPORT_CHECK_TIMEOUT_MS })
       return p
     } catch { /* qwen_asr not installed in this venv */ }
   }
 
   // Fall back to system python3
   try {
-    execSync('python3 -c "import qwen_asr"', { stdio: 'ignore', timeout: 5000 })
+    execSync('python3 -c "import qwen_asr"', { stdio: 'ignore', timeout: PYTHON_IMPORT_CHECK_TIMEOUT_MS })
     return 'python3'
   } catch { /* not available */ }
 
