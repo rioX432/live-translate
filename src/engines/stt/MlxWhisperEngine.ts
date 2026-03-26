@@ -76,12 +76,12 @@ export class MlxWhisperEngine extends SubprocessBridge implements STTEngine {
         })
       } catch (err) {
         // Timeout or bridge error — return null per interface contract
-        console.error('[mlx-whisper] Bridge error:', err instanceof Error ? err.message : err)
+        this.log.error('Bridge error:', err instanceof Error ? err.message : err)
         return null
       }
 
       if (result.error) {
-        console.error('[mlx-whisper] Transcription error:', result.error)
+        this.log.error('Transcription error:', result.error)
         return null
       }
 
@@ -94,7 +94,7 @@ export class MlxWhisperEngine extends SubprocessBridge implements STTEngine {
         timestamp: Date.now()
       }
     } finally {
-      try { unlinkSync(tempPath) } catch (e) { console.warn('[mlx-whisper] Failed to delete temp file:', e) }
+      try { unlinkSync(tempPath) } catch (e) { this.log.warn('Failed to delete temp file:', e) }
     }
   }
 }

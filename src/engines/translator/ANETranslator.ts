@@ -82,7 +82,7 @@ export class ANETranslator extends SubprocessBridge implements TranslatorEngine 
     if (!text.trim()) return ''
     if (from === to) return text
     if (!this.process) {
-      console.error(`[ane-translate] Bridge not running for ${from}->${to}`)
+      this.log.error(`Bridge not running for ${from}->${to}`)
       return ''
     }
 
@@ -101,16 +101,13 @@ export class ANETranslator extends SubprocessBridge implements TranslatorEngine 
       })
 
       if (result.error) {
-        console.error('[ane-translate] Translation error:', result.error)
+        this.log.error('Translation error:', result.error)
         return ''
       }
 
       return (result.translated as string) || ''
     } catch (err) {
-      console.error(
-        '[ane-translate] Bridge error:',
-        err instanceof Error ? err.message : err
-      )
+      this.log.error('Bridge error:', err instanceof Error ? err.message : err)
       return ''
     }
   }

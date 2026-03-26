@@ -3,6 +3,9 @@ import { join } from 'path'
 import { existsSync, mkdirSync, writeFileSync } from 'fs'
 import { appendFile } from 'fs/promises'
 import type { TranslationResult } from '../engines/types'
+import { createLogger } from '../main/logger'
+
+const log = createLogger('logger')
 
 export class TranscriptLogger {
   private logPath: string
@@ -59,11 +62,11 @@ export class TranscriptLogger {
       })
       .catch((err) => {
         this.consecutiveFailures++
-        console.error('[logger] Failed to write log entry:', err)
+        log.error('Failed to write log entry:', err)
         if (this.consecutiveFailures >= TranscriptLogger.MAX_FAILURES) {
           this.loggingDisabled = true
           const msg = `Transcript logging disabled after ${this.consecutiveFailures} failures: ${(err as Error).message}`
-          console.error(`[logger] ${msg}`)
+          log.error(msg)
           this.onStatusUpdate?.(msg)
         }
       })
@@ -84,7 +87,7 @@ export class TranscriptLogger {
     try {
       writeFileSync(this.logPath, footer, { encoding: 'utf-8', flag: 'a' })
     } catch (err) {
-      console.error('[logger] Failed to write session footer:', err)
+      log.error('Failed to write session footer:', err)
       this.onStatusUpdate?.(`Failed to write session footer: ${(err as Error).message}`)
     }
   }

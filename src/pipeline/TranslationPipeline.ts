@@ -15,6 +15,9 @@ import { SpeakerTracker } from './SpeakerTracker'
 import { EngineManager } from './EngineManager'
 import { StreamingProcessor } from './StreamingProcessor'
 import { MemoryMonitor } from './MemoryMonitor'
+import { createLogger } from '../main/logger'
+
+const log = createLogger('pipeline')
 
 export interface PipelineEvents {
   result: (result: TranslationResult) => void
@@ -127,7 +130,7 @@ export class TranslationPipeline extends EventEmitter {
     const prev = this._state
     this._state = newState
     this.emit('state-change', newState)
-    console.log(`[pipeline] ${prev} → ${newState}`)
+    log.info(`${prev} → ${newState}`)
   }
 
   /** Whether the pipeline is actively processing audio */
@@ -241,7 +244,7 @@ export class TranslationPipeline extends EventEmitter {
 
   start(): void {
     if (this._state !== PipelineState.IDLE) {
-      console.warn(`[pipeline] Cannot start in state: ${this._state}`)
+      log.warn(`Cannot start in state: ${this._state}`)
       return
     }
     this.setState(PipelineState.RUNNING)
@@ -312,10 +315,10 @@ export class TranslationPipeline extends EventEmitter {
     const sttResult = await this.engineManager.sttEngine.processAudio(audioChunk, sampleRate)
     const sttMs = (performance.now() - t0).toFixed(0)
     if (!sttResult || !sttResult.isFinal || !sttResult.text.trim()) {
-      console.log(`[pipeline] STT: ${sttMs}ms → (no result)`)
+      log.info(`STT: ${sttMs}ms → (no result)`)
       return null
     }
-    console.log(`[pipeline] STT: ${sttMs}ms → "${sttResult.text}" [${sttResult.language}]`)
+    log.info(`STT: ${sttMs}ms → "${sttResult.text}" [${sttResult.language}]`)
 
     const targetLang = this.resolveTargetLanguage(sttResult.language)
 
@@ -335,7 +338,7 @@ export class TranslationPipeline extends EventEmitter {
         this.contextBuffer.getContext(glossary, speakerId)
       )
       const translateMs = (performance.now() - t1).toFixed(0)
-      console.log(`[pipeline] Translate: ${translateMs}ms → "${translated}"`)
+      log.info(`Translate: ${translateMs}ms → "${translated}"`)
 
       this.contextBuffer.add(sttResult.text, translated, speakerId)
 
@@ -348,7 +351,7 @@ export class TranslationPipeline extends EventEmitter {
         speakerId
       }
     } catch (translatorErr) {
-      console.error('[pipeline] Translator error:', translatorErr)
+      log.error('Translator error:', translatorErr)
       this.emit('error', new Error(`Translation failed: ${translatorErr instanceof Error ? translatorErr.message : translatorErr}`))
       return null
     }
@@ -357,7 +360,7 @@ export class TranslationPipeline extends EventEmitter {
   /** Fire-and-forget recovery — does not block the IPC handler (#218) */
   private scheduleRecovery(): void {
     this.attemptRecovery().catch((err) => {
-      console.error('[pipeline] Background recovery error:', err)
+      log.error('Background recovery error:', err)
     })
   }
 
@@ -365,7 +368,7 @@ export class TranslationPipeline extends EventEmitter {
     if (!this.canTransitionTo(PipelineState.RECOVERING) || !this.engineManager.config) return
     this.setState(PipelineState.RECOVERING)
 
-    console.log('[pipeline] Attempting auto-recovery after consecutive errors...')
+    log.info('Attempting auto-recovery after consecutive errors...')
     this.emit('engine-loading', 'Recovering from errors...')
 
     try {
@@ -385,9 +388,9 @@ export class TranslationPipeline extends EventEmitter {
       // switchEngine leaves us in IDLE, so start again
       this.setState(PipelineState.RUNNING)
       this.memoryMonitor.start()
-      console.log('[pipeline] Auto-recovery successful')
+      log.info('Auto-recovery successful')
     } catch (err) {
-      console.error('[pipeline] Auto-recovery failed:', err)
+      log.error('Auto-recovery failed:', err)
       this.consecutiveErrors = 0 // reset to prevent re-triggering
       this.setState(PipelineState.IDLE)
       this.emit('error', new Error('Auto-recovery failed. Please restart manually.'))

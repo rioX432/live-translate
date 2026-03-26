@@ -1,4 +1,7 @@
 import type { TranslatorEngine, Language, TranslateContext, TranslationResult } from '../types'
+import { createLogger } from '../../main/logger'
+
+const log = createLogger('hybrid')
 
 /**
  * Callback type for emitting draft translation results.
@@ -71,7 +74,7 @@ export class HybridTranslator implements TranslatorEngine {
       }
     } catch (err) {
       // If refinement fails, fall back to draft silently
-      console.warn('[hybrid] Refinement failed, using draft:', err)
+      log.warn('Refinement failed, using draft:', err)
     }
 
     return draftText
@@ -82,12 +85,12 @@ export class HybridTranslator implements TranslatorEngine {
     try {
       await this.draftEngine.dispose()
     } catch (err) {
-      console.warn('[hybrid] Error disposing draft engine:', err)
+      log.warn('Error disposing draft engine:', err)
     }
     try {
       await this.refineEngine.dispose()
     } catch (err) {
-      console.warn('[hybrid] Error disposing refine engine:', err)
+      log.warn('Error disposing refine engine:', err)
     }
   }
 }

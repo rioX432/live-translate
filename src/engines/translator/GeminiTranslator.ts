@@ -1,6 +1,9 @@
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { LANG_NAMES_EN } from '../language-names'
 import { apiFetch, DEFAULT_TIMEOUT_MS } from './api-utils'
+import { createLogger } from '../../main/logger'
+
+const log = createLogger('gemini')
 
 const GEMINI_API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
@@ -85,6 +88,6 @@ export class GeminiTranslator implements TranslatorEngine {
   }
 
   async dispose(): Promise<void> {
-    console.log('[gemini] Disposing resources')
+    log.info('Disposing resources')
   }
 }

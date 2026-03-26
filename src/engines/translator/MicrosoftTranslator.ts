@@ -1,5 +1,8 @@
 import type { TranslatorEngine, Language } from '../types'
 import { apiFetch, apiInitialize, DEFAULT_TIMEOUT_MS } from './api-utils'
+import { createLogger } from '../../main/logger'
+
+const log = createLogger('microsoft-translate')
 
 const MS_TRANSLATE_URL = 'https://api.cognitive.microsofttranslator.com/translate'
 const API_VERSION = '3.0'
@@ -69,6 +72,6 @@ export class MicrosoftTranslator implements TranslatorEngine {
   }
 
   async dispose(): Promise<void> {
-    console.log('[microsoft-translate] Disposing resources')
+    log.info('Disposing resources')
   }
 }

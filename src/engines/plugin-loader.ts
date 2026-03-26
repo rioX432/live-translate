@@ -2,6 +2,9 @@ import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, readdirSync, readFileSync } from 'fs'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine } from './types'
+import { createLogger } from '../main/logger'
+
+const log = createLogger('plugin-loader')
 
 /** Plugin manifest schema (live-translate-plugin.json) */
 export interface PluginManifest {
@@ -42,7 +45,7 @@ export function discoverPlugins(): LoadedPlugin[] {
     try {
       const manifest: PluginManifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
       if (!validateManifest(manifest)) {
-        console.warn(`[plugin-loader] Invalid manifest in ${dir.name}, skipping`)
+        log.warn(`Invalid manifest in ${dir.name}, skipping`)
         continue
       }
 
@@ -51,7 +54,7 @@ export function discoverPlugins(): LoadedPlugin[] {
         path: join(pluginsDir, dir.name)
       })
     } catch (err) {
-      console.warn(`[plugin-loader] Failed to read manifest in ${dir.name}:`, err)
+      log.warn(`Failed to read manifest in ${dir.name}:`, err)
     }
   }
 
@@ -95,7 +98,7 @@ export async function loadPluginEngine(
     throw new Error(`Plugin entry point escapes plugin directory via symlink: ${plugin.manifest.entryPoint}`)
   }
 
-  console.warn(`[plugin-loader] Loading plugin "${plugin.manifest.name}" — plugins run with full system access`)
+  log.warn(`Loading plugin "${plugin.manifest.name}" — plugins run with full system access`)
 
   const module = await import(entryPath)
   const createEngine = module.default || module.createEngine

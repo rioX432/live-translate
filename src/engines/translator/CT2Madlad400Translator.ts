@@ -74,7 +74,7 @@ export class CT2Madlad400Translator extends SubprocessBridge implements Translat
   ): Promise<string> {
     if (!text.trim()) return ''
     if (!this.process) {
-      console.error(`[ct2-madlad-400] Bridge not running for translation to ${to}`)
+      this.log.error(`Bridge not running for translation to ${to}`)
       return ''
     }
 
@@ -86,16 +86,13 @@ export class CT2Madlad400Translator extends SubprocessBridge implements Translat
       })
 
       if (result.error) {
-        console.error('[ct2-madlad-400] Translation error:', result.error)
+        this.log.error('Translation error:', result.error)
         return ''
       }
 
       return (result.translated as string) || ''
     } catch (err) {
-      console.error(
-        '[ct2-madlad-400] Bridge error:',
-        err instanceof Error ? err.message : err
-      )
+      this.log.error('Bridge error:', err instanceof Error ? err.message : err)
       return ''
     }
   }

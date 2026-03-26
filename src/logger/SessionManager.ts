@@ -10,6 +10,9 @@ import {
 } from 'fs'
 import { appendFile } from 'fs/promises'
 import type { TranslationResult } from '../engines/types'
+import { createLogger } from '../main/logger'
+
+const log = createLogger('session-manager')
 
 export interface SessionMetadata {
   id: string
@@ -83,7 +86,7 @@ export async function appendEntry(sessionId: string, result: TranslationResult):
   try {
     await appendFile(entriesPath, JSON.stringify(entry) + '\n', 'utf-8')
   } catch (err) {
-    console.error('[session-manager] Failed to append entry:', err)
+    log.error('Failed to append entry:', err)
   }
 }
 
@@ -108,7 +111,7 @@ export function endSession(sessionId: string): void {
 
     writeFileSync(path, JSON.stringify(data, null, 2))
   } catch (err) {
-    console.error('[session-manager] Failed to end session:', err)
+    log.error('Failed to end session:', err)
   }
 }
 

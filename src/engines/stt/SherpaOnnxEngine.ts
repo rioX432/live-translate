@@ -85,7 +85,9 @@ export const SHERPA_ONNX_MODELS: Record<string, SherpaOnnxModelConfig> = {
   }
 }
 
-const LOG_PREFIX = '[sherpa-onnx]'
+import { createLogger } from '../../main/logger'
+
+const log = createLogger('sherpa-onnx')
 const MODELS_SUBDIR = 'sherpa-onnx'
 
 /**
@@ -133,7 +135,7 @@ export class SherpaOnnxEngine implements STTEngine {
 
     const modelConfig = SHERPA_ONNX_MODELS[this.modelKey]
     if (!modelConfig) {
-      throw new Error(`${LOG_PREFIX} Unknown model key: ${this.modelKey}`)
+      throw new Error(`${'[sherpa-onnx]'} Unknown model key: ${this.modelKey}`)
     }
 
     this.onProgress?.(`Loading Sherpa-ONNX ${modelConfig.label}...`)
@@ -147,7 +149,7 @@ export class SherpaOnnxEngine implements STTEngine {
     const modelDir = join(modelsRoot, modelConfig.dirName)
     if (!existsSync(modelDir)) {
       throw new Error(
-        `${LOG_PREFIX} Model directory not found: ${modelDir}. ` +
+        `${'[sherpa-onnx]'} Model directory not found: ${modelDir}. ` +
         `Download the model from https://github.com/k2-fsa/sherpa-onnx/releases ` +
         `and extract it to ${modelsRoot}/`
       )
@@ -160,7 +162,7 @@ export class SherpaOnnxEngine implements STTEngine {
       sherpaOnnx = require('sherpa-onnx-node') as SherpaOnnxModule
     } catch (err) {
       throw new Error(
-        `${LOG_PREFIX} Failed to load sherpa-onnx-node. ` +
+        `${'[sherpa-onnx]'} Failed to load sherpa-onnx-node. ` +
         `Install it with: npm install sherpa-onnx-node. ` +
         `Error: ${err instanceof Error ? err.message : err}`
       )
@@ -172,7 +174,7 @@ export class SherpaOnnxEngine implements STTEngine {
       this.recognizer = new sherpaOnnx.OfflineRecognizer(config)
     } catch (err) {
       throw new Error(
-        `${LOG_PREFIX} Failed to create recognizer: ${err instanceof Error ? err.message : err}`
+        `${'[sherpa-onnx]'} Failed to create recognizer: ${err instanceof Error ? err.message : err}`
       )
     }
 
@@ -241,13 +243,13 @@ export class SherpaOnnxEngine implements STTEngine {
         timestamp: Date.now()
       }
     } catch (err) {
-      console.error(`${LOG_PREFIX} Transcription error:`, err)
+      log.error('Transcription error:', err)
       return null
     }
   }
 
   async dispose(): Promise<void> {
-    console.log(`${LOG_PREFIX} Disposing resources`)
+    log.info('Disposing resources')
     // OfflineRecognizer is freed by GC; clear our reference
     this.recognizer = null
     this.initPromise = null

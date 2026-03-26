@@ -6,6 +6,7 @@ import {
   BRIDGE_MAX_PENDING_REQUESTS,
   BRIDGE_PENDING_TIMEOUT_MS
 } from './constants'
+import { createLogger, type Logger } from '../main/logger'
 
 /**
  * Spawn configuration returned by subclasses to define how the Python bridge
@@ -42,11 +43,23 @@ export type InitResult = Record<string, unknown>
  */
 export abstract class SubprocessBridge {
   protected process: ChildProcess | null = null
+  private _log: Logger | null = null
   private initPromise: Promise<void> | null = null
   private pendingRequests = new Map<number, { resolve: (data: Record<string, unknown>) => void; timer: ReturnType<typeof setTimeout> }>()
   private nextRequestId = 0
   private buffer = ''
   private stderrRateLimit = { count: 0, lastReset: Date.now() }
+
+  /** Lazily initialized logger using the subclass log prefix */
+  protected get log(): Logger {
+    if (!this._log) {
+      // Strip brackets from prefix like '[ct2-opus-mt]' -> 'ct2-opus-mt'
+      const prefix = this.getLogPrefix()
+      const module = prefix.replace(/^\[|\]$/g, '')
+      this._log = createLogger(module)
+    }
+    return this._log
+  }
 
   /** Called on each parsed status message from the bridge (msg.status). Override to forward progress. */
   protected onStatusMessage(_status: string): void {
@@ -91,7 +104,6 @@ export abstract class SubprocessBridge {
   private async doInitialize(): Promise<void> {
     if (this.process) return
 
-    const prefix = this.getLogPrefix()
     const initTimeout = this.getInitTimeout()
 
     let spawnConfig: SpawnConfig
@@ -102,11 +114,11 @@ export abstract class SubprocessBridge {
     }
 
     const timer = setTimeout(() => {
-      console.error(`${prefix} bridge initialization timed out`)
+      this.log.error('bridge initialization timed out')
       try {
         this.process?.kill()
       } catch (e) {
-        console.warn(`${prefix} bridge: failed to kill process on timeout:`, e)
+        this.log.warn('bridge: failed to kill process on timeout:', e)
       }
       this.process = null
     }, initTimeout)
@@ -122,7 +134,7 @@ export abstract class SubprocessBridge {
 
     this.process.on('error', (err) => {
       clearTimeout(timer)
-      console.error(`${prefix} bridge failed to start:`, err.message)
+      this.log.error('bridge failed to start:', err.message)
       this.process = null
     })
 
@@ -149,7 +161,7 @@ export abstract class SubprocessBridge {
             pending.resolve(msg)
           }
         } catch {
-          console.warn(`${prefix} bridge invalid JSON:`, line)
+          this.log.warn('bridge invalid JSON:', line)
         }
       }
     })
@@ -161,12 +173,12 @@ export abstract class SubprocessBridge {
       }
       if (this.stderrRateLimit.count < BRIDGE_STDERR_MAX_LINES) {
         this.stderrRateLimit.count++
-        console.warn(`${prefix} bridge stderr:`, data.toString().trim())
+        this.log.warn('bridge stderr:', data.toString().trim())
       }
     })
 
     this.process.on('exit', (code) => {
-      console.log(`${prefix} bridge exited with code ${code}`)
+      this.log.info(`bridge exited with code ${code}`)
       this.process = null
     })
 
@@ -177,7 +189,7 @@ export abstract class SubprocessBridge {
         initTimeout
       )
       if (result.error) {
-        throw new Error(`${prefix} init failed: ${result.error}`)
+        throw new Error(`${this.getLogPrefix()} init failed: ${result.error}`)
       }
       this.onInitComplete(result)
     } catch (err) {
@@ -185,7 +197,7 @@ export abstract class SubprocessBridge {
         try {
           this.process.kill()
         } catch (e) {
-          console.warn(`${prefix} bridge: failed to kill process during init cleanup:`, e)
+          this.log.warn('bridge: failed to kill process during init cleanup:', e)
         }
         this.process = null
       }
@@ -251,21 +263,20 @@ export abstract class SubprocessBridge {
   }
 
   async dispose(): Promise<void> {
-    const prefix = this.getLogPrefix()
-    console.log(`${prefix} bridge disposing resources`)
+    this.log.info('bridge disposing resources')
     if (this.process) {
       try {
         this.sendCommand({ action: 'dispose' }).catch((e) => {
-          console.warn(`${prefix} bridge: failed to send dispose command:`, e)
+          this.log.warn('bridge: failed to send dispose command:', e)
         })
         await new Promise((resolve) => setTimeout(resolve, 500))
       } catch (e) {
-        console.warn(`${prefix} bridge: error during dispose command:`, e)
+        this.log.warn('bridge: error during dispose command:', e)
       }
       try {
         this.process.kill()
       } catch (e) {
-        console.warn(`${prefix} bridge: failed to kill process during dispose:`, e)
+        this.log.warn('bridge: failed to kill process during dispose:', e)
       }
       this.process = null
     }

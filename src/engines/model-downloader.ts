@@ -3,6 +3,9 @@ import { join } from 'path'
 import { existsSync, mkdirSync, unlinkSync, statSync, createWriteStream } from 'fs'
 import { writeFile } from 'fs/promises'
 import { createHash } from 'crypto'
+import { createLogger } from '../main/logger'
+
+const log = createLogger('model-downloader')
 
 export const MODEL_FILENAME = 'ggml-kotoba-whisper-v2.0-q5_0.bin'
 export const MODEL_URL =
@@ -275,7 +278,7 @@ async function doDownloadWithResume(
       // If server doesn't support Range, start over
       if (response.status === 200 && existingSize > 0) {
         existingSize = 0
-        try { unlinkSync(partialPath) } catch (e) { console.warn('[model-downloader] Failed to remove partial file for restart:', e) }
+        try { unlinkSync(partialPath) } catch (e) { log.warn('Failed to remove partial file for restart:', e) }
       }
 
       if (!response.ok && response.status !== 206) {
@@ -315,7 +318,7 @@ async function doDownloadWithResume(
 
       // SHA256 verification (streaming to avoid loading multi-GB files into memory)
       if (!expectedSha256) {
-        console.warn(`[model-downloader] No SHA256 hash provided for ${label} — skipping integrity verification`)
+        log.warn(`No SHA256 hash provided for ${label} — skipping integrity verification`)
       }
       if (expectedSha256) {
         onProgress?.('Verifying file integrity...')
@@ -341,7 +344,7 @@ async function doDownloadWithResume(
 
     } catch (err) {
       if (attempt >= MAX_RETRIES) {
-        try { if (existsSync(partialPath)) unlinkSync(partialPath) } catch (e) { console.warn('[model-downloader] Failed to clean up partial file after max retries:', e) }
+        try { if (existsSync(partialPath)) unlinkSync(partialPath) } catch (e) { log.warn('Failed to clean up partial file after max retries:', e) }
         throw err
       }
       const delay = RETRY_DELAYS[attempt]

@@ -77,7 +77,7 @@ export class CT2OpusMTTranslator extends SubprocessBridge implements TranslatorE
     if (!text.trim()) return ''
     if (from === to) return text
     if (!this.process) {
-      console.error(`[ct2-opus-mt] Bridge not running for ${from}->${to}`)
+      this.log.error(`Bridge not running for ${from}->${to}`)
       return ''
     }
 
@@ -91,16 +91,13 @@ export class CT2OpusMTTranslator extends SubprocessBridge implements TranslatorE
       })
 
       if (result.error) {
-        console.error('[ct2-opus-mt] Translation error:', result.error)
+        this.log.error('Translation error:', result.error)
         return ''
       }
 
       return (result.translated as string) || ''
     } catch (err) {
-      console.error(
-        '[ct2-opus-mt] Bridge error:',
-        err instanceof Error ? err.message : err
-      )
+      this.log.error('Bridge error:', err instanceof Error ? err.message : err)
       return ''
     }
   }
