@@ -1,8 +1,8 @@
 import type { TranslatorEngine, Language } from '../types'
+import { apiFetch, apiInitialize, DEFAULT_TIMEOUT_MS } from './api-utils'
 
 const DEEPL_FREE_URL = 'https://api-free.deepl.com/v2/translate'
 const DEEPL_PRO_URL = 'https://api.deepl.com/v2/translate'
-const DEFAULT_TIMEOUT_MS = 15_000
 
 /** Map Language codes to DeepL API source/target codes */
 const LANG_MAP: Record<Language, { source: string; target: string }> = {
@@ -24,6 +24,12 @@ const LANG_MAP: Record<Language, { source: string; target: string }> = {
   id: { source: 'ID', target: 'ID' }
 }
 
+const ERROR_MAPPINGS = [
+  { statuses: [401, 403], message: 'Invalid or expired API key' },
+  { statuses: [429], message: 'Rate limit exceeded' },
+  { statuses: [456], message: 'Quota exceeded' }
+]
+
 export class DeepLTranslator implements TranslatorEngine {
   readonly id = 'deepl-translate'
   readonly name = 'DeepL Translate'
@@ -41,29 +47,25 @@ export class DeepLTranslator implements TranslatorEngine {
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) return
-    if (!this.apiKey) {
-      throw new Error('DeepL API key is required')
-    }
-    // Validate API key with a test request
-    try {
-      await this.translate('test', 'en', 'ja')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(`Invalid DeepL API key: ${msg}`)
-    }
-    this.initialized = true
+    const alreadyInit = await apiInitialize({
+      initialized: this.initialized,
+      apiKey: this.apiKey,
+      keyName: 'DeepL API key',
+      serviceName: 'DeepL API',
+      testTranslate: () => this.translate('test', 'en', 'ja')
+    })
+    if (!alreadyInit) this.initialized = true
   }
 
   async translate(text: string, from: Language, to: Language): Promise<string> {
     if (!text.trim()) return ''
     if (from === to) return text
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
-
-    try {
-      const response = await fetch(this.apiUrl, {
+    const data = await apiFetch<{
+      translations: Array<{ text: string; detected_source_language: string }>
+    }>({
+      url: this.apiUrl,
+      init: {
         method: 'POST',
         headers: {
           Authorization: `DeepL-Auth-Key ${this.apiKey}`,
@@ -73,34 +75,14 @@ export class DeepLTranslator implements TranslatorEngine {
           text: [text],
           source_lang: LANG_MAP[from].source,
           target_lang: LANG_MAP[to].target
-        }),
-        signal: controller.signal
-      })
+        })
+      },
+      timeoutMs: this.timeoutMs,
+      serviceName: 'DeepL API',
+      errorMappings: ERROR_MAPPINGS
+    })
 
-      if (!response.ok) {
-        if (response.status === 401 || response.status === 403) {
-          throw new Error('DeepL API: Invalid or expired API key')
-        }
-        if (response.status === 429) {
-          throw new Error('DeepL API: Rate limit exceeded')
-        }
-        if (response.status === 456) {
-          throw new Error('DeepL API: Quota exceeded')
-        }
-        throw new Error(`DeepL API error: ${response.status}`)
-      }
-
-      let data: { translations: Array<{ text: string; detected_source_language: string }> }
-      try {
-        data = (await response.json()) as typeof data
-      } catch {
-        throw new Error('DeepL API: Invalid JSON response')
-      }
-
-      return data.translations[0]?.text || ''
-    } finally {
-      clearTimeout(timeout)
-    }
+    return data.translations[0]?.text || ''
   }
 
   async dispose(): Promise<void> {

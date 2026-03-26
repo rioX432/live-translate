@@ -1,7 +1,12 @@
 import type { TranslatorEngine, Language } from '../types'
+import { apiFetch, apiInitialize, DEFAULT_TIMEOUT_MS } from './api-utils'
 
 const GOOGLE_TRANSLATE_URL = 'https://translation.googleapis.com/language/translate/v2'
-const DEFAULT_TIMEOUT_MS = 15_000
+
+const ERROR_MAPPINGS = [
+  { statuses: [403], message: 'Invalid or expired API key' },
+  { statuses: [429], message: 'Rate limit exceeded' }
+]
 
 export class GoogleTranslator implements TranslatorEngine {
   readonly id = 'google-translate'
@@ -18,18 +23,14 @@ export class GoogleTranslator implements TranslatorEngine {
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) return
-    if (!this.apiKey) {
-      throw new Error('Google Cloud Translation API key is required')
-    }
-    // Validate API key with a test request
-    try {
-      await this.translate('test', 'en', 'ja')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(`Invalid Google Translation API key: ${msg}`)
-    }
-    this.initialized = true
+    const alreadyInit = await apiInitialize({
+      initialized: this.initialized,
+      apiKey: this.apiKey,
+      keyName: 'Google Cloud Translation API key',
+      serviceName: 'Google Translation API',
+      testTranslate: () => this.translate('test', 'en', 'ja')
+    })
+    if (!alreadyInit) this.initialized = true
   }
 
   async translate(text: string, from: Language, to: Language): Promise<string> {
@@ -44,36 +45,15 @@ export class GoogleTranslator implements TranslatorEngine {
       format: 'text'
     })
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
+    const data = await apiFetch<{ data: { translations: Array<{ translatedText: string }> } }>({
+      url: `${GOOGLE_TRANSLATE_URL}?${params}`,
+      init: { method: 'POST' },
+      timeoutMs: this.timeoutMs,
+      serviceName: 'Google Translation API',
+      errorMappings: ERROR_MAPPINGS
+    })
 
-    try {
-      const response = await fetch(`${GOOGLE_TRANSLATE_URL}?${params}`, {
-        method: 'POST',
-        signal: controller.signal
-      })
-
-      if (!response.ok) {
-        if (response.status === 403) {
-          throw new Error('Google Translation API: Invalid or expired API key')
-        }
-        if (response.status === 429) {
-          throw new Error('Google Translation API: Rate limit exceeded')
-        }
-        throw new Error(`Google Translation API error: ${response.status}`)
-      }
-
-      let data: { data: { translations: Array<{ translatedText: string }> } }
-      try {
-        data = (await response.json()) as typeof data
-      } catch {
-        throw new Error('Google Translation API: Invalid JSON response')
-      }
-
-      return data.data.translations[0]?.translatedText || ''
-    } finally {
-      clearTimeout(timeout)
-    }
+    return data.data.translations[0]?.translatedText || ''
   }
 
   async dispose(): Promise<void> {
