@@ -21,6 +21,7 @@ import { getSubtitleHeight } from './window-manager'
 import { WsAudioServer } from './ws-audio-server'
 import type { AppContext } from './app-context'
 import type { EngineConfig } from '../engines/types'
+import { DEFAULT_WS_PORT } from './constants'
 
 const log = createLogger('ipc')
 
@@ -40,8 +41,6 @@ interface PipelineStartConfig extends EngineConfig {
   microsoftApiKey?: string
   microsoftRegion?: string
 }
-
-const DEFAULT_WS_PORT = 9876
 
 /** Register all IPC handlers (pipeline, settings, session, display, ws-audio) */
 export function registerIpcHandlers(ctx: AppContext): void {

@@ -1,5 +1,6 @@
 import Store from 'electron-store'
 import type { GlossaryEntry, Language, SourceLanguage } from '../engines/types'
+import { DEFAULT_WS_PORT } from './constants'
 
 export interface QuotaRecord {
   monthKey: string
@@ -103,7 +104,7 @@ export const store = new Store<AppSettings>({
     sherpaOnnxModel: 'whisper-base',
     sourceLanguage: 'auto',
     targetLanguage: 'en',
-    wsAudioPort: 9876,
+    wsAudioPort: DEFAULT_WS_PORT,
     noiseSuppressionEnabled: false
   }
 })
