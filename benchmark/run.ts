@@ -24,7 +24,9 @@ const AVAILABLE_ENGINES = [
   'alma-ja',
   'alma-ja-cpu',
   'gemma2-jpn',
-  'gemma2-jpn-cpu'
+  'gemma2-jpn-cpu',
+  'cat-translate',
+  'cat-translate-cpu'
 ] as const
 type EngineId = (typeof AVAILABLE_ENGINES)[number]
 
@@ -192,6 +194,14 @@ async function createEngine(id: EngineId): Promise<BenchmarkEngine> {
     case 'gemma2-jpn-cpu': {
       const { Gemma2JpnBench } = await import('./src/engines/gemma2-jpn.js')
       return new Gemma2JpnBench({ useGpu: false })
+    }
+    case 'cat-translate': {
+      const { CATTranslateBench } = await import('./src/engines/cat-translate.js')
+      return new CATTranslateBench({ useGpu: true })
+    }
+    case 'cat-translate-cpu': {
+      const { CATTranslateBench } = await import('./src/engines/cat-translate.js')
+      return new CATTranslateBench({ useGpu: false })
     }
   }
 }
