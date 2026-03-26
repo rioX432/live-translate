@@ -27,7 +27,7 @@ Before acting, always pause and reconsider. Re-read the requirements, re-check y
 - whisper-node-addon dylib has hardcoded `@rpath` from CI — postinstall adds local rpath via `install_name_tool`
 - Electron IPC cannot transfer `Float32Array` directly — use `Array.from()` in renderer, `new Float32Array()` in main
 - macOS microphone permission: Electron dev mode runs via Terminal — grant mic access to Terminal.app in System Preferences
-- `ScriptProcessorNode` is deprecated — migrate to `AudioWorkletNode` when stability is confirmed
+- VAD uses `AudioWorkletNode` via `processorType: 'AudioWorklet'` — do not revert to deprecated `ScriptProcessorNode`
 - electron-vite 2.x requires `build.lib.entry` for main/preload configs
 - Whisper model (~540MB) downloads on first launch — handle offline gracefully
 - TranslateGemma is experimental only (8s/sentence too slow for real-time) — OPUS-MT is the fast default (279ms)
