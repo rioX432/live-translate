@@ -5,7 +5,20 @@ export default tseslint.config(
   eslint.configs.recommended,
   tseslint.configs.recommended,
   {
-    ignores: ['dist/', 'out/', 'node_modules/', 'chrome-extension/', 'benchmark/']
+    ignores: ['dist/', 'out/', 'node_modules/', 'chrome-extension/', 'benchmark/', 'src/renderer/public/vad/**']
+  },
+  // Preload scripts are compiled to CommonJS — allow exports/require globals
+  {
+    files: ['src/preload/**/*.js'],
+    languageOptions: {
+      globals: {
+        exports: 'writable',
+        require: 'readonly',
+        module: 'writable',
+        __dirname: 'readonly',
+        __filename: 'readonly'
+      }
+    }
   },
   {
     rules: {
