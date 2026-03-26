@@ -98,3 +98,87 @@ export const colorInputStyle: React.CSSProperties = {
   borderRadius: '6px',
   cursor: 'pointer'
 }
+
+// --- Engine mode utilities ---
+
+/** API-based engine modes that require at least one API key */
+export const API_ENGINE_MODES: EngineMode[] = ['rotation', 'online', 'online-deepl', 'online-gemini']
+
+/** Display name for each engine mode */
+export function getEngineDisplayName(mode: EngineMode): string {
+  switch (mode) {
+    case 'offline-opus': return 'OPUS-MT'
+    case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B (High Quality)'
+    case 'offline-hybrid': return 'Hybrid (OPUS-MT + TranslateGemma)'
+    case 'rotation': return 'API Auto Rotation'
+    case 'online': return 'Google Translation'
+    case 'online-deepl': return 'DeepL'
+    case 'online-gemini': return 'Gemini 2.5 Flash'
+    case 'auto': return 'Auto'
+    default: return mode
+  }
+}
+
+/** Display name for STT engine + variant */
+export function getSttDisplayName(sttEngine: SttEngineType, whisperVariant: WhisperVariantType): string {
+  switch (sttEngine) {
+    case 'mlx-whisper': return 'mlx-whisper (Apple Silicon)'
+    case 'whisper-local': {
+      const variantLabels: Record<string, string> = {
+        'kotoba-v2.0': 'kotoba-v2.0',
+        'large-v3-turbo': 'large-v3-turbo',
+        'small': 'small, fast',
+        'base': 'base, fastest'
+      }
+      return `Whisper (${variantLabels[whisperVariant] || whisperVariant})`
+    }
+    default: return sttEngine
+  }
+}
+
+/** Resolve 'auto' engine mode to a concrete mode based on available keys and GPU */
+export function resolveEngineMode(
+  mode: EngineMode,
+  apiKeys: { apiKey: string; deeplApiKey: string; geminiApiKey: string; microsoftApiKey: string; microsoftRegion: string },
+  gpuInfo: { hasGpu: boolean } | null
+): EngineMode {
+  if (mode !== 'auto') return mode
+  const hasKeys = !!(apiKeys.apiKey || apiKeys.deeplApiKey || apiKeys.geminiApiKey || (apiKeys.microsoftApiKey && apiKeys.microsoftRegion))
+  if (hasKeys) return 'rotation'
+  if (gpuInfo?.hasGpu) return 'offline-hunyuan-mt'
+  return 'offline-opus'
+}
+
+/** Build pipeline config from resolved engine mode and settings */
+export function buildEngineConfig(
+  resolvedMode: EngineMode,
+  sttEngine: SttEngineType,
+  apiKeys: { apiKey: string; deeplApiKey: string; geminiApiKey: string; microsoftApiKey: string; microsoftRegion: string }
+): Record<string, unknown> {
+  const base = { mode: 'cascade' as const, sttEngineId: sttEngine }
+
+  switch (resolvedMode) {
+    case 'rotation':
+      return {
+        ...base,
+        translatorEngineId: 'rotation-controller',
+        ...(apiKeys.apiKey && { apiKey: apiKeys.apiKey }),
+        ...(apiKeys.deeplApiKey && { deeplApiKey: apiKeys.deeplApiKey }),
+        ...(apiKeys.geminiApiKey && { geminiApiKey: apiKeys.geminiApiKey }),
+        ...(apiKeys.microsoftApiKey && apiKeys.microsoftRegion && { microsoftApiKey: apiKeys.microsoftApiKey, microsoftRegion: apiKeys.microsoftRegion })
+      }
+    case 'online':
+      return { ...base, translatorEngineId: 'google-translate', apiKey: apiKeys.apiKey }
+    case 'online-deepl':
+      return { ...base, translatorEngineId: 'deepl-translate', deeplApiKey: apiKeys.deeplApiKey }
+    case 'online-gemini':
+      return { ...base, translatorEngineId: 'gemini-translate', geminiApiKey: apiKeys.geminiApiKey }
+    case 'offline-hunyuan-mt':
+      return { ...base, translatorEngineId: 'hunyuan-mt' }
+    case 'offline-hybrid':
+      return { ...base, translatorEngineId: 'hybrid' }
+    case 'offline-opus':
+    default:
+      return { ...base, translatorEngineId: 'opus-mt' }
+  }
+}
