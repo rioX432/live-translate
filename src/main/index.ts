@@ -35,7 +35,13 @@ const ctx: AppContext = {
   wsAudioServer: null
 }
 
-function initPipeline(): void {
+async function initPipeline(): Promise<void> {
+  // Dispose previous pipeline to prevent listener accumulation on reinitialization (#383)
+  if (ctx.pipeline) {
+    await ctx.pipeline.dispose()
+    ctx.pipeline = null
+  }
+
   ctx.pipeline = new TranslationPipeline()
 
   // Register STT engines
@@ -163,8 +169,8 @@ registerUpdateHandlers(ctx)
 
 // --- App Lifecycle ---
 
-app.whenReady().then(() => {
-  initPipeline()
+app.whenReady().then(async () => {
+  await initPipeline()
   createMainWindow(ctx)
   createSubtitleWindow(ctx)
   registerDisplayHandlers(ctx)
