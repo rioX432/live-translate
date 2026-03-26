@@ -180,99 +180,115 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
   const start = useCallback(async () => {
     if (isCapturing) return
 
-    const deviceId = selectedDevice
-    const vad = await MicVAD.new({
-      getStream: async () => {
-        // #313: Request 48 kHz when DeepFilterNet3 is active (it requires 48 kHz);
-        // VAD resamples internally to 16 kHz regardless.
-        const idealSampleRate = noiseSuppression ? 48000 : 16000
-        const rawStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            deviceId: deviceId ? { exact: deviceId } : undefined,
-            channelCount: 1,
-            sampleRate: { ideal: idealSampleRate },
-            echoCancellation: true,
-            noiseSuppression: !noiseSuppression // disable browser NS when DeepFilterNet3 is active
-          }
-        })
-        // #313: Apply DeepFilterNet3 noise suppression before VAD
-        if (noiseSuppression) {
-          return noiseSuppression.processStream(rawStream)
-        }
-        return rawStream
-      },
-      // Override with more sensitive thresholds for real-time translation
-      positiveSpeechThreshold: 0.25,
-      negativeSpeechThreshold: 0.1,
-      redemptionMs: 800,
-      minSpeechMs: 250,
-      // AudioWorklet runs audio processing off the main thread (replaces deprecated ScriptProcessor)
-      processorType: 'AudioWorklet',
-      // Serve ONNX model and WASM from public/vad/
-      baseAssetPath: '/vad/',
-      onnxWASMBasePath: '/vad/',
-      onFrameProcessed: (_probs, frame) => {
-        // Volume meter (RMS) from each frame
-        let sum = 0
-        for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i]
-        const rms = Math.sqrt(sum / frame.length)
-        setVolume(Math.min(1, rms * 5))
-
-        // #53: accumulate frames in circular buffer during speech (#361: reduced from 5s to 3s)
-        if (isSpeakingRef.current) {
-          const maxFrames = Math.floor((MAX_ROLLING_BUFFER_SECONDS * SAMPLE_RATE) / frame.length)
-          const buf = rollingBufferRef.current
-          if (buf.length < maxFrames && !rollingBufferFullRef.current) {
-            buf.push(new Float32Array(frame))
-            rollingBufferIndexRef.current = buf.length
-          } else {
-            // Circular overwrite — no allocation, no slice
-            if (buf.length < maxFrames) {
-              buf.length = maxFrames
+    try {
+      const deviceId = selectedDevice
+      const vad = await MicVAD.new({
+        getStream: async () => {
+          // #313: Request 48 kHz when DeepFilterNet3 is active (it requires 48 kHz);
+          // VAD resamples internally to 16 kHz regardless.
+          const idealSampleRate = noiseSuppression ? 48000 : 16000
+          const rawStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              deviceId: deviceId ? { exact: deviceId } : undefined,
+              channelCount: 1,
+              sampleRate: { ideal: idealSampleRate },
+              echoCancellation: true,
+              noiseSuppression: !noiseSuppression // disable browser NS when DeepFilterNet3 is active
             }
-            rollingBufferFullRef.current = true
-            const idx = rollingBufferIndexRef.current % maxFrames
-            buf[idx] = new Float32Array(frame)
-            rollingBufferIndexRef.current = (idx + 1) % maxFrames
+          })
+          // #313: Apply DeepFilterNet3 noise suppression before VAD
+          if (noiseSuppression) {
+            return noiseSuppression.processStream(rawStream)
           }
+          return rawStream
+        },
+        // Override with more sensitive thresholds for real-time translation
+        positiveSpeechThreshold: 0.25,
+        negativeSpeechThreshold: 0.1,
+        redemptionMs: 800,
+        minSpeechMs: 250,
+        // AudioWorklet runs audio processing off the main thread (replaces deprecated ScriptProcessor)
+        processorType: 'AudioWorklet',
+        // Serve ONNX model and WASM from public/vad/
+        baseAssetPath: '/vad/',
+        onnxWASMBasePath: '/vad/',
+        onFrameProcessed: (_probs, frame) => {
+          // Volume meter (RMS) from each frame
+          let sum = 0
+          for (let i = 0; i < frame.length; i++) sum += frame[i] * frame[i]
+          const rms = Math.sqrt(sum / frame.length)
+          setVolume(Math.min(1, rms * 5))
+
+          // #53: accumulate frames in circular buffer during speech (#361: reduced from 5s to 3s)
+          if (isSpeakingRef.current) {
+            const maxFrames = Math.floor((MAX_ROLLING_BUFFER_SECONDS * SAMPLE_RATE) / frame.length)
+            const buf = rollingBufferRef.current
+            if (buf.length < maxFrames && !rollingBufferFullRef.current) {
+              buf.push(new Float32Array(frame))
+              rollingBufferIndexRef.current = buf.length
+            } else {
+              // Circular overwrite — no allocation, no slice
+              if (buf.length < maxFrames) {
+                buf.length = maxFrames
+              }
+              rollingBufferFullRef.current = true
+              const idx = rollingBufferIndexRef.current % maxFrames
+              buf[idx] = new Float32Array(frame)
+              rollingBufferIndexRef.current = (idx + 1) % maxFrames
+            }
+          }
+        },
+        onSpeechEnd: (audio: Float32Array) => {
+          // audio is 16kHz Float32Array from VAD
+          console.log(`[audio-capture] VAD speech segment: ${audio.length} samples (${(audio.length / SAMPLE_RATE).toFixed(1)}s)`)
+
+          // Finalize streaming with the VAD-provided segment
+          isSpeakingRef.current = false
+          speechEndCallbackRef.current?.(audio)
+          rollingBufferRef.current = []
+          rollingBufferIndexRef.current = 0
+          rollingBufferFullRef.current = false
+
+          // Also fire legacy callback
+          chunkCallbackRef.current?.(audio)
+        },
+        onSpeechStart: () => {
+          console.log('[audio-capture] VAD speech start')
+          isSpeakingRef.current = true
+          rollingBufferRef.current = []
+          rollingBufferIndexRef.current = 0
+          rollingBufferFullRef.current = false
+        },
+        onVADMisfire: () => {
+          console.log('[audio-capture] VAD misfire (speech too short)')
+          isSpeakingRef.current = false
+          rollingBufferRef.current = []
+          rollingBufferIndexRef.current = 0
+          rollingBufferFullRef.current = false
         }
-      },
-      onSpeechEnd: (audio: Float32Array) => {
-        // audio is 16kHz Float32Array from VAD
-        console.log(`[audio-capture] VAD speech segment: ${audio.length} samples (${(audio.length / SAMPLE_RATE).toFixed(1)}s)`)
+      })
 
-        // Finalize streaming with the VAD-provided segment
-        isSpeakingRef.current = false
-        speechEndCallbackRef.current?.(audio)
-        rollingBufferRef.current = []
-        rollingBufferIndexRef.current = 0
-        rollingBufferFullRef.current = false
-
-        // Also fire legacy callback
-        chunkCallbackRef.current?.(audio)
-      },
-      onSpeechStart: () => {
-        console.log('[audio-capture] VAD speech start')
-        isSpeakingRef.current = true
-        rollingBufferRef.current = []
-        rollingBufferIndexRef.current = 0
-        rollingBufferFullRef.current = false
-      },
-      onVADMisfire: () => {
-        console.log('[audio-capture] VAD misfire (speech too short)')
-        isSpeakingRef.current = false
-        rollingBufferRef.current = []
-        rollingBufferIndexRef.current = 0
-        rollingBufferFullRef.current = false
+      vadRef.current = vad
+      vad.start()
+      startStreamingTimer()
+      setIsCapturing(true)
+      console.log('[audio-capture] VAD started with streaming')
+    } catch (err) {
+      // #381: Clean up streaming timer and VAD if start fails partway through
+      console.error('[audio-capture] Failed to start:', err)
+      stopStreamingTimer()
+      if (vadRef.current) {
+        vadRef.current.destroy()
+        vadRef.current = null
       }
-    })
-
-    vadRef.current = vad
-    vad.start()
-    startStreamingTimer()
-    setIsCapturing(true)
-    console.log('[audio-capture] VAD started with streaming')
-  }, [selectedDevice, isCapturing, startStreamingTimer])
+      isSpeakingRef.current = false
+      rollingBufferRef.current = []
+      rollingBufferIndexRef.current = 0
+      rollingBufferFullRef.current = false
+      setIsCapturing(false)
+      throw err
+    }
+  }, [selectedDevice, isCapturing, startStreamingTimer, stopStreamingTimer])
 
   const stop = useCallback(() => {
     stopStreamingTimer()
