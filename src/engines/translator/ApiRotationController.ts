@@ -1,4 +1,7 @@
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
+import { createLogger } from '../../main/logger'
+
+const log = createLogger('rotation')
 
 export interface ProviderConfig {
   engine: TranslatorEngine
@@ -63,7 +66,7 @@ export class ApiRotationController implements TranslatorEngine {
           id: provider.engine.id,
           error: err instanceof Error ? err : new Error(String(err))
         })
-        console.warn(`[rotation] ${provider.engine.id} init failed:`, err)
+        log.warn(`${provider.engine.id} init failed:`, err)
       }
     }
 
@@ -107,15 +110,13 @@ export class ApiRotationController implements TranslatorEngine {
         // Cooldown elapsed — reset and retry
         this.failureCount.set(providerId, 0)
         this.failureDisabledAt.delete(providerId)
-        console.log(`[rotation] ${providerId}: cooldown elapsed, re-enabling`)
+        log.info(`${providerId}: cooldown elapsed, re-enabling`)
       }
 
       // Warn if approaching limit (90%)
       const usageRatio = record.charCount / provider.monthlyCharLimit
       if (usageRatio >= 0.9 && usageRatio < 1) {
-        console.warn(
-          `[rotation] ${providerId}: ${Math.round(usageRatio * 100)}% quota used (${record.charCount}/${provider.monthlyCharLimit})`
-        )
+        log.warn(`${providerId}: ${Math.round(usageRatio * 100)}% quota used (${record.charCount}/${provider.monthlyCharLimit})`)
       }
 
       try {
@@ -133,7 +134,7 @@ export class ApiRotationController implements TranslatorEngine {
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)
         errors.push(`${providerId}: ${message}`)
-        console.error(`[rotation] ${providerId} failed:`, message)
+        log.error(`${providerId} failed:`, message)
 
         // Mark as exhausted on quota errors
         if (message.includes('Quota exceeded') || message.includes('456')) {
@@ -147,7 +148,7 @@ export class ApiRotationController implements TranslatorEngine {
         this.failureCount.set(providerId, currentFailures)
         if (currentFailures >= ApiRotationController.MAX_CONSECUTIVE_FAILURES) {
           this.failureDisabledAt.set(providerId, Date.now())
-          console.warn(`[rotation] ${providerId}: disabled after ${currentFailures} consecutive failures (cooldown 5min)`)
+          log.warn(`${providerId}: disabled after ${currentFailures} consecutive failures (cooldown 5min)`)
           this.onStatusUpdate?.(`${provider.engine.name} temporarily disabled after repeated failures`)
         }
 
@@ -163,7 +164,7 @@ export class ApiRotationController implements TranslatorEngine {
   async dispose(): Promise<void> {
     for (const provider of this.providers) {
       await provider.engine.dispose().catch((err) => {
-        console.warn(`[rotation] Error disposing ${provider.engine.id}:`, err)
+        log.warn(`Error disposing ${provider.engine.id}:`, err)
       })
     }
   }

@@ -2,6 +2,9 @@ import { app } from 'electron'
 import { join } from 'path'
 import type { TranslatorEngine, Language } from '../types'
 import { isHallucination } from './hallucination-filter'
+import { createLogger } from '../../main/logger'
+
+const log = createLogger('opus-mt')
 
 // Dynamic import for ESM-only @huggingface/transformers
 type TranslationPipeline = ((text: string) => Promise<Array<{ translation_text: string }>>) & {
@@ -68,7 +71,7 @@ export class OpusMTTranslator implements TranslatorEngine {
 
     const pipe = from === 'ja' ? this.jaToEn : this.enToJa
     if (!pipe) {
-      console.error(`[opus-mt] Pipeline not initialized for ${from}→${to}`)
+      log.error(`Pipeline not initialized for ${from}→${to}`)
       return ''
     }
 
@@ -76,7 +79,7 @@ export class OpusMTTranslator implements TranslatorEngine {
     const translated = result[0]?.translation_text || ''
 
     if (isHallucination(trimmed, translated, from, to)) {
-      console.warn(`[opus-mt] Hallucination detected: "${trimmed}" → "${translated.substring(0, 80)}..." (filtered)`)
+      log.warn(`Hallucination detected: "${trimmed}" → "${translated.substring(0, 80)}..." (filtered)`)
       return ''
     }
 
@@ -84,14 +87,14 @@ export class OpusMTTranslator implements TranslatorEngine {
   }
 
   async dispose(): Promise<void> {
-    console.log('[opus-mt] Disposing resources')
+    log.info('Disposing resources')
     try {
       await Promise.all([
         this.jaToEn?.dispose(),
         this.enToJa?.dispose()
       ])
     } catch (err) {
-      console.error('[opus-mt] Error during pipeline disposal:', err)
+      log.error('Error during pipeline disposal:', err)
     }
     this.jaToEn = null
     this.enToJa = null

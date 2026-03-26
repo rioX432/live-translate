@@ -18,6 +18,9 @@ import {
   WORKER_TRANSLATE_TIMEOUT_MS,
   WORKER_SUMMARIZE_TIMEOUT_MS
 } from '../engines/constants'
+import { createLogger } from './logger'
+
+const log = createLogger('worker-pool')
 
 /** Messages received from the slm-worker UtilityProcess */
 export type WorkerMessage =
@@ -146,7 +149,7 @@ class WorkerPool {
     this.worker = utilityProcess.fork(workerPath)
 
     this.worker.on('exit', (code) => {
-      console.log(`[worker-pool] Worker exited with code ${code}`)
+      log.info(`Worker exited with code ${code}`)
       this.worker = null
       this.currentModelPath = null
       this.initPromise = null
@@ -250,7 +253,7 @@ class WorkerPool {
         return
       }
       if (msg.type === 'error') {
-        console.error('[worker-pool] Worker error:', msg.message)
+        log.error('Worker error:', msg.message)
       }
     })
   }

@@ -1,3 +1,7 @@
+import { createLogger } from '../main/logger'
+
+const log = createLogger('memory')
+
 /**
  * Periodically logs process memory usage.
  * Extracted from TranslationPipeline to isolate monitoring concerns.
@@ -34,8 +38,6 @@ export class MemoryMonitor {
     const elapsed = this.startedAt
       ? `${((Date.now() - this.startedAt) / 60_000).toFixed(1)}min`
       : '0min'
-    console.log(
-      `[memory] elapsed=${elapsed} heap=${mb(mem.heapUsed)}/${mb(mem.heapTotal)}MB rss=${mb(mem.rss)}MB external=${mb(mem.external)}MB`
-    )
+    log.info(`elapsed=${elapsed} heap=${mb(mem.heapUsed)}/${mb(mem.heapTotal)}MB rss=${mb(mem.rss)}MB external=${mb(mem.external)}MB`)
   }
 }

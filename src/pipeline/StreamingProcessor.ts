@@ -9,6 +9,9 @@ import type { STTEngine } from '../engines/types'
 import type { LocalAgreement } from './LocalAgreement'
 import type { ContextBuffer } from './ContextBuffer'
 import type { SpeakerTracker } from './SpeakerTracker'
+import { createLogger } from '../main/logger'
+
+const log = createLogger('pipeline:stream')
 
 const MAX_STREAMING_LOCK_RESOLVERS = 50
 const STREAMING_LOCK_TIMEOUT_MS = 10_000
@@ -77,14 +80,14 @@ export class StreamingProcessor {
       const sttResult = await sttEngine.processAudio(audioBuffer, sampleRate)
       const sttMs = (performance.now() - t0).toFixed(0)
       if (!sttResult || !sttResult.text.trim()) {
-        console.log(`[pipeline:stream] STT: ${sttMs}ms → (no result, ${(audioBuffer.length / sampleRate).toFixed(1)}s audio)`)
+        log.info(`STT: ${sttMs}ms → (no result, ${(audioBuffer.length / sampleRate).toFixed(1)}s audio)`)
         // Reset agreement on silence to prevent stale state accumulation (#75)
         this.deps.agreement.reset()
         this.lastTranslatedConfirmed = ''
         this.simulMtPreviousOutput = ''
         return null
       }
-      console.log(`[pipeline:stream] STT: ${sttMs}ms → "${sttResult.text}" [${sttResult.language}]`)
+      log.info(`STT: ${sttMs}ms → "${sttResult.text}" [${sttResult.language}]`)
 
       const agreement = this.deps.agreement.update(sttResult.text)
       const targetLang = this.deps.resolveTargetLanguage(sttResult.language)
@@ -239,7 +242,7 @@ export class StreamingProcessor {
         const idx = this.streamingLockResolvers.indexOf(resolve)
         if (idx !== -1) {
           this.streamingLockResolvers.splice(idx, 1)
-          console.warn('[pipeline] streamingLock wait timed out')
+          log.warn('streamingLock wait timed out')
           resolve()
         }
       }, STREAMING_LOCK_TIMEOUT_MS)

@@ -6,6 +6,9 @@ import type {
 } from '../engines/types'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import type { EventEmitter } from 'events'
+import { createLogger } from '../main/logger'
+
+const log = createLogger('pipeline')
 
 const ENGINE_INIT_TIMEOUT_MS = 5 * 60_000 // 5 minutes for model download
 
@@ -93,7 +96,7 @@ export class EngineManager {
         try {
           await engine.dispose()
         } catch (err) {
-          console.warn('[pipeline] Error during engine disposal:', err)
+          log.warn('Error during engine disposal:', err)
         }
       }
     }

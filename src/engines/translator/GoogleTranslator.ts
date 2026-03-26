@@ -1,5 +1,8 @@
 import type { TranslatorEngine, Language } from '../types'
 import { apiFetch, apiInitialize, DEFAULT_TIMEOUT_MS } from './api-utils'
+import { createLogger } from '../../main/logger'
+
+const log = createLogger('google-translate')
 
 const GOOGLE_TRANSLATE_URL = 'https://translation.googleapis.com/language/translate/v2'
 
@@ -57,6 +60,6 @@ export class GoogleTranslator implements TranslatorEngine {
   }
 
   async dispose(): Promise<void> {
-    console.log('[google-translate] Disposing resources')
+    log.info('Disposing resources')
   }
 }

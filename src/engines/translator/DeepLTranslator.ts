@@ -1,5 +1,8 @@
 import type { TranslatorEngine, Language } from '../types'
 import { apiFetch, apiInitialize, DEFAULT_TIMEOUT_MS } from './api-utils'
+import { createLogger } from '../../main/logger'
+
+const log = createLogger('deepl')
 
 const DEEPL_FREE_URL = 'https://api-free.deepl.com/v2/translate'
 const DEEPL_PRO_URL = 'https://api.deepl.com/v2/translate'
@@ -86,6 +89,6 @@ export class DeepLTranslator implements TranslatorEngine {
   }
 
   async dispose(): Promise<void> {
-    console.log('[deepl] Disposing resources')
+    log.info('Disposing resources')
   }
 }

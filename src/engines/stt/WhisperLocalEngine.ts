@@ -3,6 +3,9 @@ import { getModelPath, isModelDownloaded, downloadModel } from '../model-downloa
 import type { WhisperVariant } from '../model-downloader'
 import { filterWhisperHallucination } from '../../pipeline/whisper-filter'
 import type { STTEngine, STTResult, Language } from '../types'
+import { createLogger } from '../../main/logger'
+
+const log = createLogger('whisper-local')
 
 export class WhisperLocalEngine implements STTEngine {
   readonly id = 'whisper-local'
@@ -79,7 +82,7 @@ export class WhisperLocalEngine implements STTEngine {
         timestamp: Date.now()
       }
     } catch (err) {
-      console.error('Whisper transcription error:', err)
+      log.error('Transcription error:', err)
       return null
     } finally {
       release!()
@@ -87,7 +90,7 @@ export class WhisperLocalEngine implements STTEngine {
   }
 
   async dispose(): Promise<void> {
-    console.log('[whisper-local] Disposing resources')
+    log.info('Disposing resources')
   }
 
   private detectLanguage(text: string): Language {

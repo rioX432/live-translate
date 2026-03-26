@@ -16,6 +16,9 @@
 
 import type { Llama, LlamaModel, LlamaContext, LlamaContextSequence } from 'node-llama-cpp'
 import { LANG_NAMES_EN, LANG_NAMES_ZH } from '../engines/language-names'
+import { createLogger } from './logger'
+
+const log = createLogger('slm-worker')
 
 type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15' | 'gemma2-jpn' | 'alma-ja'
 
@@ -59,11 +62,11 @@ async function handleInit(
 ): Promise<void> {
   activeModelType = modelType ?? 'translategemma'
   const { getLlama } = await import('node-llama-cpp')
-  console.log('[slm-worker] Getting llama instance...')
+  log.info('Getting llama instance...')
   llama = await getLlama({ gpu: 'auto' })
-  console.log('[slm-worker] Loading model:', modelPath)
+  log.info('Loading model:', modelPath)
   model = await llama.loadModel({ modelPath })
-  console.log('[slm-worker] Model loaded, creating context...')
+  log.info('Model loaded, creating context...')
 
   const contextOptions: Record<string, unknown> = {
     contextSize: TRANSLATION_CONTEXT_SIZE
@@ -74,14 +77,14 @@ async function handleInit(
   }
   try {
     context = await model.createContext(contextOptions)
-    console.log('[slm-worker] Context created successfully')
+    log.info('Context created successfully')
   } catch (err) {
-    console.error('[slm-worker] createContext failed:', err)
+    log.error('createContext failed:', err)
     // Retry without KV cache quantization
     if (kvCacheQuant) {
-      console.log('[slm-worker] Retrying without KV cache quantization...')
+      log.info('Retrying without KV cache quantization...')
       context = await model.createContext({ contextSize: TRANSLATION_CONTEXT_SIZE })
-      console.log('[slm-worker] Context created without KV cache quant')
+      log.info('Context created without KV cache quant')
     } else {
       throw err
     }
@@ -98,9 +101,9 @@ async function handleInit(
       }
       draftContext = await draftModel.createContext(draftContextOptions)
       speculativeEnabled = true
-      console.log('[slm-worker] Speculative decoding enabled with draft model')
+      log.info('Speculative decoding enabled with draft model')
     } catch (err) {
-      console.error('[slm-worker] Failed to load draft model, falling back to standard decoding:', err)
+      log.error('Failed to load draft model, falling back to standard decoding:', err)
       draftModel = null
       draftContext = null
       speculativeEnabled = false
@@ -225,7 +228,7 @@ async function runInference(
   if (speculativeEnabled && contextSequence.tokenPredictions) {
     const stats = contextSequence.tokenPredictions
     const label = previousOutput !== undefined ? 'Incremental speculative' : 'Speculative'
-    console.log(`[slm-worker] ${label} stats — validated: ${stats.validated}, refuted: ${stats.refuted}`)
+    log.info(`${label} stats — validated: ${stats.validated}, refuted: ${stats.refuted}`)
   }
 
   // Clean up the session context to free memory

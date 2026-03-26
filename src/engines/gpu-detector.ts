@@ -1,3 +1,7 @@
+import { createLogger } from '../main/logger'
+
+const log = createLogger('gpu-detector')
+
 /**
  * GPU detection via node-llama-cpp.
  * Returns detected GPU names and whether a GPU is available.
@@ -22,7 +26,7 @@ export async function detectGpu(): Promise<GpuInfo> {
       gpuNames: gpuNames.map(String)
     }
   } catch (err) {
-    console.warn('[gpu-detector] Failed to detect GPU:', err)
+    log.warn('Failed to detect GPU:', err)
     // Don't cache errors — allow retry on next call
     return { hasGpu: false, gpuNames: [] }
   }
