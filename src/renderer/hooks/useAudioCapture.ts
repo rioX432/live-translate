@@ -206,8 +206,8 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
       negativeSpeechThreshold: 0.1,
       redemptionMs: 800,
       minSpeechMs: 250,
-      // ScriptProcessor for Electron compatibility
-      processorType: 'ScriptProcessor',
+      // AudioWorklet runs audio processing off the main thread (replaces deprecated ScriptProcessor)
+      processorType: 'AudioWorklet',
       // Serve ONNX model and WASM from public/vad/
       baseAssetPath: '/vad/',
       onnxWASMBasePath: '/vad/',
