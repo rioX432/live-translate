@@ -9,10 +9,12 @@ import type {
   SourceLanguage,
   GlossaryEntry
 } from '../engines/types'
-import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { LocalAgreement } from './LocalAgreement'
 import { ContextBuffer } from './ContextBuffer'
 import { SpeakerTracker } from './SpeakerTracker'
+import { EngineManager } from './EngineManager'
+import { StreamingProcessor } from './StreamingProcessor'
+import { MemoryMonitor } from './MemoryMonitor'
 
 export interface PipelineEvents {
   result: (result: TranslationResult) => void
@@ -46,9 +48,6 @@ export enum PipelineState {
 
 const MAX_CONSECUTIVE_ERRORS = 3
 const RECOVERY_DELAY_MS = 1000
-const ENGINE_INIT_TIMEOUT_MS = 5 * 60_000 // 5 minutes for model download
-const MAX_STREAMING_LOCK_RESOLVERS = 50
-const STREAMING_LOCK_TIMEOUT_MS = 10_000
 
 /**
  * Manages the STT → Translation pipeline.
@@ -57,17 +56,17 @@ const STREAMING_LOCK_TIMEOUT_MS = 10_000
  * - e2e: E2ETranslationEngine (offline mode)
  *
  * Engines are swappable at runtime via switchEngine().
+ *
+ * Delegates to:
+ * - EngineManager — engine registration, creation, lifecycle
+ * - StreamingProcessor — streaming audio processing and lock management
+ * - MemoryMonitor — periodic memory usage logging
  */
 export class TranslationPipeline extends EventEmitter {
   private _state: PipelineState = PipelineState.IDLE
-  private config: EngineConfig | null = null
-  private sttEngine: STTEngine | null = null
-  private translator: TranslatorEngine | null = null
-  private e2eEngine: E2ETranslationEngine | null = null
   private agreement = new LocalAgreement()
   private contextBuffer = new ContextBuffer()
   private speakerTracker = new SpeakerTracker()
-  private lastTranslatedConfirmed = ''
 
   // Language configuration
   private sourceLanguage: SourceLanguage = 'auto'
@@ -76,19 +75,9 @@ export class TranslationPipeline extends EventEmitter {
   // SimulMT state
   private simulMtEnabled = false
   private simulMtWaitK = 3
-  private simulMtPreviousOutput = ''
-
-  // Streaming mutex (separate from lifecycle state)
-  private streamingLock = false
-  private streamingLockResolvers: Array<() => void> = []
 
   // Batch processing mutex — STT engines assume sequential access (#217)
   private batchLock = false
-
-  // Engine factories — registered externally
-  private sttFactories = new Map<string, () => STTEngine>()
-  private translatorFactories = new Map<string, () => TranslatorEngine>()
-  private e2eFactories = new Map<string, () => E2ETranslationEngine>()
 
   // Processing lock — prevents disposeEngines() while processAudio is in-flight
   private processingCount = 0
@@ -100,9 +89,33 @@ export class TranslationPipeline extends EventEmitter {
   // Glossary terms for context-aware translation
   private glossary: GlossaryEntry[] = []
 
-  // Memory monitoring
-  private memoryTimer: ReturnType<typeof setInterval> | null = null
-  private startedAt: number | null = null
+  // Delegates
+  private engineManager = new EngineManager()
+  private memoryMonitor = new MemoryMonitor()
+  private streaming: StreamingProcessor
+
+  constructor() {
+    super()
+    this.streaming = new StreamingProcessor({
+      emitter: this,
+      agreement: this.agreement,
+      contextBuffer: this.contextBuffer,
+      speakerTracker: this.speakerTracker,
+      getSTTEngine: () => this.engineManager.sttEngine,
+      getTranslator: () => this.engineManager.translator,
+      getGlossary: () => this.glossary,
+      getSimulMtConfig: () => ({ enabled: this.simulMtEnabled, waitK: this.simulMtWaitK }),
+      resolveTargetLanguage: (lang) => this.resolveTargetLanguage(lang),
+      incrementProcessing: () => { this.processingCount++ },
+      decrementProcessing: () => {
+        this.processingCount--
+        if (this.processingCount === 0) {
+          for (const resolve of this.processingDoneResolvers) resolve()
+          this.processingDoneResolvers = []
+        }
+      }
+    })
+  }
 
   // --- State management ---
 
@@ -128,11 +141,11 @@ export class TranslationPipeline extends EventEmitter {
   }
 
   get currentConfig(): EngineConfig | null {
-    return this.config
+    return this.engineManager.config
   }
 
   get sessionStartTime(): number | null {
-    return this.startedAt
+    return this.memoryMonitor.sessionStartTime
   }
 
   /** Check if a specific transition is allowed */
@@ -168,27 +181,18 @@ export class TranslationPipeline extends EventEmitter {
     this.simulMtWaitK = Math.max(1, Math.min(waitK, 10))
   }
 
-  // --- Engine registration ---
+  // --- Engine registration (delegated to EngineManager) ---
 
   registerSTT(id: string, factory: () => STTEngine): void {
-    this.sttFactories.set(id, factory)
+    this.engineManager.registerSTT(id, factory)
   }
 
   registerTranslator(id: string, factory: () => TranslatorEngine): void {
-    this.translatorFactories.set(id, factory)
+    this.engineManager.registerTranslator(id, factory)
   }
 
   registerE2E(id: string, factory: () => E2ETranslationEngine): void {
-    this.e2eFactories.set(id, factory)
-  }
-
-  /** Run a promise with a timeout (cleans up timer on resolution) */
-  private withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
-    let timer: ReturnType<typeof setTimeout>
-    const timeoutPromise = new Promise<never>((_resolve, reject) => {
-      timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms / 1000}s`)), ms)
-    })
-    return Promise.race([promise, timeoutPromise]).finally(() => clearTimeout(timer))
+    this.engineManager.registerE2E(id, factory)
   }
 
   // --- Processing lock ---
@@ -198,36 +202,6 @@ export class TranslationPipeline extends EventEmitter {
     if (this.processingCount === 0) return
     return new Promise((resolve) => {
       this.processingDoneResolvers.push(resolve)
-    })
-  }
-
-  /**
-   * Wait for the streaming lock to be released with a timeout and backpressure cap.
-   * If more than MAX_STREAMING_LOCK_RESOLVERS are already waiting, the oldest
-   * resolvers are auto-resolved to prevent unbounded growth (#292).
-   */
-  private waitForStreamingLock(): Promise<void> {
-    return new Promise<void>((resolve) => {
-      // Evict oldest waiters when the queue is full
-      while (this.streamingLockResolvers.length >= MAX_STREAMING_LOCK_RESOLVERS) {
-        const oldest = this.streamingLockResolvers.shift()
-        if (oldest) oldest()
-      }
-
-      // Auto-resolve after timeout so callers never hang indefinitely
-      const timer = setTimeout(() => {
-        const idx = this.streamingLockResolvers.indexOf(resolve)
-        if (idx !== -1) {
-          this.streamingLockResolvers.splice(idx, 1)
-          console.warn('[pipeline] streamingLock wait timed out')
-          resolve()
-        }
-      }, STREAMING_LOCK_TIMEOUT_MS)
-
-      this.streamingLockResolvers.push(() => {
-        clearTimeout(timer)
-        resolve()
-      })
     })
   }
 
@@ -244,46 +218,8 @@ export class TranslationPipeline extends EventEmitter {
 
     try {
       await this.waitForProcessing()
-      await this.disposeEngines()
-      this.config = config
-
-      if (config.mode === 'cascade') {
-        const sttId = config.sttEngineId
-        const translatorId = config.translatorEngineId
-        if (!sttId || !translatorId) {
-          throw new Error('cascade mode requires sttEngineId and translatorEngineId')
-        }
-
-        const sttFactory = this.sttFactories.get(sttId)
-        const translatorFactory = this.translatorFactories.get(translatorId)
-        if (!sttFactory) throw new Error(`STT engine not found: ${sttId}`)
-        if (!translatorFactory) throw new Error(`Translator engine not found: ${translatorId}`)
-
-        this.emit('engine-loading', 'Loading STT model...')
-        this.sttEngine = await Promise.resolve(sttFactory())
-        await this.withTimeout(this.sttEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'STT initialization')
-
-        this.emit('engine-loading', 'Initializing translator...')
-        this.translator = await Promise.resolve(translatorFactory())
-        await this.withTimeout(this.translator.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Translator initialization')
-
-        // Wire up draft callback for hybrid translator (#235)
-        if (this.translator instanceof HybridTranslator) {
-          this.translator.setOnDraft((draft) => {
-            this.emit('draft-result', draft)
-          })
-        }
-      } else if (config.mode === 'e2e') {
-        const e2eId = config.e2eEngineId
-        if (!e2eId) throw new Error('e2e mode requires e2eEngineId')
-
-        const e2eFactory = this.e2eFactories.get(e2eId)
-        if (!e2eFactory) throw new Error(`E2E engine not found: ${e2eId}`)
-
-        this.emit('engine-loading', 'Loading translation model...')
-        this.e2eEngine = await Promise.resolve(e2eFactory())
-        await this.withTimeout(this.e2eEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'E2E engine initialization')
-      }
+      await this.engineManager.disposeEngines()
+      await this.engineManager.initializeEngines(config, this)
 
       // If was RUNNING (hot-swap), go back to RUNNING; otherwise stay IDLE until start()
       if (prevState === PipelineState.RUNNING) {
@@ -295,8 +231,8 @@ export class TranslationPipeline extends EventEmitter {
       }
       this.emit('engine-ready')
     } catch (err) {
-      this.config = null
-      await this.disposeEngines()
+      this.engineManager.clearConfig()
+      await this.engineManager.disposeEngines()
       this.setState(PipelineState.IDLE)
       this.emit('error', err instanceof Error ? err : new Error(String(err)))
       throw err
@@ -309,31 +245,25 @@ export class TranslationPipeline extends EventEmitter {
       return
     }
     this.setState(PipelineState.RUNNING)
-    this.startedAt = Date.now()
     this.consecutiveErrors = 0
-    this.startMemoryMonitor()
+    this.memoryMonitor.start()
   }
 
   async stop(): Promise<void> {
-    this.stopMemoryMonitor()
+    this.memoryMonitor.stop()
     this.setState(PipelineState.IDLE)
-    this.startedAt = null
-    this.streamingLock = false
-    for (const r of this.streamingLockResolvers) r()
-    this.streamingLockResolvers = []
+    this.streaming.reset()
     this.agreement.reset()
     this.contextBuffer.reset()
     this.speakerTracker.reset()
-    this.lastTranslatedConfirmed = ''
-    this.simulMtPreviousOutput = ''
     // Dispose engines to free memory (#211)
-    await this.disposeEngines()
+    await this.engineManager.disposeEngines()
   }
 
   // --- Audio processing ---
 
   async process(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (this._state !== PipelineState.RUNNING || !this.config) return null
+    if (this._state !== PipelineState.RUNNING || !this.engineManager.config) return null
     if (this.batchLock) return null
 
     this.processingCount++
@@ -341,9 +271,9 @@ export class TranslationPipeline extends EventEmitter {
     try {
       let result: TranslationResult | null = null
 
-      if (this.config.mode === 'e2e' && this.e2eEngine) {
-        result = await this.e2eEngine.processAudio(audioChunk, sampleRate)
-      } else if (this.config.mode === 'cascade' && this.sttEngine) {
+      if (this.engineManager.config.mode === 'e2e' && this.engineManager.e2eEngine) {
+        result = await this.engineManager.e2eEngine.processAudio(audioChunk, sampleRate)
+      } else if (this.engineManager.config.mode === 'cascade' && this.engineManager.sttEngine) {
         result = await this.processCascade(audioChunk, sampleRate)
       }
 
@@ -376,10 +306,10 @@ export class TranslationPipeline extends EventEmitter {
     audioChunk: Float32Array,
     sampleRate: number
   ): Promise<TranslationResult | null> {
-    if (!this.sttEngine) return null
+    if (!this.engineManager.sttEngine) return null
 
     const t0 = performance.now()
-    const sttResult = await this.sttEngine.processAudio(audioChunk, sampleRate)
+    const sttResult = await this.engineManager.sttEngine.processAudio(audioChunk, sampleRate)
     const sttMs = (performance.now() - t0).toFixed(0)
     if (!sttResult || !sttResult.isFinal || !sttResult.text.trim()) {
       console.log(`[pipeline] STT: ${sttMs}ms → (no result)`)
@@ -389,7 +319,7 @@ export class TranslationPipeline extends EventEmitter {
 
     const targetLang = this.resolveTargetLanguage(sttResult.language)
 
-    if (!this.translator) {
+    if (!this.engineManager.translator) {
       this.emit('error', new Error('Translator engine not initialized'))
       return null
     }
@@ -398,7 +328,7 @@ export class TranslationPipeline extends EventEmitter {
       const t1 = performance.now()
       const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
       const glossary = this.glossary.length > 0 ? this.glossary : undefined
-      const translated = await this.translator.translate(
+      const translated = await this.engineManager.translator.translate(
         sttResult.text,
         sttResult.language,
         targetLang,
@@ -432,7 +362,7 @@ export class TranslationPipeline extends EventEmitter {
   }
 
   private async attemptRecovery(): Promise<void> {
-    if (!this.canTransitionTo(PipelineState.RECOVERING) || !this.config) return
+    if (!this.canTransitionTo(PipelineState.RECOVERING) || !this.engineManager.config) return
     this.setState(PipelineState.RECOVERING)
 
     console.log('[pipeline] Attempting auto-recovery after consecutive errors...')
@@ -444,17 +374,17 @@ export class TranslationPipeline extends EventEmitter {
       // Reset streaming state before re-initializing engines
       this.agreement.reset()
       this.contextBuffer.reset()
-      this.lastTranslatedConfirmed = ''
-      this.simulMtPreviousOutput = ''
+      this.streaming.lastTranslatedConfirmed = ''
+      this.streaming.simulMtPreviousOutput = ''
 
       // Temporarily go to IDLE so switchEngine can transition to INITIALIZING
       this.setState(PipelineState.IDLE)
-      await this.switchEngine(this.config)
+      await this.switchEngine(this.engineManager.config)
       this.consecutiveErrors = 0
 
       // switchEngine leaves us in IDLE, so start again
       this.setState(PipelineState.RUNNING)
-      this.startMemoryMonitor()
+      this.memoryMonitor.start()
       console.log('[pipeline] Auto-recovery successful')
     } catch (err) {
       console.error('[pipeline] Auto-recovery failed:', err)
@@ -464,243 +394,35 @@ export class TranslationPipeline extends EventEmitter {
     }
   }
 
-  // --- Streaming ---
+  // --- Streaming (delegated to StreamingProcessor) ---
 
   async processStreaming(audioBuffer: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (this._state !== PipelineState.RUNNING || !this.config) return null
-    if (this.config.mode !== 'cascade' || !this.sttEngine) return null
-    // Drop chunk if another streaming call is in-flight — acceptable because
-    // the rolling buffer re-sends accumulated audio on the next interval (#103)
-    if (this.streamingLock) return null
-
-    this.processingCount++
-    this.streamingLock = true
-    try {
-      const t0 = performance.now()
-      const sttResult = await this.sttEngine.processAudio(audioBuffer, sampleRate)
-      const sttMs = (performance.now() - t0).toFixed(0)
-      if (!sttResult || !sttResult.text.trim()) {
-        console.log(`[pipeline:stream] STT: ${sttMs}ms → (no result, ${(audioBuffer.length / sampleRate).toFixed(1)}s audio)`)
-        // Reset agreement on silence to prevent stale state accumulation (#75)
-        this.agreement.reset()
-        this.lastTranslatedConfirmed = ''
-        this.simulMtPreviousOutput = ''
-        return null
-      }
-      console.log(`[pipeline:stream] STT: ${sttMs}ms → "${sttResult.text}" [${sttResult.language}]`)
-
-      const agreement = this.agreement.update(sttResult.text)
-      const targetLang = this.resolveTargetLanguage(sttResult.language)
-
-      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
-      const glossary = this.glossary.length > 0 ? this.glossary : undefined
-
-      let translatedText = ''
-
-      // SimulMT path: use incremental translation with Wait-k policy
-      if (
-        this.simulMtEnabled &&
-        this.translator?.translateIncremental &&
-        agreement.confirmedText.trim()
-      ) {
-        const wordCount = this.countWords(agreement.confirmedText, sttResult.language)
-        if (wordCount >= this.simulMtWaitK) {
-          translatedText = await this.translator.translateIncremental(
-            agreement.confirmedText,
-            this.simulMtPreviousOutput,
-            sttResult.language,
-            targetLang,
-            this.contextBuffer.getContext(glossary, speakerId)
-          )
-          this.simulMtPreviousOutput = translatedText
-          this.lastTranslatedConfirmed = translatedText
-        } else {
-          translatedText = this.simulMtPreviousOutput || this.lastTranslatedConfirmed
-        }
-      } else if (agreement.newConfirmed && this.translator) {
-        // Standard path: translate only when new confirmed text appears
-        translatedText = await this.translator.translate(
-          agreement.confirmedText,
-          sttResult.language,
-          targetLang,
-          this.contextBuffer.getContext(glossary, speakerId)
-        )
-        this.lastTranslatedConfirmed = translatedText
-      } else {
-        translatedText = this.lastTranslatedConfirmed
-      }
-
-      const interimResult: TranslationResult = {
-        sourceText: agreement.confirmedText + agreement.interimText,
-        translatedText,
-        sourceLanguage: sttResult.language,
-        targetLanguage: targetLang,
-        timestamp: Date.now(),
-        isInterim: true,
-        speakerId
-      }
-
-      this.emit('interim-result', interimResult)
-      return interimResult
-    } catch (err) {
-      this.emit('error', err instanceof Error ? err : new Error(String(err)))
-      return null
-    } finally {
-      this.streamingLock = false
-      this.processingCount--
-      if (this.processingCount === 0) {
-        for (const resolve of this.processingDoneResolvers) resolve()
-        this.processingDoneResolvers = []
-      }
-      for (const r of this.streamingLockResolvers) r()
-      this.streamingLockResolvers = []
-    }
+    if (this._state !== PipelineState.RUNNING || !this.engineManager.config) return null
+    if (this.engineManager.config.mode !== 'cascade') return null
+    return this.streaming.processStreaming(audioBuffer, sampleRate)
   }
 
   async finalizeStreaming(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (!this.running || !this.config) return null
-    if (this.config.mode !== 'cascade' || !this.sttEngine) return null
-
-    if (this.streamingLock) {
-      await this.waitForStreamingLock()
-    }
-    this.processingCount++
-    this.streamingLock = true
-
-    try {
-      const sttResult = await this.sttEngine.processAudio(audioChunk, sampleRate)
-      if (!sttResult || !sttResult.text.trim()) {
-        this.agreement.reset()
-        this.lastTranslatedConfirmed = ''
-        this.simulMtPreviousOutput = ''
-        return null
-      }
-
-      const agreement = this.agreement.finalize(sttResult.text)
-      const targetLang = this.resolveTargetLanguage(sttResult.language)
-
-      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
-      const glossary = this.glossary.length > 0 ? this.glossary : undefined
-
-      let translatedText = ''
-      if (this.translator && agreement.confirmedText.trim()) {
-        translatedText = await this.translator.translate(
-          agreement.confirmedText,
-          sttResult.language,
-          targetLang,
-          this.contextBuffer.getContext(glossary, speakerId)
-        )
-        this.contextBuffer.add(agreement.confirmedText, translatedText, speakerId)
-      }
-
-      this.lastTranslatedConfirmed = ''
-      this.simulMtPreviousOutput = ''
-      const result: TranslationResult = {
-        sourceText: agreement.confirmedText,
-        translatedText,
-        sourceLanguage: sttResult.language,
-        targetLanguage: targetLang,
-        timestamp: Date.now(),
-        isInterim: false,
-        speakerId
-      }
-
-      this.emit('result', result)
-      return result
-    } catch (err) {
-      this.agreement.reset()
-      this.lastTranslatedConfirmed = ''
-      this.emit('error', err instanceof Error ? err : new Error(String(err)))
-      return null
-    } finally {
-      this.streamingLock = false
-      this.processingCount--
-      if (this.processingCount === 0) {
-        for (const resolve of this.processingDoneResolvers) resolve()
-        this.processingDoneResolvers = []
-      }
-      for (const r of this.streamingLockResolvers) r()
-      this.streamingLockResolvers = []
-    }
-  }
-
-  /**
-   * Count words in text. For CJK text (Japanese/Chinese/Korean), count characters
-   * since there are no space-delimited word boundaries.
-   */
-  private countWords(text: string, language: Language): number {
-    if (language === 'ja' || language === 'zh') {
-      // For Japanese/Chinese, each character roughly corresponds to a morpheme
-      return text.replace(/\s/g, '').length
-    }
-    // Korean has spaces between words, but character count is a better proxy for SimulMT
-    if (language === 'ko') {
-      return text.replace(/\s/g, '').length
-    }
-    return text.trim().split(/\s+/).filter(Boolean).length
+    if (!this.running || !this.engineManager.config) return null
+    if (this.engineManager.config.mode !== 'cascade') return null
+    return this.streaming.finalizeStreaming(audioChunk, sampleRate)
   }
 
   /**
    * Resolve the target language based on user settings and detected source language.
-   * When source and target are the same, falls back to ja↔en swap for backward compatibility.
+   * When source and target are the same, falls back to ja<->en swap for backward compatibility.
    */
   private resolveTargetLanguage(detectedLang: Language): Language {
     const target = this.targetLanguage
     // If detected language matches target, swap to avoid no-op translation
     if (detectedLang === target) {
-      // Backward-compatible fallback: ja↔en
+      // Backward-compatible fallback: ja<->en
       return detectedLang === 'ja' ? 'en' : 'ja'
     }
     return target
   }
 
-  // --- Memory monitoring ---
-
-  private startMemoryMonitor(): void {
-    this.stopMemoryMonitor()
-    this.logMemoryUsage()
-    this.memoryTimer = setInterval(() => this.logMemoryUsage(), 60_000)
-    if (typeof this.memoryTimer === 'object' && 'unref' in this.memoryTimer) {
-      this.memoryTimer.unref()
-    }
-  }
-
-  private stopMemoryMonitor(): void {
-    if (this.memoryTimer) {
-      clearInterval(this.memoryTimer)
-      this.memoryTimer = null
-    }
-  }
-
-  private logMemoryUsage(): void {
-    const mem = process.memoryUsage()
-    const mb = (bytes: number): string => (bytes / 1024 / 1024).toFixed(1)
-    const elapsed = this.startedAt
-      ? `${((Date.now() - this.startedAt) / 60_000).toFixed(1)}min`
-      : '0min'
-    console.log(
-      `[memory] elapsed=${elapsed} heap=${mb(mem.heapUsed)}/${mb(mem.heapTotal)}MB rss=${mb(mem.rss)}MB external=${mb(mem.external)}MB`
-    )
-  }
-
   // --- Cleanup ---
-
-  private async disposeEngines(): Promise<void> {
-    const engines = [this.sttEngine, this.translator, this.e2eEngine]
-    this.sttEngine = null
-    this.translator = null
-    this.e2eEngine = null
-
-    for (const engine of engines) {
-      if (engine) {
-        try {
-          await engine.dispose()
-        } catch (err) {
-          console.warn('[pipeline] Error during engine disposal:', err)
-        }
-      }
-    }
-  }
 
   async dispose(): Promise<void> {
     await this.stop()
