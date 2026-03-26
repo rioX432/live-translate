@@ -1,29 +1,11 @@
-import { utilityProcess } from 'electron'
 import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { getGGUFDir, downloadGGUF, getHunyuanMTVariants } from '../model-downloader'
-import {
-  WORKER_TRANSLATE_TIMEOUT_MS,
-  WORKER_INIT_TIMEOUT_MS,
-  WORKER_DISPOSE_GRACE_MS,
-  WORKER_MAX_PENDING_REQUESTS
-} from '../constants'
-
-/** Messages received from the slm-worker UtilityProcess */
-type WorkerMessage =
-  | { type: 'ready' }
-  | { type: 'result'; id: string; text: string }
-  | { type: 'error'; id?: string; message: string }
-
-interface PendingRequest {
-  resolve: (text: string) => void
-  reject: (err: Error) => void
-  timer: ReturnType<typeof setTimeout>
-}
+import { workerPool } from '../../main/worker-pool'
 
 /**
  * Hunyuan-MT-7B translator via node-llama-cpp UtilityProcess.
- * Uses the same slm-worker.ts as TranslateGemma but with Hunyuan-MT prompt format.
+ * Uses the shared worker pool instead of spawning its own process.
  * WMT25 winner: 30/31 categories, 33 languages, 15-65% improvement over Google Translate.
  * License: Tencent Hunyuan Community License (Apache 2.0 based, commercial OK < 100M MAU).
  */
@@ -32,13 +14,12 @@ export class HunyuanMTTranslator implements TranslatorEngine {
   readonly name = 'Hunyuan-MT 7B (Offline)'
   readonly isOffline = true
 
-  private worker: Electron.UtilityProcess | null = null
-  private pending = new Map<string, PendingRequest>()
-  private nextId = 0
+  private initialized = false
   private initPromise: Promise<void> | null = null
   private onProgress?: (message: string) => void
   private variant: string
   private kvCacheQuant: boolean
+  private modelPath: string = ''
 
   constructor(options?: { onProgress?: (message: string) => void; variant?: string; kvCacheQuant?: boolean }) {
     this.onProgress = options?.onProgress
@@ -53,124 +34,37 @@ export class HunyuanMTTranslator implements TranslatorEngine {
   }
 
   private async doInitialize(): Promise<void> {
-    if (this.worker) return
+    if (this.initialized) return
 
     // Download model if needed
     const variants = getHunyuanMTVariants()
     const variantConfig = variants[this.variant] ?? variants['Q4_K_M']!
-    const modelPath = join(getGGUFDir(), variantConfig.filename)
+    this.modelPath = join(getGGUFDir(), variantConfig.filename)
     await downloadGGUF(variantConfig.filename, variantConfig.url, this.onProgress, variantConfig.sha256)
 
-    // Spawn UtilityProcess (reuses the same slm-worker)
     this.onProgress?.('Starting Hunyuan-MT 7B worker...')
-    const workerPath = join(__dirname, 'slm-worker.js')
 
-    this.worker = utilityProcess.fork(workerPath)
+    await workerPool.acquire({
+      modelPath: this.modelPath,
+      kvCacheQuant: this.kvCacheQuant,
+      modelType: 'hunyuan-mt'
+    }, this.onProgress)
 
-    this.worker.on('exit', (code) => {
-      console.log(`[hunyuan-mt-worker] Worker exited with code ${code}`)
-      this.worker = null
-      for (const [id, req] of this.pending) {
-        clearTimeout(req.timer)
-        req.reject(new Error('Worker process exited'))
-        this.pending.delete(id)
-      }
-    })
-
-    // Wait for init before registering the general message handler
-    await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
-        this.worker?.removeListener('message', initHandler)
-        try { this.worker?.kill() } catch (e) { console.warn('[hunyuan-mt-worker] Failed to kill worker on timeout:', e) }
-        this.worker = null
-        reject(new Error('Hunyuan-MT initialization timed out'))
-      }, WORKER_INIT_TIMEOUT_MS)
-
-      const initHandler = (msg: WorkerMessage): void => {
-        if (!this.worker) return
-
-        if (msg.type === 'ready') {
-          clearTimeout(timeout)
-          this.worker?.removeListener('message', initHandler)
-          this.onProgress?.('Hunyuan-MT 7B model loaded')
-          resolve()
-        } else if (msg.type === 'error') {
-          clearTimeout(timeout)
-          this.worker?.removeListener('message', initHandler)
-          reject(new Error(msg.message))
-        }
-      }
-
-      this.worker!.on('message', initHandler)
-      this.worker!.postMessage({
-        type: 'init',
-        modelPath,
-        kvCacheQuant: this.kvCacheQuant,
-        modelType: 'hunyuan-mt'
-      })
-    })
-
-    if (!this.worker) {
-      throw new Error('Worker was killed during initialization')
-    }
-
-    // Clear any leftover listeners before registering to prevent duplicates
-    this.worker.removeAllListeners('message')
-    this.worker.on('message', (msg: WorkerMessage) => {
-      if (msg.type === 'result' && msg.id) {
-        const req = this.pending.get(msg.id)
-        if (req) {
-          clearTimeout(req.timer)
-          this.pending.delete(msg.id)
-          req.resolve(msg.text)
-        }
-        return
-      }
-      if (msg.type === 'error' && msg.id) {
-        const req = this.pending.get(msg.id)
-        if (req) {
-          clearTimeout(req.timer)
-          this.pending.delete(msg.id)
-          req.reject(new Error(msg.message))
-        }
-        return
-      }
-      if (msg.type === 'error') {
-        console.error('[hunyuan-mt-worker] Worker error:', msg.message)
-      }
-    })
-  }
-
-  /** Evict the oldest pending request if the map is at capacity */
-  private evictOldestPending(): void {
-    if (this.pending.size >= WORKER_MAX_PENDING_REQUESTS) {
-      const oldestKey = this.pending.keys().next().value!
-      const oldest = this.pending.get(oldestKey)!
-      this.pending.delete(oldestKey)
-      clearTimeout(oldest.timer)
-      oldest.reject(new Error('Evicted: worker pending request limit exceeded'))
-    }
+    this.onProgress?.('Hunyuan-MT 7B model loaded')
+    this.initialized = true
   }
 
   async translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string> {
     if (!text.trim()) return ''
     if (from === to) return text
-    if (!this.worker) {
+    if (!this.initialized) {
       throw new Error('[hunyuan-mt-worker] Not initialized')
     }
 
-    const id = String(this.nextId++)
-
-    return new Promise<string>((resolve, reject) => {
-      this.evictOldestPending()
-      const timer = setTimeout(() => {
-        this.pending.delete(id)
-        reject(new Error('Hunyuan-MT translation timed out'))
-      }, WORKER_TRANSLATE_TIMEOUT_MS)
-
-      this.pending.set(id, { resolve, reject, timer })
-      this.worker!.postMessage({ type: 'translate', id, text, from, to, context })
-    })
+    return workerPool.sendRequest(
+      { type: 'translate', text, from, to, context },
+      'translate'
+    )
   }
 
   async translateIncremental(
@@ -182,64 +76,21 @@ export class HunyuanMTTranslator implements TranslatorEngine {
   ): Promise<string> {
     if (!text.trim()) return previousOutput || ''
     if (from === to) return text
-    if (!this.worker) {
+    if (!this.initialized) {
       throw new Error('[hunyuan-mt-worker] Not initialized')
     }
 
-    const id = String(this.nextId++)
-
-    return new Promise<string>((resolve, reject) => {
-      this.evictOldestPending()
-      const timer = setTimeout(() => {
-        this.pending.delete(id)
-        reject(new Error('Hunyuan-MT incremental translation timed out'))
-      }, WORKER_TRANSLATE_TIMEOUT_MS)
-
-      this.pending.set(id, { resolve, reject, timer })
-      this.worker!.postMessage({
-        type: 'translate-incremental',
-        id,
-        text,
-        previousOutput,
-        from,
-        to,
-        context
-      })
-    })
+    return workerPool.sendRequest(
+      { type: 'translate-incremental', text, previousOutput, from, to, context },
+      'translate-incremental'
+    )
   }
 
   async dispose(): Promise<void> {
-    if (this.worker) {
-      // Remove all listeners before sending dispose to prevent exit handler from firing
-      this.worker.removeAllListeners()
-      try {
-        // Wait for the worker to confirm disposal or fall back to timeout
-        await new Promise<void>((resolve) => {
-          const timeout = setTimeout(resolve, WORKER_DISPOSE_GRACE_MS)
-          this.worker!.on('message', (msg: any) => {
-            if (msg.type === 'disposed') {
-              clearTimeout(timeout)
-              resolve()
-            }
-          })
-          this.worker!.postMessage({ type: 'dispose' })
-        })
-      } catch {
-        // Ignore errors during disposal
-      }
-      try {
-        this.worker.kill()
-      } catch {
-        // Already exited
-      }
-      this.worker = null
+    if (this.initialized) {
+      await workerPool.release()
+      this.initialized = false
     }
-
-    for (const [, req] of this.pending) {
-      clearTimeout(req.timer)
-      req.reject(new Error('Translator disposed'))
-    }
-    this.pending.clear()
     this.initPromise = null
   }
 }

@@ -6,10 +6,10 @@ import { GeminiTranslator } from '../engines/translator/GeminiTranslator'
 import { MicrosoftTranslator } from '../engines/translator/MicrosoftTranslator'
 import { ApiRotationController } from '../engines/translator/ApiRotationController'
 import type { ProviderConfig, QuotaStore } from '../engines/translator/ApiRotationController'
-import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { detectGpu } from '../engines/gpu-detector'
-import { isGGUFDownloaded, getGGUFVariants, getHunyuanMTVariants, getHunyuanMT15Variants, getWhisperVariants, isModelDownloaded as isWhisperModelDownloaded } from '../engines/model-downloader'
+import { isGGUFDownloaded, getGGUFDir, downloadGGUF, getGGUFVariants, getHunyuanMTVariants, getHunyuanMT15Variants, getWhisperVariants, isModelDownloaded as isWhisperModelDownloaded } from '../engines/model-downloader'
 import type { SLMModelSize, WhisperVariant } from '../engines/model-downloader'
+import { workerPool } from './worker-pool'
 import { listPlugins } from '../engines/plugin-loader'
 import { TranscriptLogger } from '../logger/TranscriptLogger'
 import * as SessionManager from '../logger/SessionManager'
@@ -300,19 +300,28 @@ export function registerIpcHandlers(ctx: AppContext): void {
         return { error: 'Transcript is empty' }
       }
 
-      // Use SLM translator for summarization
-      const slm = new SLMTranslator({
-        onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-        kvCacheQuant: store.get('slmKvCacheQuant'),
-        modelSize: store.get('slmModelSize')
-      })
+      // Use shared worker pool for summarization
+      const modelSize = (store.get('slmModelSize') as SLMModelSize) || '4b'
+      const variants = getGGUFVariants(modelSize)
+      const variantConfig = variants['Q4_K_M']!
+      const modelPath = join(getGGUFDir(), variantConfig.filename)
+      await downloadGGUF(variantConfig.filename, variantConfig.url,
+        (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
+        variantConfig.sha256)
+
+      await workerPool.acquire({
+        modelPath,
+        kvCacheQuant: store.get('slmKvCacheQuant') as boolean
+      }, (msg) => ctx.mainWindow?.webContents.send('status-update', msg))
 
       try {
-        await slm.initialize()
-        const summary = await slm.summarize(transcript)
+        const summary = await workerPool.sendRequest(
+          { type: 'summarize', transcript },
+          'summarize'
+        )
         return { summary }
       } finally {
-        await slm.dispose()
+        await workerPool.release()
       }
     } catch (err) {
       return { error: sanitizeErrorMessage(err instanceof Error ? err.message : String(err)) }
