@@ -173,10 +173,11 @@ app.whenReady().then(async () => {
   await initPipeline()
   createMainWindow(ctx)
   createSubtitleWindow(ctx)
-  registerDisplayHandlers(ctx)
+  cleanupDisplayHandlers = registerDisplayHandlers(ctx)
   initAutoUpdater(ctx)
 })
 
+let cleanupDisplayHandlers: (() => void) | null = null
 let isQuitting = false
 app.on('before-quit', (event) => {
   if (isQuitting) return
@@ -186,6 +187,8 @@ app.on('before-quit', (event) => {
   // Async cleanup before quit — timeout after 5s to prevent hanging (#222)
   ;(async () => {
     try {
+      cleanupDisplayHandlers?.()
+      cleanupDisplayHandlers = null
       disposeAutoUpdater()
       ctx.logger?.endSession()
       ctx.logger = null

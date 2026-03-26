@@ -78,10 +78,10 @@ export function createSubtitleWindow(ctx: AppContext): void {
   })
 }
 
-/** Register display-change event handlers */
-export function registerDisplayHandlers(ctx: AppContext): void {
+/** Register display-change event handlers. Returns a cleanup function that removes the listeners. */
+export function registerDisplayHandlers(ctx: AppContext): () => void {
   // #46: reposition subtitle window when external display is disconnected
-  screen.on('display-removed', () => {
+  const onDisplayRemoved = (): void => {
     if (!ctx.subtitleWindow) return
     const primaryDisplay = screen.getPrimaryDisplay()
     const h = getSubtitleHeight(primaryDisplay)
@@ -93,9 +93,17 @@ export function registerDisplayHandlers(ctx: AppContext): void {
     })
     // #64: notify renderer to refresh display list
     ctx.mainWindow?.webContents.send('displays-changed')
-  })
+  }
 
-  screen.on('display-added', () => {
+  const onDisplayAdded = (): void => {
     ctx.mainWindow?.webContents.send('displays-changed')
-  })
+  }
+
+  screen.on('display-removed', onDisplayRemoved)
+  screen.on('display-added', onDisplayAdded)
+
+  return () => {
+    screen.removeListener('display-removed', onDisplayRemoved)
+    screen.removeListener('display-added', onDisplayAdded)
+  }
 }
