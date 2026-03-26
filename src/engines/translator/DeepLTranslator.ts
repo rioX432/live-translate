@@ -1,4 +1,4 @@
-import type { TranslatorEngine, Language } from '../types'
+import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { apiFetch, apiInitialize, DEFAULT_TIMEOUT_MS } from './api-utils'
 
 const DEEPL_FREE_URL = 'https://api-free.deepl.com/v2/translate'
@@ -57,9 +57,15 @@ export class DeepLTranslator implements TranslatorEngine {
     if (!alreadyInit) this.initialized = true
   }
 
-  async translate(text: string, from: Language, to: Language): Promise<string> {
+  async translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string> {
     if (!text.trim()) return ''
     if (from === to) return text
+
+    // Build context string from previous segments for DeepL's context parameter
+    let contextStr: string | undefined
+    if (context?.previousSegments?.length) {
+      contextStr = context.previousSegments.map((s) => s.source).join(' ')
+    }
 
     const data = await apiFetch<{
       translations: Array<{ text: string; detected_source_language: string }>
@@ -74,7 +80,8 @@ export class DeepLTranslator implements TranslatorEngine {
         body: JSON.stringify({
           text: [text],
           source_lang: LANG_MAP[from].source,
-          target_lang: LANG_MAP[to].target
+          target_lang: LANG_MAP[to].target,
+          ...(contextStr && { context: contextStr })
         })
       },
       timeoutMs: this.timeoutMs,

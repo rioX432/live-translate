@@ -1,6 +1,6 @@
 import { app } from 'electron'
 import { join } from 'path'
-import type { TranslatorEngine, Language } from '../types'
+import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { isHallucination } from './hallucination-filter'
 
 // Dynamic import for ESM-only @huggingface/transformers
@@ -58,7 +58,7 @@ export class OpusMTTranslator implements TranslatorEngine {
     }
   }
 
-  async translate(text: string, from: Language, to: Language): Promise<string> {
+  async translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string> {
     if (!text.trim()) return ''
     if (from === to) return text
 
@@ -66,13 +66,23 @@ export class OpusMTTranslator implements TranslatorEngine {
     const trimmed = text.trim()
     if (trimmed.length < 3) return ''
 
+    // Apply glossary term replacements before translation
+    let input = text
+    if (context?.glossary?.length) {
+      for (const entry of context.glossary) {
+        if (entry.source?.trim() && input.includes(entry.source)) {
+          input = input.replaceAll(entry.source, entry.target)
+        }
+      }
+    }
+
     const pipe = from === 'ja' ? this.jaToEn : this.enToJa
     if (!pipe) {
       console.error(`[opus-mt] Pipeline not initialized for ${from}→${to}`)
       return ''
     }
 
-    const result = await pipe(text)
+    const result = await pipe(input)
     const translated = result[0]?.translation_text || ''
 
     if (isHallucination(trimmed, translated, from, to)) {

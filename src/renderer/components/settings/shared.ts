@@ -110,7 +110,7 @@ export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hunyuan-mt', 'offline-hy
 /** Display name for each engine mode */
 export function getEngineDisplayName(mode: EngineMode): string {
   switch (mode) {
-    case 'offline-opus': return 'OPUS-MT'
+    case 'offline-opus': return 'OPUS-MT (CTranslate2)'
     case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B (High Quality)'
     case 'offline-hybrid': return 'Hybrid (OPUS-MT + TranslateGemma)'
     case 'rotation': return 'API Auto Rotation'
@@ -149,7 +149,7 @@ export function resolveEngineMode(
   const hasKeys = !!(apiKeys.apiKey || apiKeys.deeplApiKey || apiKeys.geminiApiKey || (apiKeys.microsoftApiKey && apiKeys.microsoftRegion))
   if (hasKeys) return 'rotation'
   if (gpuInfo?.hasGpu) return 'offline-hunyuan-mt'
-  return 'offline-opus'
+  return 'offline-opus' // maps to ct2-opus-mt (CTranslate2 accelerated)
 }
 
 /** Build pipeline config from resolved engine mode and settings */
@@ -182,6 +182,6 @@ export function buildEngineConfig(
       return { ...base, translatorEngineId: 'hybrid' }
     case 'offline-opus':
     default:
-      return { ...base, translatorEngineId: 'opus-mt' }
+      return { ...base, translatorEngineId: 'ct2-opus-mt' }
   }
 }
