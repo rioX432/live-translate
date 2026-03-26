@@ -9,7 +9,7 @@ export const MODEL_URL =
   'https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0-ggml/resolve/main/ggml-kotoba-whisper-v2.0-q5_0.bin'
 
 /** Whisper model variant identifier */
-export type WhisperVariant = 'kotoba-v2.0' | 'large-v3-turbo'
+export type WhisperVariant = 'kotoba-v2.0' | 'large-v3-turbo' | 'base' | 'small'
 
 /** Whisper model variant configuration */
 export interface WhisperVariantConfig {
@@ -35,6 +35,20 @@ export const WHISPER_VARIANTS: Record<WhisperVariant, WhisperVariantConfig> = {
     sizeMB: 600,
     label: 'Large v3 Turbo (OpenAI)',
     description: 'Multilingual, 6x faster than large-v3, ~600MB'
+  },
+  'small': {
+    filename: 'ggml-small.bin',
+    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin',
+    sizeMB: 466,
+    label: 'Small (Fast)',
+    description: 'Fast multilingual, lower accuracy, ~466MB'
+  },
+  'base': {
+    filename: 'ggml-base.bin',
+    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin',
+    sizeMB: 142,
+    label: 'Base (Fastest)',
+    description: 'Fastest, lowest accuracy, ~142MB'
   }
 }
 

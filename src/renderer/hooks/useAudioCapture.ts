@@ -30,8 +30,48 @@ export interface NoiseSuppressionProcessor {
   destroy: () => Promise<void>
 }
 
-const STREAMING_INTERVAL_MS = 1000
+const DEFAULT_STREAMING_INTERVAL_MS = 1500
 const SAMPLE_RATE = 16000
+const MAX_ROLLING_BUFFER_SECONDS = 3
+/** RMS threshold below which a frame is considered silence for trimming */
+const SILENCE_RMS_THRESHOLD = 0.01
+
+/**
+ * Trim leading and trailing silence from audio buffer (#361).
+ * Uses frame-level RMS analysis to find speech boundaries.
+ * Keeps a small padding (160 samples = 10ms at 16kHz) around speech.
+ */
+function trimSilence(buffer: Float32Array): Float32Array | null {
+  const frameSize = 160 // 10ms at 16kHz
+  const padding = 160 // 10ms padding
+  let firstSpeechSample = -1
+  let lastSpeechSample = -1
+
+  for (let i = 0; i < buffer.length; i += frameSize) {
+    const end = Math.min(i + frameSize, buffer.length)
+    let sum = 0
+    for (let j = i; j < end; j++) {
+      sum += buffer[j] * buffer[j]
+    }
+    const rms = Math.sqrt(sum / (end - i))
+    if (rms > SILENCE_RMS_THRESHOLD) {
+      if (firstSpeechSample === -1) firstSpeechSample = i
+      lastSpeechSample = end
+    }
+  }
+
+  if (firstSpeechSample === -1) return null // All silence
+
+  const start = Math.max(0, firstSpeechSample - padding)
+  const end = Math.min(buffer.length, lastSpeechSample + padding)
+  const trimmedLength = end - start
+
+  // Only trim if we save at least 20% of the audio
+  if (trimmedLength >= buffer.length * 0.8) return buffer
+
+  if (trimmedLength < SAMPLE_RATE * 0.3) return null // Too short after trimming
+  return buffer.subarray(start, end)
+}
 
 export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): UseAudioCaptureReturn {
   const [devices, setDevices] = useState<AudioDevice[]>([])
@@ -113,7 +153,9 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
       buffer.set(frame, offset)
       offset += frame.length
     }
-    return buffer
+
+    // #361: Trim leading/trailing silence to reduce audio sent to Whisper
+    return trimSilence(buffer)
   }, [])
 
   const startStreamingTimer = useCallback(() => {
@@ -125,7 +167,7 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
         console.log(`[audio-capture] Streaming chunk: ${buffer.length} samples (${(buffer.length / SAMPLE_RATE).toFixed(1)}s)`)
         streamingCallbackRef.current?.(buffer)
       }
-    }, STREAMING_INTERVAL_MS)
+    }, DEFAULT_STREAMING_INTERVAL_MS)
   }, [getRollingBuffer])
 
   const stopStreamingTimer = useCallback(() => {
@@ -176,9 +218,9 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
         const rms = Math.sqrt(sum / frame.length)
         setVolume(Math.min(1, rms * 5))
 
-        // #53: accumulate frames in circular buffer during speech
+        // #53: accumulate frames in circular buffer during speech (#361: reduced from 5s to 3s)
         if (isSpeakingRef.current) {
-          const maxFrames = Math.floor((5 * SAMPLE_RATE) / frame.length)
+          const maxFrames = Math.floor((MAX_ROLLING_BUFFER_SECONDS * SAMPLE_RATE) / frame.length)
           const buf = rollingBufferRef.current
           if (buf.length < maxFrames && !rollingBufferFullRef.current) {
             buf.push(new Float32Array(frame))

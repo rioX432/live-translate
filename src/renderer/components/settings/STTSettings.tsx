@@ -48,10 +48,22 @@ export function STTSettings({
           >
             <option value="kotoba-v2.0">Kotoba Whisper v2.0 (Japanese-optimized, ~540MB)</option>
             <option value="large-v3-turbo">Large v3 Turbo (Multilingual, 6x faster, ~600MB)</option>
+            <option value="small">Small (Fast mode, ~466MB)</option>
+            <option value="base">Base (Fastest mode, ~142MB)</option>
           </select>
           {whisperVariant === 'large-v3-turbo' && (
             <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
               OpenAI large-v3-turbo: 809M params, 4 decoder layers, within 1-2% WER of large-v3.
+            </div>
+          )}
+          {whisperVariant === 'small' && (
+            <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
+              Fast mode: lower latency (~1-2s) but reduced accuracy. Good for real-time with acceptable quality.
+            </div>
+          )}
+          {whisperVariant === 'base' && (
+            <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
+              Fastest mode: minimal latency (&lt;1s) but significantly lower accuracy. Best for speed-critical use cases.
             </div>
           )}
         </div>

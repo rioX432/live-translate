@@ -449,10 +449,15 @@ function SettingsPanel(): React.JSX.Element {
   const sttDisplayName = (): string => {
     switch (sttEngine) {
       case 'mlx-whisper': return 'mlx-whisper (Apple Silicon)'
-      case 'whisper-local':
-        return whisperVariant === 'large-v3-turbo'
-          ? 'Whisper (large-v3-turbo)'
-          : 'Whisper (kotoba-v2.0)'
+      case 'whisper-local': {
+        const variantLabels: Record<string, string> = {
+          'kotoba-v2.0': 'kotoba-v2.0',
+          'large-v3-turbo': 'large-v3-turbo',
+          'small': 'small, fast',
+          'base': 'base, fastest'
+        }
+        return `Whisper (${variantLabels[whisperVariant] || whisperVariant})`
+      }
       default: return sttEngine
     }
   }
