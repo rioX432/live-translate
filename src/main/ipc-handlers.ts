@@ -22,6 +22,8 @@ import { WsAudioServer } from './ws-audio-server'
 import type { AppContext } from './app-context'
 import type { EngineConfig } from '../engines/types'
 import { DEFAULT_WS_PORT, SAMPLE_RATE } from './constants'
+import { validateSessionId, validateSearchQuery, VALID_EXPORT_FORMATS } from './ipc-validators'
+import type { ExportFormat } from './ipc-validators'
 
 const log = createLogger('ipc')
 
@@ -330,16 +332,29 @@ export function registerIpcHandlers(ctx: AppContext): void {
 
   // #121: Session management
   ipcMain.handle('list-sessions', () => SessionManager.listSessions())
-  ipcMain.handle('load-session', (_event, id: string) => SessionManager.loadSession(id))
-  ipcMain.handle('search-sessions', (_event, query: string) => SessionManager.searchSessions(query))
+  ipcMain.handle('load-session', (_event, id: string) => {
+    const err = validateSessionId(id)
+    if (err) return { error: err }
+    return SessionManager.loadSession(id)
+  })
+  ipcMain.handle('search-sessions', (_event, query: string) => {
+    const err = validateSearchQuery(query)
+    if (err) return { error: err }
+    return SessionManager.searchSessions(query)
+  })
   ipcMain.handle('delete-session', (_event, id: string) => {
+    const err = validateSessionId(id)
+    if (err) return { error: err }
     SessionManager.deleteSession(id)
     return { success: true }
   })
-  ipcMain.handle('export-session', (_event, id: string, format: 'text' | 'srt' | 'markdown') => {
+  ipcMain.handle('export-session', (_event, id: string, format: ExportFormat) => {
+    const err = validateSessionId(id)
+    if (err) return { error: err }
+    const safeFormat = (VALID_EXPORT_FORMATS as readonly string[]).includes(format) ? format : 'text'
     const data = SessionManager.loadSession(id)
     if (!data) return { error: 'Session not found' }
-    switch (format) {
+    switch (safeFormat) {
       case 'srt': return { content: SessionManager.exportAsSRT(data), ext: '.srt' }
       case 'markdown': return { content: SessionManager.exportAsMarkdown(data), ext: '.md' }
       default: return { content: SessionManager.exportAsText(data), ext: '.txt' }
