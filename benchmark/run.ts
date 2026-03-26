@@ -37,7 +37,8 @@ const AVAILABLE_STT_ENGINES = [
   'moonshine',
   'sensevoice',
   'qwen-asr',
-  'sherpa-onnx'
+  'sherpa-onnx',
+  'sherpa-sensevoice'
 ] as const
 type STTEngineId = (typeof AVAILABLE_STT_ENGINES)[number]
 
@@ -224,6 +225,14 @@ async function createSTTEngine(id: STTEngineId): Promise<STTBenchmarkEngine> {
     case 'sherpa-onnx': {
       const { SherpaOnnxBench } = await import('./src/stt-engines/sherpa-onnx.js')
       return new SherpaOnnxBench()
+    }
+    case 'sherpa-sensevoice': {
+      const { SherpaOnnxBench } = await import('./src/stt-engines/sherpa-onnx.js')
+      return new SherpaOnnxBench({
+        model: 'sherpa-onnx-sense-voice-zh-en-ja-ko-yue-2024-07-17',
+        id: 'sherpa-sensevoice',
+        label: 'Sherpa-ONNX SenseVoice Small'
+      })
     }
   }
 }

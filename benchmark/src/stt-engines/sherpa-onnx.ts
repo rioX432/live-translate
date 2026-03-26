@@ -12,14 +12,16 @@ const BRIDGE_SCRIPT = join(__dirname, '..', '..', 'resources', 'sherpa-onnx-brid
  * Optimized for low-latency on-device inference.
  */
 export class SherpaOnnxBench implements STTBenchmarkEngine {
-  readonly id = 'sherpa-onnx'
-  readonly label = 'Sherpa-ONNX'
+  readonly id: string
+  readonly label: string
 
   private bridge: PythonBridge
   private model: string
 
-  constructor(options?: { model?: string }) {
+  constructor(options?: { model?: string; id?: string; label?: string }) {
     this.model = options?.model ?? 'sherpa-onnx-whisper-medium'
+    this.id = options?.id ?? 'sherpa-onnx'
+    this.label = options?.label ?? `Sherpa-ONNX (${this.model})`
     this.bridge = new PythonBridge(BRIDGE_SCRIPT)
   }
 

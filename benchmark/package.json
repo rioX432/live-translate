@@ -29,7 +29,8 @@
     "stt:sensevoice": "tsx --expose-gc run.ts --stt --engines sensevoice",
     "stt:qwen": "tsx --expose-gc run.ts --stt --engines qwen-asr",
     "stt:sherpa": "tsx --expose-gc run.ts --stt --engines sherpa-onnx",
-    "stt:all": "tsx --expose-gc run.ts --stt --engines whisper-local,mlx-whisper,lightning-whisper,moonshine,sensevoice,qwen-asr,sherpa-onnx",
+    "stt:sherpa-sensevoice": "tsx --expose-gc run.ts --stt --engines sherpa-sensevoice",
+    "stt:all": "tsx --expose-gc run.ts --stt --engines whisper-local,mlx-whisper,lightning-whisper,moonshine,sensevoice,qwen-asr,sherpa-onnx,sherpa-sensevoice",
     "stt:generate-testset": "bash scripts/generate-stt-testset.sh"
   },
   "dependencies": {

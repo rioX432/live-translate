@@ -54,10 +54,35 @@ def init_model(model_name="sherpa-onnx-whisper-medium"):
             return
 
         # Detect model type and create recognizer
-        encoder = os.path.join(model_dir, f"{model_name}-encoder.onnx")
-        decoder = os.path.join(model_dir, f"{model_name}-decoder.onnx")
+        sensevoice_model = os.path.join(model_dir, "model.onnx")
+        paraformer_model = os.path.join(model_dir, "model.int8.onnx")
+        tokens = os.path.join(model_dir, "tokens.txt")
 
-        if os.path.exists(encoder) and os.path.exists(decoder):
+        # Encoder/decoder paths: try both plain and model-name-prefixed variants
+        encoder = os.path.join(model_dir, "encoder.onnx")
+        decoder = os.path.join(model_dir, "decoder.onnx")
+        if not os.path.exists(encoder):
+            encoder = os.path.join(model_dir, f"{model_name}-encoder.onnx")
+            decoder = os.path.join(model_dir, f"{model_name}-decoder.onnx")
+
+        name_lower = model_name.lower()
+
+        if ("sense-voice" in name_lower or "sensevoice" in name_lower) and os.path.exists(sensevoice_model):
+            # SenseVoice model (non-autoregressive, single model file)
+            recognizer = sherpa_onnx.OfflineRecognizer.from_sense_voice(
+                model=sensevoice_model,
+                tokens=tokens,
+                num_threads=4,
+                use_itn=True,
+            )
+        elif "paraformer" in name_lower and os.path.exists(paraformer_model):
+            # Paraformer model
+            recognizer = sherpa_onnx.OfflineRecognizer.from_paraformer(
+                paraformer=paraformer_model,
+                tokens=tokens,
+                num_threads=4,
+            )
+        elif os.path.exists(encoder) and os.path.exists(decoder):
             # Whisper-style model
             recognizer = sherpa_onnx.OfflineRecognizer.from_whisper(
                 encoder=encoder,
@@ -65,19 +90,22 @@ def init_model(model_name="sherpa-onnx-whisper-medium"):
                 num_threads=4,
             )
         else:
-            # Try int8 variants
-            encoder = os.path.join(model_dir, f"{model_name}-encoder.int8.onnx")
-            decoder = os.path.join(model_dir, f"{model_name}-decoder.int8.onnx")
-            if os.path.exists(encoder) and os.path.exists(decoder):
+            # Try int8 Whisper variants
+            encoder_int8 = os.path.join(model_dir, f"{model_name}-encoder.int8.onnx")
+            decoder_int8 = os.path.join(model_dir, f"{model_name}-decoder.int8.onnx")
+            if os.path.exists(encoder_int8) and os.path.exists(decoder_int8):
                 recognizer = sherpa_onnx.OfflineRecognizer.from_whisper(
-                    encoder=encoder,
-                    decoder=decoder,
+                    encoder=encoder_int8,
+                    decoder=decoder_int8,
                     num_threads=4,
                 )
             else:
                 output(
                     {
-                        "error": f"Could not find encoder/decoder files in {model_dir}"
+                        "error": f"Could not find model files in {model_dir}. "
+                        f"Expected one of: model.onnx (SenseVoice), "
+                        f"encoder.onnx+decoder.onnx (Whisper), "
+                        f"model.int8.onnx (Paraformer)"
                     }
                 )
                 return
@@ -117,9 +145,13 @@ def transcribe(audio_path, sample_rate=16000):
         stream.accept_waveform(sample_rate, samples)
         recognizer.decode_stream(stream)
 
-        text = stream.result.text
+        result = stream.result
+        text = result.text
 
-        output({"text": text.strip(), "language": "en"})
+        # SenseVoice may return language info via result.lang
+        lang = getattr(result, "lang", None) or "en"
+
+        output({"text": text.strip(), "language": lang})
     except Exception as e:
         output({"error": f"Transcription failed: {e}"})
 
