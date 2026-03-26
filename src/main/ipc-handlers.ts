@@ -21,7 +21,7 @@ import { getSubtitleHeight } from './window-manager'
 import { WsAudioServer } from './ws-audio-server'
 import type { AppContext } from './app-context'
 import type { EngineConfig } from '../engines/types'
-import { DEFAULT_WS_PORT } from './constants'
+import { DEFAULT_WS_PORT, SAMPLE_RATE } from './constants'
 
 const log = createLogger('ipc')
 
@@ -413,7 +413,7 @@ export function registerIpcHandlers(ctx: AppContext): void {
         if (!ctx.pipeline?.running) return
 
         try {
-          await ctx.pipeline.process(chunk, 16000)
+          await ctx.pipeline.process(chunk, SAMPLE_RATE)
         } catch (err) {
           log.error('Pipeline processing error (ws-audio):', err)
         }

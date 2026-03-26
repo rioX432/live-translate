@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
 import { sanitizeErrorMessage } from './error-utils'
 import { createLogger } from './logger'
+import { SAMPLE_RATE } from './constants'
 import type { AppContext } from './app-context'
 
 const log = createLogger('audio')
@@ -70,9 +71,9 @@ export function registerAudioHandlers(ctx: AppContext): void {
     processingAudio = true
     const t0 = performance.now()
     try {
-      const result = await ctx.pipeline.process(chunk, 16000)
+      const result = await ctx.pipeline.process(chunk, SAMPLE_RATE)
       const elapsed = (performance.now() - t0).toFixed(0)
-      if (result) log.info(`process-audio: ${elapsed}ms, ${(chunk.length / 16000).toFixed(1)}s audio`)
+      if (result) log.info(`process-audio: ${elapsed}ms, ${(chunk.length / SAMPLE_RATE).toFixed(1)}s audio`)
       return result
     } catch (err) {
       log.error('Pipeline error:', err)
@@ -97,9 +98,9 @@ export function registerAudioHandlers(ctx: AppContext): void {
     processingStreaming = true
     const t0 = performance.now()
     try {
-      const result = await ctx.pipeline.processStreaming(chunk, 16000)
+      const result = await ctx.pipeline.processStreaming(chunk, SAMPLE_RATE)
       const elapsed = (performance.now() - t0).toFixed(0)
-      if (result) log.info(`streaming: ${elapsed}ms, ${(chunk.length / 16000).toFixed(1)}s audio`)
+      if (result) log.info(`streaming: ${elapsed}ms, ${(chunk.length / SAMPLE_RATE).toFixed(1)}s audio`)
       return result
     } catch (err) {
       log.error('Streaming pipeline error:', err)
@@ -120,9 +121,9 @@ export function registerAudioHandlers(ctx: AppContext): void {
     processingFinalize = true
     const t0 = performance.now()
     try {
-      const result = await ctx.pipeline.finalizeStreaming(chunk, 16000)
+      const result = await ctx.pipeline.finalizeStreaming(chunk, SAMPLE_RATE)
       const elapsed = (performance.now() - t0).toFixed(0)
-      if (result) log.info(`finalize: ${elapsed}ms, ${(chunk.length / 16000).toFixed(1)}s audio`)
+      if (result) log.info(`finalize: ${elapsed}ms, ${(chunk.length / SAMPLE_RATE).toFixed(1)}s audio`)
       return result
     } catch (err) {
       log.error('Finalize streaming error:', err)
