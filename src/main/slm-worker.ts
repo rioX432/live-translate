@@ -33,6 +33,9 @@ interface TranslateContextPayload {
   speakerId?: string
 }
 
+/** Context size for translation (short segments) */
+const TRANSLATION_CONTEXT_SIZE = 2048
+
 let llama: Llama | null = null
 let model: LlamaModel | null = null
 let context: LlamaContext | null = null
@@ -57,7 +60,7 @@ async function handleInit(
   console.log('[slm-worker] Model loaded, creating context...')
 
   const contextOptions: Record<string, unknown> = {
-    contextSize: 2048 // Limit context size for translation (short segments)
+    contextSize: TRANSLATION_CONTEXT_SIZE
   }
   if (kvCacheQuant) {
     contextOptions.experimentalKvCacheKeyType = 'Q8_0'
@@ -71,7 +74,7 @@ async function handleInit(
     // Retry without KV cache quantization
     if (kvCacheQuant) {
       console.log('[slm-worker] Retrying without KV cache quantization...')
-      context = await model.createContext({ contextSize: 2048 })
+      context = await model.createContext({ contextSize: TRANSLATION_CONTEXT_SIZE })
       console.log('[slm-worker] Context created without KV cache quant')
     } else {
       throw err
@@ -136,16 +139,102 @@ function buildContextPrompt(ctx?: {
   return parts.length > 0 ? parts.join('\n\n') + '\n\n' : ''
 }
 
+/** Build the translation prompt based on model type and language pair */
+function buildTranslationPrompt(
+  text: string,
+  from: string,
+  to: string,
+  translateContext?: TranslateContextPayload
+): string {
+  const fromLang = LANG_NAMES_EN[from] ?? from
+  const toLang = LANG_NAMES_EN[to] ?? to
+  const contextSection = buildContextPrompt(translateContext)
+
+  if (activeModelType === 'hunyuan-mt-15') {
+    const isChinese = from === 'zh' || from === 'zh-Hant' || to === 'zh' || to === 'zh-Hant'
+    if (isChinese) {
+      const targetZh = LANG_NAMES_ZH[to] ?? to
+      return `${contextSection}将以下文本翻译为${targetZh}，注意只需要输出翻译后的结果，不要额外解释：\n\n${text}`
+    }
+    return `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
+  }
+
+  if (activeModelType === 'hunyuan-mt') {
+    const isChinese = from === 'zh' || to === 'zh'
+    if (isChinese && to !== 'zh') {
+      return `${contextSection}把下面的文本翻译成${toLang}，不要额外解释。\n\n${text}`
+    }
+    if (isChinese && to === 'zh') {
+      return `${contextSection}把下面的文本翻译成中文，不要额外解释。\n\n${text}`
+    }
+    return `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
+  }
+
+  // TranslateGemma, gemma2-jpn, alma-ja: simple translation prompt
+  return `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
+}
+
+/** Get inference parameters based on model type */
+function getInferenceParams(): { temperature: number; maxTokens: number; topK?: number; topP?: number; repeatPenalty?: { penalty: number } } {
+  if (activeModelType === 'hunyuan-mt' || activeModelType === 'hunyuan-mt-15') {
+    return { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: { penalty: 1.05 } }
+  }
+  return { temperature: 0.1, maxTokens: 512 }
+}
+
+/** Create a context sequence, optionally with speculative decoding */
+async function createContextSequence(): Promise<LlamaContextSequence> {
+  const { DraftSequenceTokenPredictor } = await import('node-llama-cpp')
+
+  if (speculativeEnabled && draftContext) {
+    const draftSequence = draftContext.getSequence()
+    return context!.getSequence({
+      tokenPredictor: new DraftSequenceTokenPredictor(draftSequence, {
+        minTokens: 0,
+        maxTokens: 16,
+        minConfidence: 0.6
+      })
+    })
+  }
+  return context!.getSequence()
+}
+
+/** Run translation inference and return the result */
+async function runInference(
+  prompt: string,
+  previousOutput?: string
+): Promise<string> {
+  const { LlamaChatSession } = await import('node-llama-cpp')
+
+  const contextSequence = await createContextSequence()
+  const session = new LlamaChatSession({ contextSequence })
+
+  const inferenceParams = getInferenceParams()
+  const response = await session.prompt(prompt, {
+    ...inferenceParams,
+    ...(previousOutput?.trim() && { responsePrefix: previousOutput })
+  })
+
+  // Log speculative decoding stats for debugging
+  if (speculativeEnabled && contextSequence.tokenPredictions) {
+    const stats = contextSequence.tokenPredictions
+    const label = previousOutput !== undefined ? 'Incremental speculative' : 'Speculative'
+    console.log(`[slm-worker] ${label} stats — validated: ${stats.validated}, refuted: ${stats.refuted}`)
+  }
+
+  // Clean up the session context to free memory
+  contextSequence.dispose?.()
+  session.dispose?.()
+
+  return response.trim()
+}
+
 async function handleTranslate(
   id: string,
   text: string,
   from: string,
   to: string,
-  translateContext?: {
-    previousSegments?: Array<{ source: string; translated: string; speakerId?: string }>
-    glossary?: Array<{ source: string; target: string }>
-    speakerId?: string
-  }
+  translateContext?: TranslateContextPayload
 ): Promise<void> {
   if (!context) {
     process.parentPort!.postMessage({
@@ -157,89 +246,13 @@ async function handleTranslate(
   }
 
   try {
-    const { LlamaChatSession, DraftSequenceTokenPredictor } = await import('node-llama-cpp')
-
-    // Create context sequence, optionally with speculative decoding
-    let contextSequence: LlamaContextSequence
-    if (speculativeEnabled && draftContext) {
-      const draftSequence = draftContext.getSequence()
-      contextSequence = context.getSequence({
-        tokenPredictor: new DraftSequenceTokenPredictor(draftSequence, {
-          minTokens: 0,
-          maxTokens: 16,
-          minConfidence: 0.6
-        })
-      })
-    } else {
-      contextSequence = context.getSequence()
-    }
-
-    const session = new LlamaChatSession({ contextSequence })
-
-    const fromLang = LANG_NAMES_EN[from] ?? from
-    const toLang = LANG_NAMES_EN[to] ?? to
-
-    // Build prompt based on model type
-    let prompt: string
-    let inferenceParams: { temperature: number; maxTokens: number; topK?: number; topP?: number; repeatPenalty?: { penalty: number } }
-
-    if (activeModelType === 'hunyuan-mt-15') {
-      // HY-MT1.5 uses the official Tencent prompt template:
-      // Chinese ↔ Other: Chinese prompt; Other ↔ Other: English prompt
-      const contextSection = buildContextPrompt(translateContext)
-      const isChinese = from === 'zh' || from === 'zh-Hant' || to === 'zh' || to === 'zh-Hant'
-      if (isChinese) {
-        const targetZh = LANG_NAMES_ZH[to] ?? to
-        prompt = `${contextSection}将以下文本翻译为${targetZh}，注意只需要输出翻译后的结果，不要额外解释：\n\n${text}`
-      } else {
-        prompt = `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
-      }
-      // HY-MT1.5 recommended parameters (same as Hunyuan-MT)
-      inferenceParams = { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: { penalty: 1.05 } }
-    } else if (activeModelType === 'hunyuan-mt') {
-      // Hunyuan-MT uses a specific prompt template:
-      // Chinese ↔ Other: Chinese prompt; Other ↔ Other: English prompt
-      const contextSection = buildContextPrompt(translateContext)
-      const isChinese = from === 'zh' || to === 'zh'
-      if (isChinese && to !== 'zh') {
-        prompt = `${contextSection}把下面的文本翻译成${toLang}，不要额外解释。\n\n${text}`
-      } else if (isChinese && to === 'zh') {
-        prompt = `${contextSection}把下面的文本翻译成中文，不要额外解释。\n\n${text}`
-      } else {
-        prompt = `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
-      }
-      // Hunyuan-MT recommended parameters
-      inferenceParams = { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: { penalty: 1.05 } }
-    } else if (activeModelType === 'gemma2-jpn' || activeModelType === 'alma-ja') {
-      // JA↔EN specialized models: simple translation prompt
-      // These models are fine-tuned specifically for JA↔EN, so a simple prompt works best.
-      // Gemma-2-2B-JPN-IT-Translate is trained to translate sentence by sentence.
-      const contextSection = buildContextPrompt(translateContext)
-      prompt = `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
-      inferenceParams = { temperature: 0.1, maxTokens: 512 }
-    } else {
-      // TranslateGemma prompt
-      const contextSection = buildContextPrompt(translateContext)
-      prompt = `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
-      inferenceParams = { temperature: 0.1, maxTokens: 512 }
-    }
-
-    const response = await session.prompt(prompt, inferenceParams)
-
-    // Log speculative decoding stats for debugging
-    if (speculativeEnabled && contextSequence.tokenPredictions) {
-      const stats = contextSequence.tokenPredictions
-      console.log(`[slm-worker] Speculative stats — validated: ${stats.validated}, refuted: ${stats.refuted}`)
-    }
-
-    // Clean up the session context to free memory
-    contextSequence.dispose?.()
-    session.dispose?.()
+    const prompt = buildTranslationPrompt(text, from, to, translateContext)
+    const result = await runInference(prompt)
 
     process.parentPort!.postMessage({
       type: 'result',
       id,
-      text: response.trim()
+      text: result
     })
   } catch (err) {
     process.parentPort!.postMessage({
@@ -256,11 +269,7 @@ async function handleTranslateIncremental(
   previousOutput: string,
   from: string,
   to: string,
-  translateContext?: {
-    previousSegments?: Array<{ source: string; translated: string; speakerId?: string }>
-    glossary?: Array<{ source: string; target: string }>
-    speakerId?: string
-  }
+  translateContext?: TranslateContextPayload
 ): Promise<void> {
   if (!context) {
     process.parentPort!.postMessage({
@@ -272,79 +281,13 @@ async function handleTranslateIncremental(
   }
 
   try {
-    const { LlamaChatSession, DraftSequenceTokenPredictor } = await import('node-llama-cpp')
-
-    // Create context sequence, optionally with speculative decoding
-    let contextSequence: LlamaContextSequence
-    if (speculativeEnabled && draftContext) {
-      const draftSequence = draftContext.getSequence()
-      contextSequence = context.getSequence({
-        tokenPredictor: new DraftSequenceTokenPredictor(draftSequence, {
-          minTokens: 0,
-          maxTokens: 16,
-          minConfidence: 0.6
-        })
-      })
-    } else {
-      contextSequence = context.getSequence()
-    }
-
-    const session = new LlamaChatSession({ contextSequence })
-
-    const fromLang = LANG_NAMES_EN[from] ?? from
-    const toLang = LANG_NAMES_EN[to] ?? to
-
-    const contextSection = buildContextPrompt(translateContext)
-
-    // Build prompt with instruction to continue from previous output
-    let prompt: string
-    if (activeModelType === 'hunyuan-mt-15') {
-      const isChinese = from === 'zh' || from === 'zh-Hant' || to === 'zh' || to === 'zh-Hant'
-      if (isChinese) {
-        const targetZh = LANG_NAMES_ZH[to] ?? to
-        prompt = `${contextSection}将以下文本翻译为${targetZh}，注意只需要输出翻译后的结果，不要额外解释：\n\n${text}`
-      } else {
-        prompt = `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
-      }
-    } else if (activeModelType === 'hunyuan-mt') {
-      const isChinese = from === 'zh' || to === 'zh'
-      if (isChinese && to !== 'zh') {
-        prompt = `${contextSection}把下面的文本翻译成${toLang}，不要额外解释。\n\n${text}`
-      } else if (isChinese && to === 'zh') {
-        prompt = `${contextSection}把下面的文本翻译成中文，不要额外解释。\n\n${text}`
-      } else {
-        prompt = `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
-      }
-    } else if (activeModelType === 'gemma2-jpn' || activeModelType === 'alma-ja') {
-      prompt = `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
-    } else {
-      prompt = `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
-    }
-
-    // Use responsePrefix to force the model to continue from previous output
-    // This implements prefix-constrained decoding for SimulMT consistency
-    const inferenceParams = (activeModelType === 'hunyuan-mt' || activeModelType === 'hunyuan-mt-15')
-      ? { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: { penalty: 1.05 } }
-      : { temperature: 0.1, maxTokens: 512 }
-
-    const response = await session.prompt(prompt, {
-      ...inferenceParams,
-      ...(previousOutput.trim() && { responsePrefix: previousOutput })
-    })
-
-    // Log speculative decoding stats for debugging
-    if (speculativeEnabled && contextSequence.tokenPredictions) {
-      const stats = contextSequence.tokenPredictions
-      console.log(`[slm-worker] Incremental speculative stats — validated: ${stats.validated}, refuted: ${stats.refuted}`)
-    }
-
-    contextSequence.dispose?.()
-    session.dispose?.()
+    const prompt = buildTranslationPrompt(text, from, to, translateContext)
+    const result = await runInference(prompt, previousOutput)
 
     process.parentPort!.postMessage({
       type: 'result',
       id,
-      text: response.trim()
+      text: result
     })
   } catch (err) {
     process.parentPort!.postMessage({
