@@ -17,7 +17,7 @@ import { createServer, type Server, type IncomingMessage } from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import { EventEmitter } from 'events'
 import { createLogger } from './logger'
-import { DEFAULT_WS_PORT } from './constants'
+import { DEFAULT_WS_PORT, SAMPLE_RATE } from './constants'
 
 const log = createLogger('ws-audio')
 
@@ -31,8 +31,6 @@ export interface WsAudioServerEvents {
   /** Emitted on server errors */
   error: (error: Error) => void
 }
-
-const SAMPLE_RATE = 16000
 const MIN_SAMPLES = 8000 // 0.5s minimum
 
 export class WsAudioServer extends EventEmitter {
