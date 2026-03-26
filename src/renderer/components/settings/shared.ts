@@ -104,6 +104,9 @@ export const colorInputStyle: React.CSSProperties = {
 /** API-based engine modes that require at least one API key */
 export const API_ENGINE_MODES: EngineMode[] = ['rotation', 'online', 'online-deepl', 'online-gemini']
 
+/** LLM-based engine modes that support KV cache / SimulMT options */
+export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hunyuan-mt', 'offline-hybrid']
+
 /** Display name for each engine mode */
 export function getEngineDisplayName(mode: EngineMode): string {
   switch (mode) {

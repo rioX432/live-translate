@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { Section } from './Section'
-import { inputStyle, radioLabelStyle } from './shared'
+import { API_ENGINE_MODES, LLM_ENGINE_MODES, inputStyle, radioLabelStyle } from './shared'
 import type { EngineMode } from './shared'
 
 interface TranslatorSettingsProps {
@@ -65,8 +65,8 @@ export function TranslatorSettings({
   const [newGlossarySource, setNewGlossarySource] = useState('')
   const [newGlossaryTarget, setNewGlossaryTarget] = useState('')
 
-  const showLlmOptions = ['offline-hunyuan-mt', 'offline-hybrid'].includes(engineMode)
-  const isApiEngine = ['rotation', 'online', 'online-deepl', 'online-gemini'].includes(engineMode)
+  const showLlmOptions = LLM_ENGINE_MODES.includes(engineMode)
+  const isApiEngine = API_ENGINE_MODES.includes(engineMode)
 
   return (
     <>
