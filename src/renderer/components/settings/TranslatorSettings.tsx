@@ -84,7 +84,7 @@ export function TranslatorSettings({
           />
           <div>
             <div style={{ fontWeight: 500 }}>OPUS-MT (Recommended)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>~280ms latency, ~1GB memory — best speed/quality balance</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>~200ms latency, CTranslate2 accelerated — best speed/quality balance</div>
           </div>
         </label>
         <label style={radioLabelStyle}>

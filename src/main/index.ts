@@ -66,10 +66,11 @@ async function initPipeline(): Promise<void> {
   }))
 
   // Register translator engines
+  // ONNX-based OPUS-MT — fallback, superseded by CT2 version as default (#404)
   ctx.pipeline.registerTranslator('opus-mt', () => new OpusMTTranslator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))
-  // Experimental: requires Python ctranslate2 — not shown in default UI
+  // CTranslate2-accelerated OPUS-MT — default offline translator (#404)
   ctx.pipeline.registerTranslator('ct2-opus-mt', () => new CT2OpusMTTranslator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))

@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents working with this repository.
 
 ## Project Overview
 
-Live Translate is a real-time speech translation overlay app for presentations and meetings. It captures microphone audio via Silero VAD, performs speech-to-text with pluggable STT engines (Whisper Local, MLX Whisper), translates via pluggable translation engines (OPUS-MT, Hunyuan-MT 7B, Google, DeepL, Gemini), and displays subtitles on an external display. Features GPU-accelerated offline translation, speaker diarization, meeting summaries, and a plugin system.
+Live Translate is a real-time speech translation overlay app for presentations and meetings. It captures microphone audio via Silero VAD (with optional DeepFilterNet3 noise suppression), performs speech-to-text with pluggable STT engines (Whisper Local, MLX Whisper), translates via pluggable translation engines (OPUS-MT, Hunyuan-MT 7B, Google, DeepL, Gemini), and displays subtitles on an external display. Features GPU-accelerated offline translation, hybrid two-stage translation, speaker diarization, meeting summaries, Chrome extension audio input, auto-updates, and a plugin system.
 
 ## Commands
 
@@ -12,7 +12,7 @@ Live Translate is a real-time speech translation overlay app for presentations a
 # Development
 npm run dev          # Start Electron in dev mode (hot reload)
 npm run build        # Build for production
-npm run test         # Run unit tests (Vitest, 32 tests)
+npm run test         # Run unit tests (Vitest, 79 tests)
 npm run package      # Package as macOS .app
 npm run package:dmg  # Build macOS DMG installer
 
@@ -44,46 +44,70 @@ live-translate/
 │   │   ├── app-context.ts       # Shared mutable state interface (AppContext)
 │   │   ├── window-manager.ts    # Window creation, display handlers
 │   │   ├── ipc-handlers.ts      # IPC handlers (pipeline, settings, sessions, ws-audio)
+│   │   ├── ipc-validators.ts    # IPC input validation (path traversal, types)
 │   │   ├── audio-handlers.ts    # Audio processing IPC (process, streaming, finalize)
 │   │   ├── error-utils.ts       # Error sanitization and hint mapping
+│   │   ├── logger.ts            # Structured logger (levels, module prefixes)
+│   │   ├── constants.ts         # Shared constants (WS port, sample rate)
 │   │   ├── store.ts             # electron-store (encrypted, settings, quota)
-│   │   └── slm-worker.ts        # UtilityProcess: TranslateGemma + summarization
+│   │   ├── auto-updater.ts      # electron-updater auto-update lifecycle
+│   │   ├── ws-audio-server.ts   # WebSocket server for Chrome extension audio
+│   │   ├── worker-pool.ts       # Shared UtilityProcess pool for slm-worker
+│   │   └── slm-worker.ts        # UtilityProcess: LLM translation + summarization
 │   ├── preload/                 # Context bridge (renderer ↔ main IPC)
 │   ├── renderer/
 │   │   ├── components/
 │   │   │   ├── SettingsPanel.tsx    # Control panel (5 primary engines, STT, subtitles)
 │   │   │   └── SubtitleOverlay.tsx  # Transparent subtitle window (speaker labels)
 │   │   └── hooks/
-│   │       └── useAudioCapture.ts   # Mic/virtual audio capture via Silero VAD
+│   │       ├── useAudioCapture.ts      # Mic/virtual audio capture via Silero VAD
+│   │       ├── useNoiseSuppression.ts  # DeepFilterNet3 noise suppression
+│   │       └── useSettingsState.ts     # Settings state management + engine config
 │   ├── engines/
 │   │   ├── types.ts             # STTEngine, TranslatorEngine, TranslateContext
 │   │   ├── model-downloader.ts  # Whisper + GGUF download (resume, SHA256)
 │   │   ├── gpu-detector.ts      # GPU detection via node-llama-cpp
 │   │   ├── plugin-loader.ts     # Engine plugin manifest + loading
+│   │   ├── SubprocessBridge.ts  # Base class for Python bridge processes
+│   │   ├── language-names.ts    # Language name mappings (EN, ZH)
+│   │   ├── constants.ts         # Shared engine timeout/limit constants
 │   │   ├── stt/
 │   │   │   ├── WhisperLocalEngine.ts    # whisper.cpp + hallucination filter (primary)
-│   │   │   └── MlxWhisperEngine.ts      # mlx-whisper (Apple Silicon, primary)
+│   │   │   ├── MlxWhisperEngine.ts      # mlx-whisper (Apple Silicon, primary)
+│   │   │   ├── SenseVoiceEngine.ts      # SenseVoice (experimental)
+│   │   │   ├── QwenASREngine.ts         # Qwen ASR (experimental)
+│   │   │   └── SherpaOnnxEngine.ts      # Sherpa-ONNX (experimental)
 │   │   └── translator/
+│   │       ├── OpusMTTranslator.ts       # OPUS-MT (fast default, offline)
+│   │       ├── HunyuanMTTranslator.ts    # Hunyuan-MT 7B (quality, offline)
+│   │       ├── HunyuanMT15Translator.ts  # HY-MT1.5 (experimental)
+│   │       ├── HybridTranslator.ts       # Two-stage: OPUS-MT draft + LLM refine
 │   │       ├── GoogleTranslator.ts
 │   │       ├── DeepLTranslator.ts
 │   │       ├── GeminiTranslator.ts
 │   │       ├── MicrosoftTranslator.ts
-│   │       ├── OpusMTTranslator.ts
-│   │       ├── SLMTranslator.ts         # LLM-based translation (UtilityProcess, experimental)
-│   │       └── ApiRotationController.ts # Multi-provider rotation
+│   │       ├── SLMTranslator.ts          # TranslateGemma (experimental)
+│   │       ├── ApiRotationController.ts  # Multi-provider rotation
+│   │       ├── api-utils.ts              # Shared API utilities
+│   │       └── hallucination-filter.ts   # Translation hallucination detection
 │   ├── pipeline/
 │   │   ├── TranslationPipeline.ts  # Orchestration, streaming, auto-recovery
+│   │   ├── EngineManager.ts        # Engine registration, creation, init/dispose
+│   │   ├── StreamingProcessor.ts   # Streaming audio processing logic
+│   │   ├── MemoryMonitor.ts        # Process memory usage monitoring
 │   │   ├── LocalAgreement.ts       # LCP for streaming stability
 │   │   ├── ContextBuffer.ts        # Ring buffer for context-aware translation
 │   │   ├── SpeakerTracker.ts       # Silence-gap speaker detection
-│   │   ├── PyannoteDiarizer.ts     # pyannote.audio (Python bridge)
 │   │   └── whisper-filter.ts       # Hallucination detection
 │   └── logger/
 │       ├── TranscriptLogger.ts     # Plain text session logging
 │       └── SessionManager.ts       # JSON sessions, search, export
 ├── resources/
 │   ├── mlx-whisper-bridge.py       # Python bridge for mlx-whisper
-│   └── pyannote-bridge.py          # Python bridge for pyannote
+│   ├── sensevoice-bridge.py        # Python bridge for SenseVoice
+│   ├── ct2-opus-mt-bridge.py       # Python bridge for CT2 OPUS-MT
+│   ├── ct2-madlad400-bridge.py     # Python bridge for CT2 Madlad-400
+│   └── ane-translate-bridge.py     # Python bridge for ANE translation
 ├── scripts/
 │   ├── fix-whisper-addon.js        # postinstall: fix macOS dylib paths
 │   └── after-pack.js              # electron-builder: fix packaged paths
@@ -108,9 +132,14 @@ live-translate/
 - Only translates newly confirmed text to minimize API calls
 
 **UtilityProcess Isolation**
-- LLM-based engines (Hunyuan-MT 7B, TranslateGemma) run in Electron UtilityProcess via node-llama-cpp
-- SLMTranslator acts as IPC proxy (request/response with timeout)
+- LLM-based engines run in a shared UtilityProcess pool (`worker-pool.ts`) via node-llama-cpp
+- `HunyuanMTTranslator`, `HunyuanMT15Translator`, `SLMTranslator` all share one worker process
+- Worker hot-swaps models without process restart
 - Also handles meeting summary generation
+
+**Hybrid Translation**
+- `HybridTranslator` implements two-stage translation: fast OPUS-MT draft + LLM refinement
+- Draft result emitted immediately via callback, refined result returned if different
 
 **Engine Auto-Selection**
 - GPU detection via node-llama-cpp `getGpuDeviceNames()`

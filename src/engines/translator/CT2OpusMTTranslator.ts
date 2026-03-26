@@ -72,7 +72,7 @@ export class CT2OpusMTTranslator extends SubprocessBridge implements TranslatorE
     text: string,
     from: Language,
     to: Language,
-    _context?: TranslateContext
+    context?: TranslateContext
   ): Promise<string> {
     if (!text.trim()) return ''
     if (from === to) return text
@@ -81,12 +81,22 @@ export class CT2OpusMTTranslator extends SubprocessBridge implements TranslatorE
       return ''
     }
 
+    // Apply glossary term replacements before translation
+    let input = text
+    if (context?.glossary?.length) {
+      for (const entry of context.glossary) {
+        if (entry.source?.trim() && input.includes(entry.source)) {
+          input = input.replaceAll(entry.source, entry.target)
+        }
+      }
+    }
+
     const direction = from === 'ja' ? 'ja-en' : 'en-ja'
 
     try {
       const result = await this.sendCommand({
         action: 'translate',
-        text,
+        text: input,
         direction
       })
 
