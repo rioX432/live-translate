@@ -212,17 +212,22 @@ async function createContextSequence(): Promise<LlamaContextSequence> {
 async function runInference(
   prompt: string,
   previousOutput?: string
-): Promise<string> {
+): Promise<{ response: string; inferenceMs: number; contextMs: number }> {
   const { LlamaChatSession } = await import('node-llama-cpp')
 
+  const t0 = performance.now()
   const contextSequence = await createContextSequence()
+  const contextMs = performance.now() - t0
+
   const session = new LlamaChatSession({ contextSequence })
 
   const inferenceParams = getInferenceParams()
+  const t1 = performance.now()
   const response = await session.prompt(prompt, {
     ...inferenceParams,
     ...(previousOutput?.trim() && { responsePrefix: previousOutput })
   })
+  const inferenceMs = performance.now() - t1
 
   // Log speculative decoding stats for debugging
   if (speculativeEnabled && contextSequence.tokenPredictions) {
@@ -235,7 +240,7 @@ async function runInference(
   contextSequence.dispose?.()
   session.dispose?.()
 
-  return response.trim()
+  return { response: response.trim(), inferenceMs, contextMs }
 }
 
 async function handleTranslate(
@@ -255,13 +260,27 @@ async function handleTranslate(
   }
 
   try {
+    const memBefore = process.memoryUsage()
+    const t0 = performance.now()
     const prompt = buildTranslationPrompt(text, from, to, translateContext)
-    const result = await runInference(prompt)
+    const promptMs = performance.now() - t0
+
+    const { response, inferenceMs, contextMs } = await runInference(prompt)
+    const memAfter = process.memoryUsage()
+    const totalMs = performance.now() - t0
+
+    log.info(
+      `Profile: total=${totalMs.toFixed(0)}ms prompt=${promptMs.toFixed(0)}ms ` +
+      `ctx=${contextMs.toFixed(0)}ms inference=${inferenceMs.toFixed(0)}ms ` +
+      `inputLen=${text.length} outputLen=${response.length} ` +
+      `rss=${(memAfter.rss / 1048576).toFixed(0)}MB ` +
+      `heapDelta=${((memAfter.heapUsed - memBefore.heapUsed) / 1048576).toFixed(1)}MB`
+    )
 
     process.parentPort!.postMessage({
       type: 'result',
       id,
-      text: result
+      text: response
     })
   } catch (err) {
     process.parentPort!.postMessage({
@@ -290,13 +309,26 @@ async function handleTranslateIncremental(
   }
 
   try {
+    const memBefore = process.memoryUsage()
+    const t0 = performance.now()
     const prompt = buildTranslationPrompt(text, from, to, translateContext)
-    const result = await runInference(prompt, previousOutput)
+    const promptMs = performance.now() - t0
+    const { response, inferenceMs, contextMs } = await runInference(prompt, previousOutput)
+    const memAfter = process.memoryUsage()
+    const totalMs = performance.now() - t0
+
+    log.info(
+      `Profile(incr): total=${totalMs.toFixed(0)}ms prompt=${promptMs.toFixed(0)}ms ` +
+      `ctx=${contextMs.toFixed(0)}ms inference=${inferenceMs.toFixed(0)}ms ` +
+      `inputLen=${text.length} outputLen=${response.length} ` +
+      `rss=${(memAfter.rss / 1048576).toFixed(0)}MB ` +
+      `heapDelta=${((memAfter.heapUsed - memBefore.heapUsed) / 1048576).toFixed(1)}MB`
+    )
 
     process.parentPort!.postMessage({
       type: 'result',
       id,
-      text: result
+      text: response
     })
   } catch (err) {
     process.parentPort!.postMessage({

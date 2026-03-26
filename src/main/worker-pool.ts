@@ -111,6 +111,7 @@ class WorkerPool {
 
     const id = String(this.nextId++)
     const timeout = TIMEOUT_BY_TYPE[type]
+    const sendTime = performance.now()
 
     return new Promise<string>((resolve, reject) => {
       this.evictOldestPending()
@@ -120,7 +121,17 @@ class WorkerPool {
         reject(new Error(`Worker request timed out (${type})`))
       }, timeout)
 
-      this.pending.set(id, { resolve, reject, timer })
+      this.pending.set(id, {
+        resolve: (value: string) => {
+          const roundTripMs = performance.now() - sendTime
+          if (roundTripMs > 2000) {
+            log.info(`Request ${id} round-trip: ${roundTripMs.toFixed(0)}ms (${type})`)
+          }
+          resolve(value)
+        },
+        reject,
+        timer
+      })
       this.worker!.postMessage({ ...message, id })
     })
   }

@@ -2,6 +2,9 @@ import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { getGGUFDir, downloadGGUF, getHunyuanMTVariants } from '../model-downloader'
 import { workerPool } from '../../main/worker-pool'
+import { createLogger } from '../../main/logger'
+
+const log = createLogger('hunyuan-mt')
 
 /**
  * Hunyuan-MT-7B translator via node-llama-cpp UtilityProcess.
@@ -61,10 +64,14 @@ export class HunyuanMTTranslator implements TranslatorEngine {
       throw new Error('[hunyuan-mt-worker] Not initialized')
     }
 
-    return workerPool.sendRequest(
+    const t0 = performance.now()
+    const result = await workerPool.sendRequest(
       { type: 'translate', text, from, to, context },
       'translate'
     )
+    const ms = performance.now() - t0
+    log.info(`translate ${from}→${to} inputLen=${text.length} outputLen=${result.length} time=${ms.toFixed(0)}ms`)
+    return result
   }
 
   async translateIncremental(
