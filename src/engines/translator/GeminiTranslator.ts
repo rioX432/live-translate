@@ -1,9 +1,14 @@
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { LANG_NAMES_EN } from '../language-names'
+import { apiFetch, DEFAULT_TIMEOUT_MS } from './api-utils'
 
 const GEMINI_API_URL =
   'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent'
-const DEFAULT_TIMEOUT_MS = 15_000
+
+const ERROR_MAPPINGS = [
+  { statuses: [400, 403], message: 'Invalid API key' },
+  { statuses: [429], message: 'Rate limit exceeded' }
+]
 
 export class GeminiTranslator implements TranslatorEngine {
   readonly id = 'gemini-translate'
@@ -51,11 +56,13 @@ export class GeminiTranslator implements TranslatorEngine {
 
     const prompt = `${contextSection}Translate the following ${LANG_NAMES_EN[from]} text to ${LANG_NAMES_EN[to]}. Output ONLY the translated text, nothing else.\n\n${text}`
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
-
-    try {
-      const response = await fetch(GEMINI_API_URL, {
+    const data = await apiFetch<{
+      candidates?: Array<{
+        content?: { parts?: Array<{ text?: string }> }
+      }>
+    }>({
+      url: GEMINI_API_URL,
+      init: {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -67,35 +74,14 @@ export class GeminiTranslator implements TranslatorEngine {
             temperature: 0.1,
             maxOutputTokens: 256
           }
-        }),
-        signal: controller.signal
-      })
+        })
+      },
+      timeoutMs: this.timeoutMs,
+      serviceName: 'Gemini API',
+      errorMappings: ERROR_MAPPINGS
+    })
 
-      if (!response.ok) {
-        if (response.status === 400 || response.status === 403) {
-          throw new Error('Gemini API: Invalid API key')
-        }
-        if (response.status === 429) {
-          throw new Error('Gemini API: Rate limit exceeded')
-        }
-        throw new Error(`Gemini API error: ${response.status}`)
-      }
-
-      let data: {
-        candidates?: Array<{
-          content?: { parts?: Array<{ text?: string }> }
-        }>
-      }
-      try {
-        data = (await response.json()) as typeof data
-      } catch {
-        throw new Error('Gemini API: Invalid JSON response')
-      }
-
-      return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
-    } finally {
-      clearTimeout(timeout)
-    }
+    return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''
   }
 
   async dispose(): Promise<void> {

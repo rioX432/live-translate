@@ -1,8 +1,13 @@
 import type { TranslatorEngine, Language } from '../types'
+import { apiFetch, apiInitialize, DEFAULT_TIMEOUT_MS } from './api-utils'
 
 const MS_TRANSLATE_URL = 'https://api.cognitive.microsofttranslator.com/translate'
 const API_VERSION = '3.0'
-const DEFAULT_TIMEOUT_MS = 15_000
+
+const ERROR_MAPPINGS = [
+  { statuses: [401], message: 'Invalid API key or region' },
+  { statuses: [429], message: 'Rate limit exceeded' }
+]
 
 export class MicrosoftTranslator implements TranslatorEngine {
   readonly id = 'microsoft-translate'
@@ -21,21 +26,17 @@ export class MicrosoftTranslator implements TranslatorEngine {
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) return
-    if (!this.apiKey) {
-      throw new Error('Microsoft Translator API key is required')
-    }
     if (!this.region) {
       throw new Error('Microsoft Translator region is required')
     }
-    // Validate with a test request
-    try {
-      await this.translate('test', 'en', 'ja')
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      throw new Error(`Invalid Microsoft Translator credentials: ${msg}`)
-    }
-    this.initialized = true
+    const alreadyInit = await apiInitialize({
+      initialized: this.initialized,
+      apiKey: this.apiKey,
+      keyName: 'Microsoft Translator API key',
+      serviceName: 'Microsoft Translator',
+      testTranslate: () => this.translate('test', 'en', 'ja')
+    })
+    if (!alreadyInit) this.initialized = true
   }
 
   async translate(text: string, from: Language, to: Language): Promise<string> {
@@ -48,42 +49,23 @@ export class MicrosoftTranslator implements TranslatorEngine {
       to
     })
 
-    const controller = new AbortController()
-    const timeout = setTimeout(() => controller.abort(), this.timeoutMs)
-
-    try {
-      const response = await fetch(`${MS_TRANSLATE_URL}?${params}`, {
+    const data = await apiFetch<Array<{ translations: Array<{ text: string; to: string }> }>>({
+      url: `${MS_TRANSLATE_URL}?${params}`,
+      init: {
         method: 'POST',
         headers: {
           'Ocp-Apim-Subscription-Key': this.apiKey,
           'Ocp-Apim-Subscription-Region': this.region,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify([{ text }]),
-        signal: controller.signal
-      })
+        body: JSON.stringify([{ text }])
+      },
+      timeoutMs: this.timeoutMs,
+      serviceName: 'Microsoft Translator',
+      errorMappings: ERROR_MAPPINGS
+    })
 
-      if (!response.ok) {
-        if (response.status === 401) {
-          throw new Error('Microsoft Translator: Invalid API key or region')
-        }
-        if (response.status === 429) {
-          throw new Error('Microsoft Translator: Rate limit exceeded')
-        }
-        throw new Error(`Microsoft Translator error: ${response.status}`)
-      }
-
-      let data: Array<{ translations: Array<{ text: string; to: string }> }>
-      try {
-        data = (await response.json()) as typeof data
-      } catch {
-        throw new Error('Microsoft Translator: Invalid JSON response')
-      }
-
-      return data[0]?.translations[0]?.text || ''
-    } finally {
-      clearTimeout(timeout)
-    }
+    return data[0]?.translations[0]?.text || ''
   }
 
   async dispose(): Promise<void> {
