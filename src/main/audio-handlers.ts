@@ -53,13 +53,21 @@ function toValidAudioChunk(audioData: unknown): Float32Array | null {
 
 /** Register audio processing IPC handlers */
 export function registerAudioHandlers(ctx: AppContext): void {
+  // IPC-level concurrency flags — drop duplicate requests before they reach
+  // the pipeline to prevent concurrent native addon calls (#363)
+  let processingAudio = false
+  let processingStreaming = false
+  let processingFinalize = false
+
   // Process audio chunk from renderer
   ipcMain.handle('process-audio', async (_event, audioData: unknown) => {
     if (!ctx.pipeline?.running) return null
+    if (processingAudio) return null
 
     const chunk = toValidAudioChunk(audioData)
     if (!chunk) return null
 
+    processingAudio = true
     const t0 = performance.now()
     try {
       const result = await ctx.pipeline.process(chunk, 16000)
@@ -71,16 +79,22 @@ export function registerAudioHandlers(ctx: AppContext): void {
       const message = sanitizeErrorMessage(err instanceof Error ? err.message : String(err))
       ctx.mainWindow?.webContents.send('status-update', `Processing error: ${message}`)
       return null
+    } finally {
+      processingAudio = false
     }
   })
 
   // Process streaming audio (rolling buffer during speech)
   ipcMain.handle('process-audio-streaming', async (_event, audioData: unknown) => {
     if (!ctx.pipeline?.running) return null
+    // Drop if another streaming call is in-flight — the next interval
+    // will resend accumulated audio via the rolling buffer (#363)
+    if (processingStreaming) return null
 
     const chunk = toValidAudioChunk(audioData)
     if (!chunk) return null
 
+    processingStreaming = true
     const t0 = performance.now()
     try {
       const result = await ctx.pipeline.processStreaming(chunk, 16000)
@@ -90,16 +104,20 @@ export function registerAudioHandlers(ctx: AppContext): void {
     } catch (err) {
       log.error('Streaming pipeline error:', err)
       return null
+    } finally {
+      processingStreaming = false
     }
   })
 
   // Finalize streaming (speech segment ended)
   ipcMain.handle('finalize-streaming', async (_event, audioData: unknown) => {
     if (!ctx.pipeline?.running) return null
+    if (processingFinalize) return null
 
     const chunk = toValidAudioChunk(audioData)
     if (!chunk) return null
 
+    processingFinalize = true
     const t0 = performance.now()
     try {
       const result = await ctx.pipeline.finalizeStreaming(chunk, 16000)
@@ -109,6 +127,8 @@ export function registerAudioHandlers(ctx: AppContext): void {
     } catch (err) {
       log.error('Finalize streaming error:', err)
       return null
+    } finally {
+      processingFinalize = false
     }
   })
 }
