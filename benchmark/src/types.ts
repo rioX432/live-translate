@@ -29,6 +29,8 @@ export interface SentenceResult {
   domain: string
   length: string
   latencyMs: number
+  inputCharCount: number
+  rssMB: number
   error?: string
 }
 

@@ -64,6 +64,7 @@ async function runEngine(
         engine.translate(sentence.source, direction)
       )
 
+      const mem = snapshotMemory()
       results.push({
         id: sentence.id,
         source: sentence.source,
@@ -72,15 +73,18 @@ async function runEngine(
         direction: sentence.direction,
         domain: sentence.domain,
         length: sentence.length,
-        latencyMs: ms
+        latencyMs: ms,
+        inputCharCount: sentence.source.length,
+        rssMB: mem.rssMB
       })
 
       if ((i + 1) % 10 === 0) {
-        console.log(`  ${progress} ${ms.toFixed(0)}ms`)
+        console.log(`  ${progress} ${ms.toFixed(0)}ms inputLen=${sentence.source.length} rss=${mem.rssMB.toFixed(0)}MB`)
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : String(err)
       console.error(`  ${progress} ERROR: ${errorMsg}`)
+      const mem = snapshotMemory()
       results.push({
         id: sentence.id,
         source: sentence.source,
@@ -90,6 +94,8 @@ async function runEngine(
         domain: sentence.domain,
         length: sentence.length,
         latencyMs: 0,
+        inputCharCount: sentence.source.length,
+        rssMB: mem.rssMB,
         error: errorMsg
       })
     }
