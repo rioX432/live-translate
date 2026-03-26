@@ -30,6 +30,31 @@ describe('filterWhisperHallucination', () => {
     expect(filterWhisperHallucination('  ---  ')).toBeNull()
   })
 
+  it('filters garbage Japanese fragments', () => {
+    // Short nonsensical kana (common STT errors)
+    expect(filterWhisperHallucination('おやかだ')).toBeNull()
+    expect(filterWhisperHallucination('かへえ')).toBeNull()
+    expect(filterWhisperHallucination('ぱぴ')).toBeNull()
+    // Single kana
+    expect(filterWhisperHallucination('あ')).toBeNull()
+  })
+
+  it('passes valid short Japanese through', () => {
+    expect(filterWhisperHallucination('はい')).toBe('はい')
+    expect(filterWhisperHallucination('そう')).toBe('そう')
+    expect(filterWhisperHallucination('なるほど')).toBe('なるほど')
+  })
+
+  it('passes valid longer Japanese through', () => {
+    expect(filterWhisperHallucination('今日の議題について')).toBe('今日の議題について')
+    expect(filterWhisperHallucination('会議を始めましょう')).toBe('会議を始めましょう')
+  })
+
+  it('filters mostly non-linguistic text', () => {
+    expect(filterWhisperHallucination('###$$$%%%')).toBeNull()
+    expect(filterWhisperHallucination('~!@#$%')).toBeNull()
+  })
+
   it('passes valid text through', () => {
     expect(filterWhisperHallucination('The meeting starts at 3pm')).toBe('The meeting starts at 3pm')
     expect(filterWhisperHallucination('今日の議題について')).toBe('今日の議題について')
