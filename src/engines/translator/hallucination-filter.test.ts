@@ -28,6 +28,14 @@ describe('isHallucination', () => {
       expect(isHallucination('テスト', 'test', 'ja', 'en')).toBe(false)
     })
 
+    it('allows Latin diacritics in JA→EN output', () => {
+      expect(isHallucination('カフェ', 'café', 'ja', 'en')).toBe(false)
+    })
+
+    it('allows extended Latin characters in EN target', () => {
+      expect(isHallucination('彼の名前はホセ・ミュラーです', 'His name is José Müller', 'ja', 'en')).toBe(false)
+    })
+
     it('rejects all-ASCII output for EN→JA', () => {
       expect(isHallucination('hello world', 'some random english', 'en', 'ja')).toBe(true)
     })
@@ -58,6 +66,10 @@ describe('isHallucination', () => {
 
     it('allows normal text with some punctuation', () => {
       expect(isHallucination('元気ですか', 'How are you?', 'ja', 'en')).toBe(false)
+    })
+
+    it('does not flag text with Latin diacritics as excessive punctuation', () => {
+      expect(isHallucination('ナイーブ', 'naïve résumé', 'ja', 'en')).toBe(false)
     })
   })
 
