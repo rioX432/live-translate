@@ -19,8 +19,14 @@ export class WhisperLocalEngine implements STTEngine {
   constructor(options?: { onProgress?: (message: string) => void; modelVariant?: WhisperVariant }) {
     this.onProgress = options?.onProgress
     this.modelVariant = options?.modelVariant
-    this.name = this.modelVariant === 'large-v3-turbo'
-      ? 'Whisper Local (large-v3-turbo)'
+    const variantNames: Record<string, string> = {
+      'large-v3-turbo': 'large-v3-turbo',
+      'base': 'base',
+      'small': 'small'
+    }
+    const variantLabel = this.modelVariant ? variantNames[this.modelVariant] : null
+    this.name = variantLabel
+      ? `Whisper Local (${variantLabel})`
       : 'Whisper Local (kotoba-whisper-v2.0)'
   }
 

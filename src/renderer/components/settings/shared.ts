@@ -28,7 +28,7 @@ export const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
 export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-hunyuan-mt' | 'offline-hybrid'
 
 export type SttEngineType = 'whisper-local' | 'mlx-whisper'
-export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo'
+export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo' | 'base' | 'small'
 export type SubtitlePositionType = 'top' | 'bottom'
 
 export interface DisplayInfo {
