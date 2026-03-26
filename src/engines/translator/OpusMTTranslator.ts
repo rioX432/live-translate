@@ -1,6 +1,7 @@
 import { app } from 'electron'
 import { join } from 'path'
 import type { TranslatorEngine, Language } from '../types'
+import { isHallucination } from './hallucination-filter'
 
 // Dynamic import for ESM-only @huggingface/transformers
 type TranslationPipeline = ((text: string) => Promise<Array<{ translation_text: string }>>) & {
@@ -74,9 +75,8 @@ export class OpusMTTranslator implements TranslatorEngine {
     const result = await pipe(text)
     const translated = result[0]?.translation_text || ''
 
-    // Detect hallucination: if output is much longer than input, likely garbage
-    if (translated.length > trimmed.length * 5 && trimmed.length < 20) {
-      console.warn(`[opus-mt] Hallucination detected: "${trimmed}" → "${translated.substring(0, 50)}..." (filtered)`)
+    if (isHallucination(trimmed, translated, from, to)) {
+      console.warn(`[opus-mt] Hallucination detected: "${trimmed}" → "${translated.substring(0, 80)}..." (filtered)`)
       return ''
     }
 
