@@ -11,8 +11,10 @@ export class WhisperLocalEngine implements STTEngine {
 
   private modelPath = ''
   private onProgress?: (message: string) => void
-  private processing = false
   private modelVariant?: WhisperVariant
+
+  // Promise-based mutex — queues callers so only one transcribe() runs at a time (#363)
+  private mutex: Promise<void> = Promise.resolve()
 
   constructor(options?: { onProgress?: (message: string) => void; modelVariant?: WhisperVariant }) {
     this.onProgress = options?.onProgress
@@ -33,9 +35,20 @@ export class WhisperLocalEngine implements STTEngine {
 
   async processAudio(audioChunk: Float32Array, _sampleRate: number): Promise<STTResult | null> {
     if (!this.modelPath) return null
-    // Serialize calls — whisper-node-addon uses Metal GPU which is not thread-safe
-    if (this.processing) return null
-    this.processing = true
+
+    // Promise-based mutex — serializes all calls so whisper-node-addon's
+    // Metal GPU context is never entered concurrently (#363).
+    // Each call chains onto the previous promise, guaranteeing FIFO order.
+    let release: () => void
+    const gate = new Promise<void>((resolve) => { release = resolve })
+    const prev = this.mutex
+    this.mutex = gate
+
+    try {
+      await prev
+    } catch {
+      // Previous call's error doesn't affect us
+    }
 
     try {
       const result = await transcribe({
@@ -63,7 +76,7 @@ export class WhisperLocalEngine implements STTEngine {
       console.error('Whisper transcription error:', err)
       return null
     } finally {
-      this.processing = false
+      release!()
     }
   }
 
