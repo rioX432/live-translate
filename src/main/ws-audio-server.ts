@@ -17,6 +17,7 @@ import { createServer, type Server, type IncomingMessage } from 'http'
 import { WebSocketServer, WebSocket } from 'ws'
 import { EventEmitter } from 'events'
 import { createLogger } from './logger'
+import { DEFAULT_WS_PORT } from './constants'
 
 const log = createLogger('ws-audio')
 
@@ -41,7 +42,7 @@ export class WsAudioServer extends EventEmitter {
   private _port: number
   private _running = false
 
-  constructor(port = 9876) {
+  constructor(port = DEFAULT_WS_PORT) {
     super()
     this._port = port
   }
