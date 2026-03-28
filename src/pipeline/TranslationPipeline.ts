@@ -14,6 +14,7 @@ import { ContextBuffer } from './ContextBuffer'
 import { SpeakerTracker } from './SpeakerTracker'
 import { EngineManager } from './EngineManager'
 import { StreamingProcessor } from './StreamingProcessor'
+import { GERProcessor } from './GERProcessor'
 import { MemoryMonitor } from './MemoryMonitor'
 import { createLogger } from '../main/logger'
 
@@ -24,6 +25,8 @@ export interface PipelineEvents {
   'interim-result': (result: TranslationResult) => void
   /** Draft result from hybrid translation mode — shown immediately before LLM refinement */
   'draft-result': (result: TranslationResult) => void
+  /** GER-corrected result — async post-correction of STT errors (#409) */
+  'ger-corrected': (result: TranslationResult) => void
   error: (error: Error) => void
   'engine-loading': (message: string) => void
   'engine-ready': () => void
@@ -96,6 +99,7 @@ export class TranslationPipeline extends EventEmitter {
   private engineManager = new EngineManager()
   private memoryMonitor = new MemoryMonitor()
   private streaming: StreamingProcessor
+  private ger: GERProcessor
 
   constructor() {
     super()
@@ -116,7 +120,13 @@ export class TranslationPipeline extends EventEmitter {
           for (const resolve of this.processingDoneResolvers) resolve()
           this.processingDoneResolvers = []
         }
-      }
+      },
+      getGER: () => this.ger
+    })
+    this.ger = new GERProcessor({
+      emitter: this,
+      getTranslator: () => this.engineManager.translator,
+      getGlossary: () => this.glossary
     })
   }
 
@@ -182,6 +192,11 @@ export class TranslationPipeline extends EventEmitter {
   setSimulMt(enabled: boolean, waitK: number): void {
     this.simulMtEnabled = enabled
     this.simulMtWaitK = Math.max(1, Math.min(waitK, 10))
+  }
+
+  /** Enable or disable GER (Generative Error Correction) post-processing (#409) */
+  setGEREnabled(enabled: boolean): void {
+    this.ger.setEnabled(enabled)
   }
 
   // --- Engine registration (delegated to EngineManager) ---
@@ -256,6 +271,7 @@ export class TranslationPipeline extends EventEmitter {
     this.memoryMonitor.stop()
     this.setState(PipelineState.IDLE)
     this.streaming.reset()
+    this.ger.reset()
     this.agreement.reset()
     this.contextBuffer.reset()
     this.speakerTracker.reset()
@@ -341,6 +357,16 @@ export class TranslationPipeline extends EventEmitter {
       log.info(`Translate: ${translateMs}ms → "${translated}"`)
 
       this.contextBuffer.add(sttResult.text, translated, speakerId)
+
+      // Fire-and-forget GER correction (async, non-blocking)
+      this.ger.maybeCorrect(
+        sttResult.text,
+        sttResult.confidence,
+        sttResult.language,
+        targetLang,
+        Date.now(),
+        speakerId
+      )
 
       return {
         sourceText: sttResult.text,
