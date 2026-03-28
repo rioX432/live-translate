@@ -39,6 +39,8 @@ export interface STTResult {
   timestamp: number
   /** Speaker identifier (if diarization is enabled) */
   speakerId?: string
+  /** STT confidence score (0.0–1.0). Used by GER to decide if correction is needed. */
+  confidence?: number
 }
 
 /** Translation pipeline result */
@@ -57,8 +59,8 @@ export interface TranslationResult {
   isInterim?: boolean
   /** Speaker identifier (if diarization is enabled) */
   speakerId?: string
-  /** Translation stage for hybrid mode: 'draft' (OPUS-MT) or 'refined' (LLM) */
-  translationStage?: 'draft' | 'refined'
+  /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), or 'ger-corrected' (GER post-correction) */
+  translationStage?: 'draft' | 'refined' | 'ger-corrected'
 }
 
 /**

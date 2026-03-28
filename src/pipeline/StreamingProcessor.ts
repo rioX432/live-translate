@@ -9,6 +9,7 @@ import type { STTEngine } from '../engines/types'
 import type { LocalAgreement } from './LocalAgreement'
 import type { ContextBuffer } from './ContextBuffer'
 import type { SpeakerTracker } from './SpeakerTracker'
+import type { GERProcessor } from './GERProcessor'
 import { createLogger } from '../main/logger'
 
 const log = createLogger('pipeline:stream')
@@ -29,6 +30,8 @@ export interface StreamingDeps {
   /** Notify that processing count changed */
   incrementProcessing(): void
   decrementProcessing(): void
+  /** GER processor for async STT post-correction */
+  getGER?(): GERProcessor | null
 }
 
 /**
@@ -210,6 +213,20 @@ export class StreamingProcessor {
       }
 
       this.deps.emitter.emit('result', result)
+
+      // Fire-and-forget GER correction on finalized result (async, non-blocking)
+      const ger = this.deps.getGER?.()
+      if (ger) {
+        ger.maybeCorrect(
+          agreement.confirmedText,
+          sttResult.confidence,
+          sttResult.language,
+          targetLang,
+          result.timestamp,
+          speakerId
+        )
+      }
+
       return result
     } catch (err) {
       this.deps.agreement.reset()
