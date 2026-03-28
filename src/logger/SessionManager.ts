@@ -38,7 +38,7 @@ export interface SessionData {
 }
 
 function getSessionsDir(): string {
-  const dir = join(app.getPath('documents'), 'live-translate', 'sessions')
+  const dir = join(app.getPath('userData'), 'sessions')
   if (!existsSync(dir)) {
     mkdirSync(dir, { recursive: true })
   }

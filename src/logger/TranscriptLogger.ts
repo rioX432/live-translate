@@ -18,7 +18,7 @@ export class TranscriptLogger {
 
   constructor(onStatusUpdate?: (message: string) => void) {
     this.onStatusUpdate = onStatusUpdate
-    const logsDir = join(app.getPath('documents'), 'live-translate', 'logs')
+    const logsDir = join(app.getPath('userData'), 'logs')
     if (!existsSync(logsDir)) {
       mkdirSync(logsDir, { recursive: true })
     }

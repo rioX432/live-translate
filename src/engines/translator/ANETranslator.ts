@@ -47,7 +47,7 @@ export class ANETranslator extends SubprocessBridge implements TranslatorEngine 
   protected getSpawnConfig(): SpawnConfig {
     this.onProgress?.('Starting ANEMLL bridge...')
     return {
-      command: 'python3',
+      command: this.resolvePython(),
       args: [join(__dirname, '../../resources/ane-translate-bridge.py')],
       initMessage: {
         action: 'init',

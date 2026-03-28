@@ -40,7 +40,7 @@ export class CT2OpusMTTranslator extends SubprocessBridge implements TranslatorE
   protected getSpawnConfig(): SpawnConfig {
     this.onProgress?.('Starting CTranslate2 OPUS-MT bridge...')
     return {
-      command: 'python3',
+      command: this.resolvePython(),
       args: [join(__dirname, '../../resources/ct2-opus-mt-bridge.py')],
       initMessage: {
         action: 'init',

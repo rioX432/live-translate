@@ -50,7 +50,9 @@ export function registerIpcHandlers(ctx: AppContext): void {
 
   ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => {
     if (!ctx.pipeline) return { error: 'Pipeline not initialized' }
-    if (ctx.pipeline.active) return { error: 'Pipeline already running' } // #30
+    if (ctx.pipeline.active) {
+      await ctx.pipeline.stop() // Auto-stop before restart
+    }
 
     try {
       // Register online translators with provided API keys
@@ -291,7 +293,7 @@ export function registerIpcHandlers(ctx: AppContext): void {
       // #150: Validate path is within expected logs directory
       const { resolve } = await import('path')
       const { readFileSync } = await import('fs')
-      const logsDir = join(app.getPath('documents'), 'live-translate')
+      const logsDir = app.getPath('userData')
       const resolved = resolve(transcriptPath)
       if (!resolved.startsWith(logsDir)) {
         return { error: 'Invalid transcript path' }

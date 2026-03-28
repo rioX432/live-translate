@@ -40,7 +40,7 @@ export class CT2Madlad400Translator extends SubprocessBridge implements Translat
   protected getSpawnConfig(): SpawnConfig {
     this.onProgress?.('Starting CTranslate2 Madlad-400 bridge...')
     return {
-      command: 'python3',
+      command: this.resolvePython(),
       args: [join(__dirname, '../../resources/ct2-madlad400-bridge.py')],
       initMessage: {
         action: 'init',

@@ -1,4 +1,6 @@
 import { spawn, type ChildProcess } from 'child_process'
+import { existsSync, realpathSync } from 'fs'
+import { join } from 'path'
 import {
   BRIDGE_DISPOSE_GRACE_MS,
   BRIDGE_STDERR_MAX_LINES,
@@ -99,6 +101,19 @@ export abstract class SubprocessBridge {
     if (this.initPromise) return this.initPromise
     this.initPromise = this.doInitialize()
     return this.initPromise
+  }
+
+  /**
+   * Resolve a python3 command to the project .venv if available,
+   * falling back to the system python3.
+   */
+  protected resolvePython(): string {
+    // Resolve symlinks so the path works when launched via Electron.app symlink setup
+    const realDir = realpathSync(__dirname)
+    const venvPython = join(realDir, '../../.venv/bin/python3')
+    this.log.info(`resolvePython: __dirname=${__dirname} realDir=${realDir} venv=${venvPython} exists=${existsSync(venvPython)}`)
+    if (existsSync(venvPython)) return venvPython
+    return 'python3'
   }
 
   private async doInitialize(): Promise<void> {
