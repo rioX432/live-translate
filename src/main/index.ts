@@ -4,6 +4,7 @@ import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
 import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
 import { SherpaOnnxEngine } from '../engines/stt/SherpaOnnxEngine'
+import { SpeechSwiftEngine } from '../engines/stt/SpeechSwiftEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { CT2OpusMTTranslator } from '../engines/translator/CT2OpusMTTranslator'
 import { CT2Madlad400Translator } from '../engines/translator/CT2Madlad400Translator'
@@ -64,6 +65,12 @@ async function initPipeline(): Promise<void> {
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     modelKey: (store.get('sherpaOnnxModel') as string) || undefined
   }))
+  // Experimental: requires speech-swift binary (Homebrew) — Apple Silicon only, not shown in UI
+  if (process.platform === 'darwin') {
+    ctx.pipeline.registerSTT('speech-swift', () => new SpeechSwiftEngine({
+      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+    }))
+  }
 
   // Register translator engines
   // ONNX-based OPUS-MT — fallback, superseded by CT2 version as default (#404)
