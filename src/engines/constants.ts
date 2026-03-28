@@ -82,6 +82,12 @@ export const QWEN_ASR_TRANSCRIBE_TIMEOUT_MS = 30_000
 /** Init timeout for Qwen-ASR bridge (ms) */
 export const QWEN_ASR_INIT_TIMEOUT_MS = 120_000
 
+/** Command timeout for speech-swift (Qwen3-ASR Swift) transcription (ms) */
+export const SPEECH_SWIFT_TRANSCRIBE_TIMEOUT_MS = 30_000
+
+/** Init timeout for speech-swift — first run triggers model download (ms) */
+export const SPEECH_SWIFT_INIT_TIMEOUT_MS = 300_000
+
 /** Command timeout for SenseVoice transcription (ms) */
 export const SENSEVOICE_TRANSCRIBE_TIMEOUT_MS = 30_000
 
