@@ -49,6 +49,8 @@ export interface AppSettings {
   slmModelSize: '4b' | '12b'
   /** User-defined glossary for fixed translation of specific terms */
   glossaryTerms: GlossaryEntry[]
+  /** Organization-wide glossary imported from JSON/CSV (#517) */
+  orgGlossaryTerms: GlossaryEntry[]
   /** Enable speculative decoding: 4B draft model + 12B verifier for 2-3x throughput */
   slmSpeculativeDecoding: boolean
   /** Enable simultaneous translation (SimulMT) with Wait-k policy for lower latency */
@@ -113,6 +115,7 @@ export const store = new Store<AppSettings>({
     slmKvCacheQuant: true,
     slmModelSize: '4b',
     glossaryTerms: [],
+    orgGlossaryTerms: [],
     slmSpeculativeDecoding: false,
     simulMtEnabled: false,
     simulMtWaitK: 3,

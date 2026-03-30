@@ -134,6 +134,8 @@ function SettingsPanel(): React.JSX.Element {
             onShowApiOptionsChange={s.setShowApiOptions}
             glossaryTerms={s.glossaryTerms}
             onGlossaryTermsChange={s.setGlossaryTerms}
+            orgGlossaryTerms={s.orgGlossaryTerms}
+            onOrgGlossaryTermsChange={s.setOrgGlossaryTerms}
           />
 
           <SubtitleSettings
