@@ -19,6 +19,14 @@ import type {
   WhisperVariantType
 } from '../components/settings/shared'
 
+// Runtime type-safe extractors for IPC settings (no unsafe `as` casts)
+const str = (v: unknown, def: string): string => (typeof v === 'string' ? v : def)
+const num = (v: unknown, def: number): number => (typeof v === 'number' ? v : def)
+const bool = (v: unknown, def: boolean): boolean => (typeof v === 'boolean' ? v : def)
+const arr = <T>(v: unknown, def: T[]): T[] => (Array.isArray(v) ? v : def)
+const rec = (v: unknown): Record<string, unknown> | null =>
+  typeof v === 'object' && v !== null && !Array.isArray(v) ? (v as Record<string, unknown>) : null
+
 export interface SettingsState {
   // Engine
   engineMode: EngineMode
@@ -200,33 +208,34 @@ export function useSettingsState(): SettingsState {
   // --- Effects: Load settings on mount ---
   useEffect(() => {
     window.api.getSettings().then((s) => {
-      if (s.translationEngine) setEngineMode(s.translationEngine as EngineMode)
-      if (s.googleApiKey) setApiKey(s.googleApiKey as string)
-      if (s.deeplApiKey) setDeeplApiKey(s.deeplApiKey as string)
-      if (s.geminiApiKey) setGeminiApiKey(s.geminiApiKey as string)
-      if (s.microsoftApiKey) setMicrosoftApiKey(s.microsoftApiKey as string)
-      if (s.microsoftRegion) setMicrosoftRegion(s.microsoftRegion as string)
-      if (s.selectedMicrophone) audio.setSelectedDevice(s.selectedMicrophone as string)
-      if (s.sttEngine) setSttEngine(s.sttEngine as SttEngineType)
-      if (s.whisperVariant) setWhisperVariant(s.whisperVariant as WhisperVariantType)
-      if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(s.slmKvCacheQuant as boolean)
-      if (s.glossaryTerms) setGlossaryTerms(s.glossaryTerms as Array<{ source: string; target: string }>)
-      if (s.simulMtEnabled !== undefined) setSimulMtEnabled(s.simulMtEnabled as boolean)
-      if (s.simulMtWaitK !== undefined) setSimulMtWaitK(s.simulMtWaitK as number)
-      if (s.sourceLanguage) setSourceLanguage(s.sourceLanguage as SourceLanguage)
-      if (s.targetLanguage) setTargetLanguage(s.targetLanguage as Language)
-      if (s.noiseSuppressionEnabled !== undefined) noiseSuppression.setEnabled(s.noiseSuppressionEnabled as boolean)
-      if (s.subtitleSettings) {
-        const sub = s.subtitleSettings as Record<string, unknown>
-        if (sub.fontSize) setSubtitleFontSize(sub.fontSize as number)
-        if (sub.sourceTextColor) setSubtitleSourceColor(sub.sourceTextColor as string)
-        if (sub.translatedTextColor) setSubtitleTranslatedColor(sub.translatedTextColor as string)
-        if (sub.backgroundOpacity !== undefined) setSubtitleBgOpacity(sub.backgroundOpacity as number)
-        if (sub.position) setSubtitlePosition(sub.position as SubtitlePositionType)
+      if (s.translationEngine) setEngineMode(str(s.translationEngine, 'offline-opus') as EngineMode)
+      if (s.googleApiKey) setApiKey(str(s.googleApiKey, ''))
+      if (s.deeplApiKey) setDeeplApiKey(str(s.deeplApiKey, ''))
+      if (s.geminiApiKey) setGeminiApiKey(str(s.geminiApiKey, ''))
+      if (s.microsoftApiKey) setMicrosoftApiKey(str(s.microsoftApiKey, ''))
+      if (s.microsoftRegion) setMicrosoftRegion(str(s.microsoftRegion, ''))
+      if (s.selectedMicrophone) audio.setSelectedDevice(str(s.selectedMicrophone, ''))
+      if (s.sttEngine) setSttEngine(str(s.sttEngine, 'mlx-whisper') as SttEngineType)
+      if (s.whisperVariant) setWhisperVariant(str(s.whisperVariant, 'kotoba-v2.0') as WhisperVariantType)
+      if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(bool(s.slmKvCacheQuant, true))
+      if (s.glossaryTerms) setGlossaryTerms(arr<{ source: string; target: string }>(s.glossaryTerms, []))
+      if (s.simulMtEnabled !== undefined) setSimulMtEnabled(bool(s.simulMtEnabled, false))
+      if (s.simulMtWaitK !== undefined) setSimulMtWaitK(num(s.simulMtWaitK, 3))
+      if (s.sourceLanguage) setSourceLanguage(str(s.sourceLanguage, 'auto') as SourceLanguage)
+      if (s.targetLanguage) setTargetLanguage(str(s.targetLanguage, 'en') as Language)
+      if (s.noiseSuppressionEnabled !== undefined) noiseSuppression.setEnabled(bool(s.noiseSuppressionEnabled, false))
+      const sub = rec(s.subtitleSettings)
+      if (sub) {
+        if (sub.fontSize) setSubtitleFontSize(num(sub.fontSize, 30))
+        if (sub.sourceTextColor) setSubtitleSourceColor(str(sub.sourceTextColor, '#ffffff'))
+        if (sub.translatedTextColor) setSubtitleTranslatedColor(str(sub.translatedTextColor, '#7dd3fc'))
+        if (sub.backgroundOpacity !== undefined) setSubtitleBgOpacity(num(sub.backgroundOpacity, 78))
+        if (sub.position) setSubtitlePosition(str(sub.position, 'bottom') as SubtitlePositionType)
       }
 
       // Auto-expand API section if an API engine is saved
-      if (s.translationEngine && API_ENGINE_MODES.includes(s.translationEngine as EngineMode)) {
+      const engine = str(s.translationEngine, '')
+      if (engine && API_ENGINE_MODES.includes(engine as EngineMode)) {
         setShowAdvanced(true)
         setShowApiOptions(true)
       }
