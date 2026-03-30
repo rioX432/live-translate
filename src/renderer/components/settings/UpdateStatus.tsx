@@ -163,8 +163,8 @@ export function UpdateStatus(): React.JSX.Element {
         )}
 
         {update.state === 'error' && (
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <span style={{ fontSize: '12px', color: '#ef4444' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: '100%' }}>
+            <span style={{ fontSize: '12px', color: '#ef4444', wordBreak: 'break-word', minWidth: 0 }}>
               Update check failed{update.error ? `: ${update.error}` : ''}
             </span>
             <button
