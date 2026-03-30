@@ -186,22 +186,32 @@ class WorkerPool {
 
   private initModel(options: WorkerInitOptions): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(() => {
+      let settled = false
+
+      const cleanup = (): void => {
         this.worker?.removeListener('message', initHandler)
+      }
+
+      const timeout = setTimeout(() => {
+        if (settled) return
+        settled = true
+        cleanup()
         reject(new Error('Worker initialization timed out'))
       }, WORKER_INIT_TIMEOUT_MS)
 
       const initHandler = (msg: WorkerMessage): void => {
-        if (!this.worker) return
+        if (settled || !this.worker) return
 
         if (msg.type === 'ready') {
+          settled = true
           clearTimeout(timeout)
-          this.worker?.removeListener('message', initHandler)
+          cleanup()
           this.currentModelPath = options.modelPath
           resolve()
         } else if (msg.type === 'error') {
+          settled = true
           clearTimeout(timeout)
-          this.worker?.removeListener('message', initHandler)
+          cleanup()
           reject(new Error(msg.message))
         }
       }
@@ -224,12 +234,25 @@ class WorkerPool {
         return
       }
 
-      const timeout = setTimeout(resolve, WORKER_DISPOSE_GRACE_MS)
+      let settled = false
+
+      const cleanup = (): void => {
+        this.worker?.removeListener('message', disposeHandler)
+      }
+
+      const timeout = setTimeout(() => {
+        if (settled) return
+        settled = true
+        cleanup()
+        resolve()
+      }, WORKER_DISPOSE_GRACE_MS)
 
       const disposeHandler = (msg: WorkerMessage): void => {
+        if (settled) return
         if (msg.type === 'disposed') {
+          settled = true
           clearTimeout(timeout)
-          this.worker?.removeListener('message', disposeHandler)
+          cleanup()
           this.currentModelPath = null
           resolve()
         }
@@ -278,7 +301,7 @@ class WorkerPool {
     try {
       await new Promise<void>((resolve) => {
         const timeout = setTimeout(resolve, WORKER_DISPOSE_GRACE_MS)
-        this.worker!.on('message', (msg: WorkerMessage) => {
+        this.worker!.once('message', (msg: WorkerMessage) => {
           if (msg.type === 'disposed') {
             clearTimeout(timeout)
             resolve()
