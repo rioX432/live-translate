@@ -142,7 +142,22 @@ export function SessionControls({
       {/* Session History */}
       {sessions.length > 0 && (
         <Section label="Session History">
-          <div style={{ maxHeight: '200px', overflowY: 'auto' }}>
+          <style>{`
+            .session-history-scroll::-webkit-scrollbar {
+              width: 6px;
+            }
+            .session-history-scroll::-webkit-scrollbar-track {
+              background: transparent;
+            }
+            .session-history-scroll::-webkit-scrollbar-thumb {
+              background: #475569;
+              border-radius: 3px;
+            }
+            .session-history-scroll::-webkit-scrollbar-thumb:hover {
+              background: #64748b;
+            }
+          `}</style>
+          <div className="session-history-scroll" style={{ maxHeight: '200px', overflowY: 'auto' }}>
             {sessions.slice(0, 10).map((s) => (
               <div key={s.id} style={{
                 display: 'flex',
