@@ -30,6 +30,11 @@ export function AudioSettings({ audio, disabled, noiseSuppressionEnabled, onNois
       {/* Volume meter */}
       <div style={{ marginTop: '6px', height: '4px', background: '#1e293b', borderRadius: '2px' }}>
         <div
+          role="progressbar"
+          aria-label="Volume level"
+          aria-valuenow={Math.round(audio.volume * 100)}
+          aria-valuemin={0}
+          aria-valuemax={100}
           style={{
             height: '100%',
             width: `${audio.volume * 100}%`,
