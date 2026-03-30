@@ -2,6 +2,7 @@ import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
 import { CT2_OPUS_MT_TRANSLATE_TIMEOUT_MS, CT2_OPUS_MT_INIT_TIMEOUT_MS } from '../constants'
+import { applyGlossary } from './glossary-utils'
 
 /**
  * CTranslate2-accelerated OPUS-MT translator (#242).
@@ -82,14 +83,7 @@ export class CT2OpusMTTranslator extends SubprocessBridge implements TranslatorE
     }
 
     // Apply glossary term replacements before translation
-    let input = text
-    if (context?.glossary?.length) {
-      for (const entry of context.glossary) {
-        if (entry.source?.trim() && input.includes(entry.source)) {
-          input = input.replaceAll(entry.source, entry.target)
-        }
-      }
-    }
+    const input = applyGlossary(text, context?.glossary)
 
     const direction = from === 'ja' ? 'ja-en' : 'en-ja'
 

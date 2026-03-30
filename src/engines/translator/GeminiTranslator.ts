@@ -1,6 +1,7 @@
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { LANG_NAMES_EN } from '../language-names'
 import { apiFetch, DEFAULT_TIMEOUT_MS } from './api-utils'
+import { formatGlossaryPrompt } from './glossary-utils'
 import { createLogger } from '../../main/logger'
 
 const log = createLogger('gemini')
@@ -42,9 +43,9 @@ export class GeminiTranslator implements TranslatorEngine {
 
     // Build context-enhanced prompt
     const contextParts: string[] = []
-    if (context?.glossary && context.glossary.length > 0) {
-      const entries = context.glossary.map((g) => `  "${g.source}" → "${g.target}"`).join('\n')
-      contextParts.push(`Use these fixed translations for specific terms:\n${entries}`)
+    const glossaryPrompt = formatGlossaryPrompt(context?.glossary)
+    if (glossaryPrompt) {
+      contextParts.push(glossaryPrompt)
     }
     if (context?.previousSegments && context.previousSegments.length > 0) {
       const history = context.previousSegments
