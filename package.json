@@ -34,6 +34,9 @@
     "node-llama-cpp": "^3.0.0",
     "ws": "^8.20.0"
   },
+  "optionalDependencies": {
+    "naudiodon": "^2.3.0"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.58.2",

@@ -3,6 +3,7 @@ import type { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import type { TranscriptLogger } from '../logger/TranscriptLogger'
 import type { WsAudioServer } from './ws-audio-server'
 import type { TTSManager } from './tts-manager'
+import type { VirtualMicManager } from './virtual-mic-manager'
 
 /**
  * Shared application state accessed by all main-process modules.
@@ -18,6 +19,7 @@ export interface AppContext {
   logger: TranscriptLogger | null
   wsAudioServer: WsAudioServer | null
   ttsManager: TTSManager | null
+  virtualMicManager: VirtualMicManager | null
 }
 
 /** Backing store for AppContext getter/setter properties */
@@ -28,6 +30,7 @@ interface AppContextStore {
   logger: TranscriptLogger | null
   wsAudioServer: WsAudioServer | null
   ttsManager: TTSManager | null
+  virtualMicManager: VirtualMicManager | null
 }
 
 /**
@@ -42,7 +45,8 @@ export function createAppContext(): AppContext {
     pipeline: null,
     logger: null,
     wsAudioServer: null,
-    ttsManager: null
+    ttsManager: null,
+    virtualMicManager: null
   }
 
   return Object.defineProperties({} as AppContext, {
@@ -79,6 +83,12 @@ export function createAppContext(): AppContext {
     ttsManager: {
       get: () => store.ttsManager,
       set: (v: TTSManager | null) => { store.ttsManager = v },
+      enumerable: true,
+      configurable: false
+    },
+    virtualMicManager: {
+      get: () => store.virtualMicManager,
+      set: (v: VirtualMicManager | null) => { store.virtualMicManager = v },
       enumerable: true,
       configurable: false
     }

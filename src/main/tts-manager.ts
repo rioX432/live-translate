@@ -1,5 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import type { TranslationResult } from '../engines/types'
+import type { VirtualMicManager } from './virtual-mic-manager'
 import { KokoroTTSEngine } from '../engines/tts/KokoroTTSEngine'
 import { createLogger } from './logger'
 
@@ -17,6 +18,7 @@ export class TTSManager {
   private enabled = false
   private currentVoice: string | null = null
   private volume = 1.0
+  private virtualMicManager: VirtualMicManager | null = null
 
   // Interrupt: track the latest request to cancel stale ones
   private requestId = 0
@@ -68,6 +70,11 @@ export class TTSManager {
     return this.volume
   }
 
+  /** Set the virtual mic manager for routing TTS audio to meeting apps (#515) */
+  setVirtualMicManager(manager: VirtualMicManager | null): void {
+    this.virtualMicManager = manager
+  }
+
   /**
    * Handle a translation result — synthesize and send audio to renderer.
    * Uses interrupt strategy: if a new request arrives while synthesizing,
@@ -106,6 +113,11 @@ export class TTSManager {
         sampleRate: ttsResult.sampleRate,
         volume: this.volume
       })
+
+      // Also route audio to virtual mic for meeting sharing (#515)
+      if (this.virtualMicManager?.isEnabled()) {
+        this.virtualMicManager.writeAudio(ttsResult.audio, ttsResult.sampleRate)
+      }
     } catch (err) {
       log.error('TTS synthesis error:', err)
     }

@@ -87,6 +87,10 @@ export interface AppSettings {
   ttsOutputDevice: string
   /** TTS playback volume (0.0-1.0) */
   ttsVolume: number
+  /** Enable virtual mic output for meeting translation sharing (#515) */
+  virtualMicEnabled: boolean
+  /** PortAudio device ID for virtual mic output (#515) */
+  virtualMicDeviceId: number
 }
 
 export const store = new Store<AppSettings>({
@@ -132,6 +136,8 @@ export const store = new Store<AppSettings>({
     ttsEnabled: false,
     ttsVoice: 'af_heart',
     ttsOutputDevice: '',
-    ttsVolume: 0.8
+    ttsVolume: 0.8,
+    virtualMicEnabled: false,
+    virtualMicDeviceId: -1
   }
 })

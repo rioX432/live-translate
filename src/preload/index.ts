@@ -147,6 +147,12 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('tts-audio', handler)
   },
 
+  // Virtual Mic (#515)
+  virtualMicGetStatus: () => ipcRenderer.invoke('virtual-mic-get-status'),
+  virtualMicEnable: (deviceId: number) => ipcRenderer.invoke('virtual-mic-enable', deviceId),
+  virtualMicDisable: () => ipcRenderer.invoke('virtual-mic-disable'),
+  virtualMicRefreshDevices: () => ipcRenderer.invoke('virtual-mic-refresh-devices'),
+
   // Quick Start onboarding (#510)
   quickStartRecommend: () => ipcRenderer.invoke('quick-start-recommend'),
   quickStartApply: (options: { sourceLanguage: string; targetLanguage: string; recommendation: unknown }) =>

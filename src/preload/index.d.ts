@@ -72,6 +72,17 @@ export interface ElectronAPI {
   ttsGetSettings: () => Promise<{ enabled: boolean; voice: string; outputDevice: string; volume: number }>
   onTtsAudio: (callback: (data: { audio: number[]; sampleRate: number; volume: number }) => void) => (() => void)
 
+  // Virtual Mic (#515)
+  virtualMicGetStatus: () => Promise<{
+    enabled: boolean
+    activeDeviceId: number | null
+    activeDeviceName: string | null
+    availableDevices: Array<{ id: number; name: string; maxOutputChannels: number; defaultSampleRate: number }>
+  }>
+  virtualMicEnable: (deviceId: number) => Promise<{ success?: boolean; error?: string }>
+  virtualMicDisable: () => Promise<{ success?: boolean; error?: string }>
+  virtualMicRefreshDevices: () => Promise<Array<{ id: number; name: string; maxOutputChannels: number; defaultSampleRate: number }>>
+
   // Quick Start onboarding (#510)
   quickStartRecommend: () => Promise<{
     sttEngine: string
