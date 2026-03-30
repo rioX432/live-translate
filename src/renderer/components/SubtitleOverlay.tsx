@@ -140,7 +140,7 @@ function SubtitleOverlay(): React.JSX.Element {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: config.position === 'top' ? 'flex-start' : 'flex-end',
-        padding: '16px 48px',
+        padding: '1rem 3rem',
         fontFamily:
           '"Hiragino Sans", "Hiragino Kaku Gothic ProN", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         userSelect: 'none'
@@ -153,14 +153,14 @@ function SubtitleOverlay(): React.JSX.Element {
             background: (line.isInterim || line.isDraft)
               ? `rgba(0, 0, 0, ${Math.max(0, config.backgroundOpacity - 13) / 100})`
               : `rgba(0, 0, 0, ${config.backgroundOpacity / 100})`,
-            borderRadius: '10px',
-            padding: '10px 20px',
-            marginBottom: '6px',
+            borderRadius: '0.625rem',
+            padding: '0.625rem 1.25rem',
+            marginBottom: '0.375rem',
             opacity: line.opacity,
             transition: 'opacity 0.3s ease-out',
             backdropFilter: 'blur(8px)',
             WebkitBackdropFilter: 'blur(8px)',
-            borderLeft: `4px solid ${
+            borderLeft: `0.25rem solid ${
               line.isInterim
                 ? '#94a3b8'
                 : line.isDraft
@@ -183,7 +183,7 @@ function SubtitleOverlay(): React.JSX.Element {
             }}
           >
             {line.speakerId && (
-              <span style={{ fontSize: '0.7em', opacity: 0.7, marginRight: '8px', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}>
+              <span style={{ fontSize: '0.7em', opacity: 0.7, marginRight: '0.5rem', maxWidth: '7.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}>
                 [{line.speakerId}]
               </span>
             )}
@@ -196,7 +196,7 @@ function SubtitleOverlay(): React.JSX.Element {
                 fontSize: `${translatedFontSize}px`,
                 fontWeight: 600,
                 lineHeight: 1.4,
-                marginTop: '2px',
+                marginTop: '0.125rem',
                 textShadow: '0 1px 3px rgba(0,0,0,0.5)',
                 fontStyle: line.isInterim || line.isDraft ? 'italic' : 'normal',
                 opacity: line.isDraft ? 0.85 : 1
