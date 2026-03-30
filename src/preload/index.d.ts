@@ -52,6 +52,22 @@ export interface ElectronAPI {
   ttsGetSettings: () => Promise<{ enabled: boolean; voice: string; outputDevice: string; volume: number }>
   onTtsAudio: (callback: (data: { audio: number[]; sampleRate: number; volume: number }) => void) => (() => void)
 
+  // Quick Start onboarding (#510)
+  quickStartRecommend: () => Promise<{
+    sttEngine: string
+    translationEngine: string
+    whisperVariant: string
+    downloads: Array<{ type: string; key: string; filename: string; url: string; sizeMB: number; label: string }>
+    totalDownloadMB: number
+    needsDownload: boolean
+    fallbackEngine: string | null
+    reason: string
+  }>
+  quickStartApply: (options: { sourceLanguage: string; targetLanguage: string; recommendation: unknown }) => Promise<{ success: boolean }>
+  quickStartIsCompleted: () => Promise<boolean>
+  quickStartSkip: () => Promise<{ success: boolean }>
+  quickStartSystemInfo: () => Promise<{ platform: string; totalMemoryMB: number; gpuInfo: { hasGpu: boolean; gpuNames: string[] } }>
+
   // Auto-update (#314)
   updateCheck: () => Promise<{ success?: boolean; error?: string }>
   updateDownload: () => Promise<{ success?: boolean; error?: string }>
