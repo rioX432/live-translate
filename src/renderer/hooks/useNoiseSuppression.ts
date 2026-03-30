@@ -54,18 +54,18 @@ export function useNoiseSuppression(): UseNoiseSuppressionReturn {
   const destroy = useCallback(async () => {
     try {
       workletNodeRef.current?.disconnect()
-    } catch { /* ignore */ }
+    } catch (e) { console.warn('[noise-suppression] Failed to disconnect worklet node:', e) }
     try {
       sourceNodeRef.current?.disconnect()
-    } catch { /* ignore */ }
+    } catch (e) { console.warn('[noise-suppression] Failed to disconnect source node:', e) }
 
     if (coreRef.current) {
-      try { coreRef.current.destroy() } catch { /* ignore */ }
+      try { coreRef.current.destroy() } catch (e) { console.warn('[noise-suppression] Failed to destroy core:', e) }
       coreRef.current = null
     }
 
     if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') {
-      try { await audioCtxRef.current.close() } catch { /* ignore */ }
+      try { await audioCtxRef.current.close() } catch (e) { console.warn('[noise-suppression] Failed to close AudioContext:', e) }
     }
 
     audioCtxRef.current = null
