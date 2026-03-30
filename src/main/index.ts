@@ -21,20 +21,14 @@ import { registerAudioHandlers } from './audio-handlers'
 import { registerIpcHandlers } from './ipc-handlers'
 import { createLogger } from './logger'
 import { initAutoUpdater, registerUpdateHandlers, disposeAutoUpdater } from './auto-updater'
-import type { AppContext } from './app-context'
+import { createAppContext } from './app-context'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
 import type { WhisperVariant } from '../engines/model-downloader'
 
 const log = createLogger('main')
 
-// Shared mutable state
-const ctx: AppContext = {
-  mainWindow: null,
-  subtitleWindow: null,
-  pipeline: null,
-  logger: null,
-  wsAudioServer: null
-}
+// Shared state — getter/setter backed so closures never hold stale references (#429)
+const ctx = createAppContext()
 
 async function initPipeline(): Promise<void> {
   // Remove all event listeners and dispose previous pipeline to prevent
