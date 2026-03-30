@@ -173,6 +173,10 @@ export function useSettingsState(): SettingsState {
 
   const [crashedSession, setCrashedSession] = useState<{ config: Record<string, unknown>; startedAt: number } | null>(null)
 
+  // Guard: display-related callbacks must wait until settings are fully loaded
+  const settingsLoadedRef = useRef(false)
+  const selectedDisplayRef = useRef(selectedDisplay)
+
   // Noise suppression + audio capture
   const noiseSuppression = useNoiseSuppression()
   const audio = useAudioCapture(noiseSuppression.enabled ? noiseSuppression : undefined)
@@ -233,12 +237,21 @@ export function useSettingsState(): SettingsState {
         if (sub.position) setSubtitlePosition(str(sub.position, 'bottom') as SubtitlePositionType)
       }
 
+      // Restore saved display selection
+      if (s.selectedDisplay !== undefined) {
+        const savedDisplay = num(s.selectedDisplay, 0)
+        setSelectedDisplay(savedDisplay)
+        selectedDisplayRef.current = savedDisplay
+      }
+
       // Auto-expand API section if an API engine is saved
       const engine = str(s.translationEngine, '')
       if (engine && API_ENGINE_MODES.includes(engine as EngineMode)) {
         setShowAdvanced(true)
         setShowApiOptions(true)
       }
+
+      settingsLoadedRef.current = true
     })
 
     // Set platform-aware STT default (mlx-whisper on macOS)
@@ -284,8 +297,16 @@ export function useSettingsState(): SettingsState {
     const refreshDisplays = (): void => {
       window.api.getDisplays().then((d) => {
         setDisplays(d)
-        const external = d.find((disp: DisplayInfo) => disp.label.includes('External'))
-        setSelectedDisplay(external?.id ?? d[0]?.id ?? 0)
+        // Skip auto-selection until settings are loaded (saved value takes priority)
+        if (!settingsLoadedRef.current) return
+        // Only auto-select if the current display was disconnected
+        const currentStillExists = d.some((disp: DisplayInfo) => disp.id === selectedDisplayRef.current)
+        if (!currentStillExists) {
+          const external = d.find((disp: DisplayInfo) => disp.label.includes('External'))
+          const fallback = external?.id ?? d[0]?.id ?? 0
+          setSelectedDisplay(fallback)
+          selectedDisplayRef.current = fallback
+        }
       })
     }
     refreshDisplays()
@@ -445,6 +466,7 @@ export function useSettingsState(): SettingsState {
 
   const handleDisplayChange = (displayId: number): void => {
     setSelectedDisplay(displayId)
+    selectedDisplayRef.current = displayId
     window.api.moveSubtitleToDisplay(displayId)
   }
 
