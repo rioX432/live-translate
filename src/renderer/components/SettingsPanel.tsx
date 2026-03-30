@@ -29,12 +29,13 @@ function SettingsPanel(): React.JSX.Element {
         />
       )}
 
-      {/* Microphone Selection — always visible */}
+      {/* Audio Input — always visible (#501: supports mic, system, or both) */}
       <AudioSettings
         audio={s.audio}
         disabled={disabled}
         noiseSuppressionEnabled={s.noiseSuppression.enabled}
         onNoiseSuppressionChange={s.noiseSuppression.setEnabled}
+        platform={s.platform}
       />
 
       {/* Current config summary — always visible */}

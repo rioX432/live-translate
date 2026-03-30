@@ -6,10 +6,15 @@ export interface AudioDevice {
   label: string
 }
 
+/** Audio source mode: microphone only, system audio (loopback), or both mixed (#501) */
+export type AudioSource = 'microphone' | 'system' | 'both'
+
 export interface UseAudioCaptureReturn {
   devices: AudioDevice[]
   selectedDevice: string
   setSelectedDevice: (id: string) => void
+  audioSource: AudioSource
+  setAudioSource: (source: AudioSource) => void
   isCapturing: boolean
   volume: number // 0-1 for level meter
   permissionError: string | null // #48: mic permission error
@@ -81,6 +86,7 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
     : DEFAULT_STREAMING_INTERVAL_MS
   const [devices, setDevices] = useState<AudioDevice[]>([])
   const [selectedDevice, setSelectedDevice] = useState<string>('')
+  const [audioSource, setAudioSource] = useState<AudioSource>('microphone')
   const [isCapturing, setIsCapturing] = useState(false)
   const [volume, setVolume] = useState(0)
   const [permissionError, setPermissionError] = useState<string | null>(null) // #48
@@ -90,6 +96,10 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
   const chunkCallbackRef = useRef<((chunk: Float32Array) => void) | null>(null)
   const streamingCallbackRef = useRef<((buffer: Float32Array) => void) | null>(null)
   const speechEndCallbackRef = useRef<((finalBuffer: Float32Array) => void) | null>(null)
+
+  // #501: Track loopback and mixer resources for cleanup
+  const loopbackStreamRef = useRef<MediaStream | null>(null)
+  const audioContextRef = useRef<AudioContext | null>(null)
 
   // Rolling buffer state for streaming (#53: use circular buffer)
   const isSpeakingRef = useRef(false)
@@ -200,16 +210,66 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
     }
   }, [])
 
+  // #501: Acquire system audio loopback stream via electron-audio-loopback
+  const getLoopbackStream = useCallback(async (): Promise<MediaStream> => {
+    // Enable loopback audio in the main process (registers desktopCapturer handler)
+    await window.api.enableLoopbackAudio()
+    try {
+      // getDisplayMedia captures system audio; video track is required by the API
+      // but we discard it immediately to avoid wasting resources
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: true,
+        audio: true
+      })
+      // Remove video tracks — only audio is needed
+      for (const track of stream.getVideoTracks()) {
+        track.stop()
+        stream.removeTrack(track)
+      }
+      return stream
+    } finally {
+      // Disable loopback capture handler after stream is acquired
+      await window.api.disableLoopbackAudio()
+    }
+  }, [])
+
+  // #501: Mix two MediaStreams into one using Web Audio API
+  const mixStreams = useCallback((micStream: MediaStream, loopbackStream: MediaStream): MediaStream => {
+    const ctx = new AudioContext({ sampleRate: 16000 })
+    audioContextRef.current = ctx
+    const dest = ctx.createMediaStreamDestination()
+
+    const micSource = ctx.createMediaStreamSource(micStream)
+    const loopbackSource = ctx.createMediaStreamSource(loopbackStream)
+
+    micSource.connect(dest)
+    loopbackSource.connect(dest)
+
+    return dest.stream
+  }, [])
+
   const start = useCallback(async () => {
     if (isCapturing) return
 
     try {
       const deviceId = selectedDevice
+      const currentAudioSource = audioSource
       const vad = await MicVAD.new({
         getStream: async () => {
           // #313: Request 48 kHz when DeepFilterNet3 is active (it requires 48 kHz);
           // VAD resamples internally to 16 kHz regardless.
           const idealSampleRate = noiseSuppression ? 48000 : 16000
+
+          // #501: Get the appropriate stream based on audio source setting
+          if (currentAudioSource === 'system') {
+            // System audio only — no microphone
+            const loopback = await getLoopbackStream()
+            loopbackStreamRef.current = loopback
+            console.log('[audio-capture] Using system audio loopback')
+            return loopback
+          }
+
+          // Get microphone stream (used for 'microphone' and 'both' modes)
           const rawStream = await navigator.mediaDevices.getUserMedia({
             audio: {
               deviceId: deviceId ? { exact: deviceId } : undefined,
@@ -219,11 +279,22 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
               noiseSuppression: !noiseSuppression // disable browser NS when DeepFilterNet3 is active
             }
           })
+
           // #313: Apply DeepFilterNet3 noise suppression before VAD
-          if (noiseSuppression) {
-            return noiseSuppression.processStream(rawStream)
+          const micStream = noiseSuppression
+            ? await noiseSuppression.processStream(rawStream)
+            : rawStream
+
+          if (currentAudioSource === 'both') {
+            // #501: Mix microphone + system audio loopback
+            const loopback = await getLoopbackStream()
+            loopbackStreamRef.current = loopback
+            console.log('[audio-capture] Using mixed microphone + system audio')
+            return mixStreams(micStream, loopback)
           }
-          return rawStream
+
+          // Microphone only (default)
+          return micStream
         },
         // Override with more sensitive thresholds for real-time translation
         positiveSpeechThreshold: 0.25,
@@ -307,6 +378,15 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
         vadRef.current.destroy()
         vadRef.current = null
       }
+      // #501: Clean up loopback resources on failed start
+      if (loopbackStreamRef.current) {
+        loopbackStreamRef.current.getTracks().forEach((t) => t.stop())
+        loopbackStreamRef.current = null
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {})
+        audioContextRef.current = null
+      }
       isSpeakingRef.current = false
       rollingBufferRef.current = []
       rollingBufferIndexRef.current = 0
@@ -315,13 +395,22 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
       setIsCapturing(false)
       throw err
     }
-  }, [selectedDevice, isCapturing, startStreamingTimer, stopStreamingTimer])
+  }, [selectedDevice, audioSource, isCapturing, startStreamingTimer, stopStreamingTimer, getLoopbackStream, mixStreams])
 
   const stop = useCallback(() => {
     stopStreamingTimer()
     if (vadRef.current) {
       vadRef.current.destroy()
       vadRef.current = null
+    }
+    // #501: Release loopback stream and audio mixer resources
+    if (loopbackStreamRef.current) {
+      loopbackStreamRef.current.getTracks().forEach((t) => t.stop())
+      loopbackStreamRef.current = null
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch((err) => console.warn('[audio-capture] AudioContext close error:', err))
+      audioContextRef.current = null
     }
     // #313: Release DeepFilterNet3 resources
     noiseSuppression?.destroy().catch((err) => console.warn('[audio-capture] Noise suppression cleanup error:', err))
@@ -335,7 +424,7 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
     console.log('[audio-capture] VAD stopped')
   }, [stopStreamingTimer, noiseSuppression])
 
-  // #443: Safety net — clear streaming timer and VAD on unmount if stop() was not called
+  // #443: Safety net — clear streaming timer, VAD, and loopback on unmount if stop() was not called
   useEffect(() => {
     return () => {
       if (streamingTimerRef.current) {
@@ -345,6 +434,15 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
       if (vadRef.current) {
         vadRef.current.destroy()
         vadRef.current = null
+      }
+      // #501: Release loopback resources on unmount
+      if (loopbackStreamRef.current) {
+        loopbackStreamRef.current.getTracks().forEach((t) => t.stop())
+        loopbackStreamRef.current = null
+      }
+      if (audioContextRef.current) {
+        audioContextRef.current.close().catch(() => {})
+        audioContextRef.current = null
       }
     }
   }, [])
@@ -368,6 +466,8 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
     devices,
     selectedDevice,
     setSelectedDevice,
+    audioSource,
+    setAudioSource,
     isCapturing,
     volume,
     permissionError,

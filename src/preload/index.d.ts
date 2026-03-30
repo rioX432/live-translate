@@ -41,6 +41,9 @@ export interface ElectronAPI {
   wsAudioStop: () => Promise<void>
   wsAudioGetStatus: () => Promise<{ running: boolean; connected: boolean; port: number | null }>
   onWsAudioStatus: (callback: (status: { running: boolean; connected: boolean; port: number | null }) => void) => (() => void)
+  // System audio loopback (#501)
+  enableLoopbackAudio: () => Promise<void>
+  disableLoopbackAudio: () => Promise<void>
   // Auto-update (#314)
   updateCheck: () => Promise<{ success?: boolean; error?: string }>
   updateDownload: () => Promise<{ success?: boolean; error?: string }>

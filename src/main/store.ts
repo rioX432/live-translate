@@ -73,6 +73,8 @@ export interface AppSettings {
   streamingIntervalMs: number
   /** Show confidence-based styling on subtitle text (opacity/italic for low-confidence) */
   showConfidenceIndicator: boolean
+  /** Audio source: microphone only, system audio (loopback), or both mixed */
+  audioSource: 'microphone' | 'system' | 'both'
 }
 
 export const store = new Store<AppSettings>({
@@ -111,6 +113,7 @@ export const store = new Store<AppSettings>({
     wsAudioPort: DEFAULT_WS_PORT,
     noiseSuppressionEnabled: false,
     streamingIntervalMs: 1000,
-    showConfidenceIndicator: true
+    showConfidenceIndicator: true,
+    audioSource: 'microphone'
   }
 })
