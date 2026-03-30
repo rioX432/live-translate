@@ -22,7 +22,7 @@ import { WsAudioServer } from './ws-audio-server'
 import type { AppContext } from './app-context'
 import type { EngineConfig } from '../engines/types'
 import { DEFAULT_WS_PORT, SAMPLE_RATE } from './constants'
-import { validateSessionId, validateSearchQuery, VALID_EXPORT_FORMATS } from './ipc-validators'
+import { validateSessionId, validateSearchQuery, validatePathWithinDir, VALID_EXPORT_FORMATS } from './ipc-validators'
 import type { ExportFormat } from './ipc-validators'
 
 const log = createLogger('ipc')
@@ -290,15 +290,14 @@ export function registerIpcHandlers(ctx: AppContext): void {
   // #124: Generate meeting summary from transcript
   ipcMain.handle('generate-summary', async (_event, transcriptPath: string) => {
     try {
-      // #150: Validate path is within expected logs directory
-      const { resolve } = await import('path')
+      // #150: Validate path is within expected logs directory (symlink-safe)
       const { readFileSync } = await import('fs')
       const logsDir = app.getPath('userData')
-      const resolved = resolve(transcriptPath)
-      if (!resolved.startsWith(logsDir)) {
+      const pathResult = validatePathWithinDir(transcriptPath, logsDir)
+      if ('error' in pathResult) {
         return { error: 'Invalid transcript path' }
       }
-      const transcript = readFileSync(resolved, 'utf-8')
+      const transcript = readFileSync(pathResult.path, 'utf-8')
 
       if (!transcript.trim()) {
         return { error: 'Transcript is empty' }

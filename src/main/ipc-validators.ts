@@ -1,3 +1,36 @@
+import { resolve, relative } from 'path'
+import { realpathSync } from 'fs'
+
+/**
+ * Validate that a file path resolves to within the given base directory,
+ * resolving symlinks to prevent symlink-based traversal attacks.
+ * Returns the resolved real path if valid, or an error string.
+ */
+export function validatePathWithinDir(filePath: string, baseDir: string): { path: string } | { error: string } {
+  const resolved = resolve(filePath)
+
+  let realPath: string
+  try {
+    realPath = realpathSync(resolved)
+  } catch {
+    return { error: 'Invalid path' }
+  }
+
+  let realBase: string
+  try {
+    realBase = realpathSync(baseDir)
+  } catch {
+    return { error: 'Invalid base directory' }
+  }
+
+  const rel = relative(realBase, realPath)
+  if (rel.startsWith('..') || resolve(realBase, rel) !== realPath) {
+    return { error: 'Path is outside allowed directory' }
+  }
+
+  return { path: realPath }
+}
+
 /** Max length for session IDs */
 const SESSION_ID_MAX_LENGTH = 128
 
