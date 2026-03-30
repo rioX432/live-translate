@@ -48,12 +48,18 @@ export function STTSettings({
           >
             <option value="kotoba-v2.0">Kotoba Whisper v2.0 (Japanese-optimized, ~540MB)</option>
             <option value="large-v3-turbo">Large v3 Turbo (Multilingual, 6x faster, ~600MB)</option>
+            <option value="distil-large-v3">Distil Large v3 (5x faster, ~1.5GB)</option>
             <option value="small">Small (Fast mode, ~466MB)</option>
             <option value="base">Base (Fastest mode, ~142MB)</option>
           </select>
           {whisperVariant === 'large-v3-turbo' && (
             <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
               OpenAI large-v3-turbo: 809M params, 4 decoder layers, within 1-2% WER of large-v3.
+            </div>
+          )}
+          {whisperVariant === 'distil-large-v3' && (
+            <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+              HuggingFace distil-large-v3: 756M params, 2 decoder layers, 5x faster with only 1% WER degradation vs large-v3.
             </div>
           )}
           {whisperVariant === 'small' && (

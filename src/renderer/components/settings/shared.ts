@@ -28,7 +28,7 @@ export const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
 export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-hunyuan-mt' | 'offline-hybrid'
 
 export type SttEngineType = 'whisper-local' | 'mlx-whisper'
-export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo' | 'base' | 'small'
+export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo' | 'distil-large-v3' | 'base' | 'small'
 export type SubtitlePositionType = 'top' | 'bottom'
 
 export interface DisplayInfo {
@@ -130,6 +130,7 @@ export function getSttDisplayName(sttEngine: SttEngineType, whisperVariant: Whis
       const variantLabels: Record<string, string> = {
         'kotoba-v2.0': 'kotoba-v2.0',
         'large-v3-turbo': 'large-v3-turbo',
+        'distil-large-v3': 'distil-large-v3',
         'small': 'small, fast',
         'base': 'base, fastest'
       }
