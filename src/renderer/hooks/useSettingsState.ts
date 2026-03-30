@@ -164,7 +164,8 @@ export function useSettingsState(): SettingsState {
         simulMtWaitK: engine.simulMtWaitK,
         sourceLanguage: language.sourceLanguage,
         targetLanguage: language.targetLanguage,
-        noiseSuppressionEnabled: session.noiseSuppression.enabled
+        noiseSuppressionEnabled: session.noiseSuppression.enabled,
+        audioSource: session.audio.audioSource
       }), 10_000, 'saveSettings')
 
       const resolvedMode = resolveEngineMode(engine.engineMode, apiKeys, engine.gpuInfo)

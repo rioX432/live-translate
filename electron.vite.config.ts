@@ -41,7 +41,7 @@ export default defineConfig({
         }
       },
       rollupOptions: {
-        external: ['node-llama-cpp']
+        external: ['node-llama-cpp', 'electron-audio-loopback']
       }
     }
   },

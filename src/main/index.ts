@@ -1,4 +1,5 @@
 import { app } from 'electron'
+import { initMain as initAudioLoopback } from 'electron-audio-loopback'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
@@ -166,6 +167,10 @@ async function initPipeline(): Promise<void> {
 registerAudioHandlers(ctx)
 registerIpcHandlers(ctx)
 registerUpdateHandlers(ctx)
+
+// --- Initialize electron-audio-loopback before app is ready ---
+// Must be called before app.whenReady() per package documentation
+initAudioLoopback()
 
 // --- App Lifecycle ---
 

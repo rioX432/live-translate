@@ -111,6 +111,10 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('ws-audio-status', handler)
   },
 
+  // System audio loopback (#501)
+  enableLoopbackAudio: () => ipcRenderer.invoke('enable-loopback-audio'),
+  disableLoopbackAudio: () => ipcRenderer.invoke('disable-loopback-audio'),
+
   // Auto-update (#314)
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateDownload: () => ipcRenderer.invoke('update-download'),

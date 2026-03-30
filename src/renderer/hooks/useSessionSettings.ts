@@ -88,6 +88,10 @@ export function useSessionSettings(): SessionSettingsState {
       if (s.noiseSuppressionEnabled !== undefined) noiseSuppression.setEnabled(bool(s.noiseSuppressionEnabled, false))
       if (s.selectedMicrophone) audio.setSelectedDevice(typeof s.selectedMicrophone === 'string' ? s.selectedMicrophone : '')
       if (typeof s.streamingIntervalMs === 'number') setStreamingIntervalMs(s.streamingIntervalMs)
+      // #501: Restore audio source preference
+      if (s.audioSource && ['microphone', 'system', 'both'].includes(s.audioSource as string)) {
+        audio.setAudioSource(s.audioSource as 'microphone' | 'system' | 'both')
+      }
     })
 
     // Check for crashed session
