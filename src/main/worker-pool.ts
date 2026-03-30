@@ -314,7 +314,14 @@ class WorkerPool {
       const oldest = this.pending.get(oldestKey)!
       this.pending.delete(oldestKey)
       clearTimeout(oldest.timer)
-      oldest.reject(new Error('Evicted: worker pending request limit exceeded'))
+      log.warn(
+        `Evicting oldest pending request ${oldestKey} — queue full (${WORKER_MAX_PENDING_REQUESTS})`
+      )
+      oldest.reject(
+        new Error(
+          `Evicted: pending request limit exceeded (max ${WORKER_MAX_PENDING_REQUESTS})`
+        )
+      )
     }
   }
 }
