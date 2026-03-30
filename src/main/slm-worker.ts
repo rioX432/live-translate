@@ -20,7 +20,7 @@ import { createLogger } from './logger'
 
 const log = createLogger('slm-worker')
 
-type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15' | 'gemma2-jpn' | 'alma-ja'
+type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15'
 
 /** Messages sent from main process to this worker */
 type WorkerInboundMessage =
@@ -180,7 +180,7 @@ function buildTranslationPrompt(
     return `${contextSection}Translate the following segment into ${toLang}, without additional explanation.\n\n${text}`
   }
 
-  // TranslateGemma, gemma2-jpn, alma-ja: simple translation prompt
+  // TranslateGemma: simple translation prompt
   return `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
 }
 
