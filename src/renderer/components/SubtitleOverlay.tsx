@@ -131,6 +131,9 @@ function SubtitleOverlay(): React.JSX.Element {
 
   return (
     <div
+      role="region"
+      aria-live="polite"
+      aria-label="Subtitles"
       style={{
         width: '100%',
         height: '100%',
