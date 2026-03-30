@@ -1,4 +1,18 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+
+/** Default 8-color palette for speaker identification — must match SpeakerTracker.ts */
+const SPEAKER_COLORS = [
+  '#60a5fa', '#4ade80', '#f472b6', '#facc15',
+  '#a78bfa', '#fb923c', '#2dd4bf', '#f87171'
+]
+
+/** Map a speakerId string (e.g. "Speaker A") to its palette color */
+function getSpeakerColor(speakerId: string): string | undefined {
+  const match = speakerId.match(/^Speaker ([A-H])$/)
+  if (!match) return undefined
+  const idx = match[1]!.charCodeAt(0) - 'A'.charCodeAt(0)
+  return SPEAKER_COLORS[idx]
+}
 
 interface SubtitleLine {
   id: number
@@ -52,8 +66,44 @@ function getConfidenceStyle(
 function SubtitleOverlay(): React.JSX.Element {
   const [lines, setLines] = useState<SubtitleLine[]>([])
   const [config, setConfig] = useState<SubtitleConfig>(DEFAULT_CONFIG)
+  const [isDragMode, setIsDragMode] = useState(false)
   const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const nextLineIdRef = useRef(1)
+  const isDraggingRef = useRef(false)
+  const dragStartRef = useRef({ screenX: 0, screenY: 0 })
+
+  // Drag handlers — move the entire subtitle window by delta
+  const handleDragMouseDown = useCallback((e: React.MouseEvent) => {
+    isDraggingRef.current = true
+    dragStartRef.current = { screenX: e.screenX, screenY: e.screenY }
+    e.preventDefault()
+  }, [])
+
+  useEffect(() => {
+    if (!isDragMode) return
+
+    const handleMouseMove = (e: MouseEvent): void => {
+      if (!isDraggingRef.current) return
+      const dx = e.screenX - dragStartRef.current.screenX
+      const dy = e.screenY - dragStartRef.current.screenY
+      dragStartRef.current = { screenX: e.screenX, screenY: e.screenY }
+      window.api.moveSubtitleByDelta?.(dx, dy)
+    }
+
+    const handleMouseUp = (): void => {
+      if (isDraggingRef.current) {
+        isDraggingRef.current = false
+        window.api.saveSubtitlePosition?.()
+      }
+    }
+
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+    }
+  }, [isDragMode])
 
   // Load initial settings and listen for changes
   useEffect(() => {
@@ -69,7 +119,16 @@ function SubtitleOverlay(): React.JSX.Element {
     const unsubscribe = window.api.onSubtitleSettingsChanged((settings) => {
       setConfig((prev) => ({ ...prev, ...settings as Partial<SubtitleConfig> }))
     })
-    return () => unsubscribe?.()
+
+    // Listen for drag mode toggle from main process
+    const unsubDrag = window.api.onDragModeChanged?.((enabled: boolean) => {
+      setIsDragMode(enabled)
+    })
+
+    return () => {
+      unsubscribe?.()
+      unsubDrag?.()
+    }
   }, [])
 
   useEffect(() => {
@@ -164,6 +223,36 @@ function SubtitleOverlay(): React.JSX.Element {
         userSelect: 'none'
       }}
     >
+      {/* Drag handle overlay — visible only in drag mode */}
+      {isDragMode && (
+        <div
+          onMouseDown={handleDragMouseDown}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            cursor: 'move',
+            zIndex: 9999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(59, 130, 246, 0.08)',
+            border: '2px dashed rgba(96, 165, 250, 0.5)',
+            borderRadius: '0.625rem'
+          }}
+        >
+          <span style={{
+            color: '#60a5fa',
+            fontSize: '14px',
+            fontWeight: 600,
+            background: 'rgba(0,0,0,0.6)',
+            padding: '6px 16px',
+            borderRadius: '6px',
+            pointerEvents: 'none'
+          }}>
+            Drag to reposition
+          </span>
+        </div>
+      )}
       {lines.map((line) => {
         const confStyle = getConfidenceStyle(line.confidence, config.showConfidenceIndicator)
         return (
@@ -185,9 +274,8 @@ function SubtitleOverlay(): React.JSX.Element {
                   ? '#94a3b8'
                   : line.isDraft
                     ? '#f59e0b'
-                    : line.sourceLanguage === 'ja'
-                      ? '#4ade80'
-                      : '#60a5fa'
+                    : (line.speakerId && getSpeakerColor(line.speakerId))
+                      || (line.sourceLanguage === 'ja' ? '#4ade80' : '#60a5fa')
               }`
             }}
           >
@@ -203,7 +291,18 @@ function SubtitleOverlay(): React.JSX.Element {
               }}
             >
               {line.speakerId && (
-                <span style={{ fontSize: '0.7em', opacity: 0.7, marginRight: '0.5rem', maxWidth: '7.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}>
+                <span style={{
+                  fontSize: '0.7em',
+                  opacity: 0.85,
+                  marginRight: '0.5rem',
+                  maxWidth: '7.5rem',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  display: 'inline-block',
+                  verticalAlign: 'middle',
+                  color: getSpeakerColor(line.speakerId) || 'inherit'
+                }}>
                   [{line.speakerId}]
                 </span>
               )}

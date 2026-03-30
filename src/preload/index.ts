@@ -115,6 +115,19 @@ contextBridge.exposeInMainWorld('api', {
   enableLoopbackAudio: () => ipcRenderer.invoke('enable-loopback-audio'),
   disableLoopbackAudio: () => ipcRenderer.invoke('disable-loopback-audio'),
 
+  // Subtitle drag mode (#509)
+  toggleSubtitleDragMode: (enabled: boolean) =>
+    ipcRenderer.invoke('toggle-subtitle-drag-mode', enabled),
+  moveSubtitleByDelta: (dx: number, dy: number) =>
+    ipcRenderer.send('move-subtitle-by-delta', dx, dy),
+  saveSubtitlePosition: () => ipcRenderer.invoke('save-subtitle-position'),
+  resetSubtitlePosition: () => ipcRenderer.invoke('reset-subtitle-position'),
+  onDragModeChanged: (callback: (enabled: boolean) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, enabled: boolean): void => callback(enabled)
+    ipcRenderer.on('drag-mode-changed', handler)
+    return () => ipcRenderer.off('drag-mode-changed', handler)
+  },
+
   // Auto-update (#314)
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateDownload: () => ipcRenderer.invoke('update-download'),
