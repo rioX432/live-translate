@@ -1,103 +1,60 @@
 import { join } from 'path'
-import type { TranslatorEngine, Language, TranslateContext } from '../types'
-import { getGGUFDir, downloadGGUF, getGGUFVariants, isGGUFDownloaded } from '../model-downloader'
+import { getGGUFDir, getGGUFVariants, isGGUFDownloaded } from '../model-downloader'
 import type { SLMModelSize } from '../model-downloader'
+import type { WorkerInitOptions } from '../../main/worker-pool'
 import { workerPool } from '../../main/worker-pool'
+import { LlamaWorkerTranslator } from './LlamaWorkerTranslator'
+import type { GGUFVariantConfig } from './LlamaWorkerTranslator'
 
-export class SLMTranslator implements TranslatorEngine {
+export class SLMTranslator extends LlamaWorkerTranslator {
   readonly id = 'slm-translate'
   readonly name: string
-  readonly isOffline = true
 
-  private initialized = false
-  private initPromise: Promise<void> | null = null
-  private onProgress?: (message: string) => void
-  private variant: string
   private modelSize: SLMModelSize
-  private kvCacheQuant: boolean
   private speculativeDecoding: boolean
-  private modelPath: string = ''
+  private draftModelPath: string | undefined
 
-  constructor(options?: { onProgress?: (message: string) => void; variant?: string; modelSize?: SLMModelSize; kvCacheQuant?: boolean; speculativeDecoding?: boolean }) {
-    this.onProgress = options?.onProgress
+  constructor(options?: {
+    onProgress?: (message: string) => void
+    variant?: string
+    modelSize?: SLMModelSize
+    kvCacheQuant?: boolean
+    speculativeDecoding?: boolean
+  }) {
+    super(options)
     this.modelSize = options?.modelSize ?? '4b'
-    this.variant = options?.variant ?? 'Q4_K_M'
-    this.kvCacheQuant = options?.kvCacheQuant ?? true
     this.speculativeDecoding = options?.speculativeDecoding ?? false
     this.name = `TranslateGemma ${this.modelSize.toUpperCase()} (Offline)`
   }
 
-  async initialize(): Promise<void> {
-    if (this.initPromise) return this.initPromise
-    this.initPromise = this.doInitialize()
-    return this.initPromise
+  protected getVariants(): Record<string, GGUFVariantConfig> {
+    return getGGUFVariants(this.modelSize)
   }
 
-  private async doInitialize(): Promise<void> {
-    if (this.initialized) return
+  protected getModelSizeLabel(): string {
+    return `TranslateGemma ${this.modelSize.toUpperCase()}`
+  }
 
-    // Download model if needed
-    const variants = getGGUFVariants(this.modelSize)
-    const variantConfig = variants[this.variant] ?? variants['Q4_K_M']!
-    this.modelPath = join(getGGUFDir(), variantConfig.filename)
-    await downloadGGUF(variantConfig.filename, variantConfig.url, this.onProgress, variantConfig.sha256)
-
+  protected async afterDownload(): Promise<void> {
     // Resolve draft model path for speculative decoding (4B draft + 12B verifier)
-    let draftModelPath: string | undefined
     if (this.speculativeDecoding && this.modelSize === '12b') {
       const draftVariants = getGGUFVariants('4b')
       const draftVariantConfig = draftVariants['Q4_K_M']!
       if (isGGUFDownloaded(draftVariantConfig.filename)) {
-        draftModelPath = join(getGGUFDir(), draftVariantConfig.filename)
+        this.draftModelPath = join(getGGUFDir(), draftVariantConfig.filename)
         this.onProgress?.('Speculative decoding enabled: 4B draft + 12B verifier')
       } else {
         this.onProgress?.('Speculative decoding skipped: 4B draft model not downloaded')
       }
     }
-
-    this.onProgress?.(`Starting TranslateGemma ${this.modelSize.toUpperCase()} worker...`)
-
-    await workerPool.acquire({
-      modelPath: this.modelPath,
-      kvCacheQuant: this.kvCacheQuant,
-      draftModelPath
-    }, this.onProgress)
-
-    const specLabel = draftModelPath ? ' (speculative decoding)' : ''
-    this.onProgress?.(`TranslateGemma ${this.modelSize.toUpperCase()} model loaded${specLabel}`)
-    this.initialized = true
   }
 
-  async translate(text: string, from: Language, to: Language, context?: TranslateContext): Promise<string> {
-    if (!text.trim()) return ''
-    if (from === to) return text
-    if (!this.initialized) {
-      throw new Error('[slm-worker] Not initialized')
-    }
-
-    return workerPool.sendRequest(
-      { type: 'translate', text, from, to, context },
-      'translate'
-    )
+  protected getExtraInitOptions(): Partial<WorkerInitOptions> {
+    return { draftModelPath: this.draftModelPath }
   }
 
-  async translateIncremental(
-    text: string,
-    previousOutput: string,
-    from: Language,
-    to: Language,
-    context?: TranslateContext
-  ): Promise<string> {
-    if (!text.trim()) return previousOutput || ''
-    if (from === to) return text
-    if (!this.initialized) {
-      throw new Error('[slm-worker] Not initialized')
-    }
-
-    return workerPool.sendRequest(
-      { type: 'translate-incremental', text, previousOutput, from, to, context },
-      'translate-incremental'
-    )
+  protected getLoadedSuffix(): string {
+    return this.draftModelPath ? ' (speculative decoding)' : ''
   }
 
   async summarize(transcript: string): Promise<string> {
@@ -109,13 +66,5 @@ export class SLMTranslator implements TranslatorEngine {
       { type: 'summarize', transcript },
       'summarize'
     )
-  }
-
-  async dispose(): Promise<void> {
-    if (this.initialized) {
-      await workerPool.release()
-      this.initialized = false
-    }
-    this.initPromise = null
   }
 }
