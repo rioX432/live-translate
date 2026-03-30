@@ -69,6 +69,8 @@ export interface AppSettings {
   wsAudioPort: number
   /** Enable DeepFilterNet3 noise suppression for cleaner STT input (#313) */
   noiseSuppressionEnabled: boolean
+  /** Streaming chunk interval in ms (default 1000, range 500-3000) */
+  streamingIntervalMs: number
 }
 
 export const store = new Store<AppSettings>({
@@ -105,6 +107,7 @@ export const store = new Store<AppSettings>({
     sourceLanguage: 'auto',
     targetLanguage: 'en',
     wsAudioPort: DEFAULT_WS_PORT,
-    noiseSuppressionEnabled: false
+    noiseSuppressionEnabled: false,
+    streamingIntervalMs: 1000
   }
 })
