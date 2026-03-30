@@ -44,6 +44,14 @@ export interface ElectronAPI {
   // System audio loopback (#501)
   enableLoopbackAudio: () => Promise<void>
   disableLoopbackAudio: () => Promise<void>
+  // TTS (#508)
+  ttsSetEnabled: (enabled: boolean) => Promise<{ success?: boolean; error?: string }>
+  ttsSetVoice: (voiceId: string) => Promise<void>
+  ttsSetVolume: (volume: number) => Promise<void>
+  ttsSetOutputDevice: (deviceId: string) => Promise<void>
+  ttsGetSettings: () => Promise<{ enabled: boolean; voice: string; outputDevice: string; volume: number }>
+  onTtsAudio: (callback: (data: { audio: number[]; sampleRate: number; volume: number }) => void) => (() => void)
+
   // Auto-update (#314)
   updateCheck: () => Promise<{ success?: boolean; error?: string }>
   updateDownload: () => Promise<{ success?: boolean; error?: string }>

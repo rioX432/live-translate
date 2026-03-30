@@ -5,8 +5,9 @@ import { registerSessionIpc } from './ipc/session-ipc'
 import { registerDisplayIpc } from './ipc/display-ipc'
 import { registerAudioIpc } from './ipc/audio-ipc'
 import { registerModelIpc } from './ipc/model-ipc'
+import { registerTtsIpc } from './ipc/tts-ipc'
 
-/** Register all IPC handlers (pipeline, settings, session, display, model, ws-audio) */
+/** Register all IPC handlers (pipeline, settings, session, display, model, ws-audio, tts) */
 export function registerIpcHandlers(ctx: AppContext): void {
   registerPipelineIpc(ctx)
   registerSettingsIpc(ctx)
@@ -14,4 +15,5 @@ export function registerIpcHandlers(ctx: AppContext): void {
   registerDisplayIpc(ctx)
   registerModelIpc()
   registerAudioIpc(ctx)
+  registerTtsIpc(ctx)
 }

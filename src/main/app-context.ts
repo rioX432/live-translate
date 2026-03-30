@@ -2,6 +2,7 @@ import type { BrowserWindow } from 'electron'
 import type { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import type { TranscriptLogger } from '../logger/TranscriptLogger'
 import type { WsAudioServer } from './ws-audio-server'
+import type { TTSManager } from './tts-manager'
 
 /**
  * Shared application state accessed by all main-process modules.
@@ -16,6 +17,7 @@ export interface AppContext {
   pipeline: TranslationPipeline | null
   logger: TranscriptLogger | null
   wsAudioServer: WsAudioServer | null
+  ttsManager: TTSManager | null
 }
 
 /** Backing store for AppContext getter/setter properties */
@@ -25,6 +27,7 @@ interface AppContextStore {
   pipeline: TranslationPipeline | null
   logger: TranscriptLogger | null
   wsAudioServer: WsAudioServer | null
+  ttsManager: TTSManager | null
 }
 
 /**
@@ -38,7 +41,8 @@ export function createAppContext(): AppContext {
     subtitleWindow: null,
     pipeline: null,
     logger: null,
-    wsAudioServer: null
+    wsAudioServer: null,
+    ttsManager: null
   }
 
   return Object.defineProperties({} as AppContext, {
@@ -69,6 +73,12 @@ export function createAppContext(): AppContext {
     wsAudioServer: {
       get: () => store.wsAudioServer,
       set: (v: WsAudioServer | null) => { store.wsAudioServer = v },
+      enumerable: true,
+      configurable: false
+    },
+    ttsManager: {
+      get: () => store.ttsManager,
+      set: (v: TTSManager | null) => { store.ttsManager = v },
       enumerable: true,
       configurable: false
     }

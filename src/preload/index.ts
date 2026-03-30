@@ -128,6 +128,18 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('drag-mode-changed', handler)
   },
 
+  // TTS (#508)
+  ttsSetEnabled: (enabled: boolean) => ipcRenderer.invoke('tts-set-enabled', enabled),
+  ttsSetVoice: (voiceId: string) => ipcRenderer.invoke('tts-set-voice', voiceId),
+  ttsSetVolume: (volume: number) => ipcRenderer.invoke('tts-set-volume', volume),
+  ttsSetOutputDevice: (deviceId: string) => ipcRenderer.invoke('tts-set-output-device', deviceId),
+  ttsGetSettings: () => ipcRenderer.invoke('tts-get-settings'),
+  onTtsAudio: (callback: (data: { audio: number[]; sampleRate: number; volume: number }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { audio: number[]; sampleRate: number; volume: number }): void => callback(data)
+    ipcRenderer.on('tts-audio', handler)
+    return () => ipcRenderer.off('tts-audio', handler)
+  },
+
   // Auto-update (#314)
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateDownload: () => ipcRenderer.invoke('update-download'),

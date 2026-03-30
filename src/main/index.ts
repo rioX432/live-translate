@@ -22,6 +22,7 @@ import { registerIpcHandlers } from './ipc-handlers'
 import { createLogger } from './logger'
 import { initAutoUpdater, registerUpdateHandlers, disposeAutoUpdater } from './auto-updater'
 import { createAppContext } from './app-context'
+import { TTSManager } from './tts-manager'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
 import type { WhisperVariant } from '../engines/model-downloader'
 
@@ -134,6 +135,10 @@ async function initPipeline(): Promise<void> {
     ctx.subtitleWindow?.webContents.send('translation-result', result)
     ctx.mainWindow?.webContents.send('translation-result', result)
     ctx.logger?.log(result)
+    // TTS: synthesize translated text and send audio to renderer (#508)
+    ctx.ttsManager?.handleTranslationResult(result, ctx.mainWindow).catch((err) => {
+      log.error('TTS error:', err)
+    })
   })
 
   // Forward interim (streaming) results to subtitle window
@@ -176,6 +181,19 @@ initAudioLoopback()
 
 app.whenReady().then(async () => {
   await initPipeline()
+
+  // Initialize TTS manager (#508)
+  ctx.ttsManager = new TTSManager()
+  const ttsEnabled = store.get('ttsEnabled')
+  if (ttsEnabled) {
+    ctx.ttsManager.setEnabled(true).catch((err) => {
+      log.error('TTS auto-init failed:', err)
+    })
+  }
+  const ttsVoice = store.get('ttsVoice')
+  if (ttsVoice) ctx.ttsManager.setVoice(ttsVoice)
+  ctx.ttsManager.setVolume(store.get('ttsVolume') ?? 0.8)
+
   createMainWindow(ctx)
   createSubtitleWindow(ctx)
   cleanupDisplayHandlers = registerDisplayHandlers(ctx)
@@ -201,7 +219,8 @@ app.on('before-quit', (event) => {
       await Promise.race([
         Promise.all([
           ctx.pipeline?.dispose() ?? Promise.resolve(),
-          ctx.wsAudioServer?.stop() ?? Promise.resolve()
+          ctx.wsAudioServer?.stop() ?? Promise.resolve(),
+          ctx.ttsManager?.dispose() ?? Promise.resolve()
         ]),
         new Promise((_resolve, reject) =>
           setTimeout(() => reject(new Error('Cleanup timed out')), 5000)
