@@ -126,7 +126,10 @@ function buildContextPrompt(ctx?: {
 
   // Glossary terms
   if (ctx.glossary && ctx.glossary.length > 0) {
-    const entries = ctx.glossary.map((g) => `  "${g.source}" → "${g.target}"`).join('\n')
+    const entries = ctx.glossary
+      .filter((g) => g.source && g.target)
+      .map((g) => `  "${g.source}" → "${g.target}"`)
+      .join('\n')
     parts.push(`Use these fixed translations for specific terms:\n${entries}`)
   }
 
