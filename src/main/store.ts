@@ -75,6 +75,14 @@ export interface AppSettings {
   showConfidenceIndicator: boolean
   /** Audio source: microphone only, system audio (loopback), or both mixed */
   audioSource: 'microphone' | 'system' | 'both'
+  /** Enable text-to-speech for translated output (#508) */
+  ttsEnabled: boolean
+  /** TTS voice ID (e.g. 'af_heart', 'jf_alpha') */
+  ttsVoice: string
+  /** TTS output device ID (empty = default output) */
+  ttsOutputDevice: string
+  /** TTS playback volume (0.0-1.0) */
+  ttsVolume: number
 }
 
 export const store = new Store<AppSettings>({
@@ -114,6 +122,10 @@ export const store = new Store<AppSettings>({
     noiseSuppressionEnabled: false,
     streamingIntervalMs: 1000,
     showConfidenceIndicator: true,
-    audioSource: 'microphone'
+    audioSource: 'microphone',
+    ttsEnabled: false,
+    ttsVoice: 'af_heart',
+    ttsOutputDevice: '',
+    ttsVolume: 0.8
   }
 })

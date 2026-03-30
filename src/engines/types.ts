@@ -158,6 +158,35 @@ export interface TranslateContext {
   speakerId?: string
 }
 
+/**
+ * Text-to-Speech engine interface.
+ * Implementations: KokoroTTSEngine
+ */
+export interface TTSEngine {
+  readonly id: string
+  readonly name: string
+
+  /** Load model and prepare for inference */
+  initialize(): Promise<void>
+
+  /**
+   * Synthesize speech from text.
+   * Returns PCM audio data as Float32Array and the sample rate.
+   */
+  synthesize(text: string, language: Language): Promise<TTSResult>
+
+  /** Release resources */
+  dispose(): Promise<void>
+}
+
+/** TTS synthesis result */
+export interface TTSResult {
+  /** PCM audio samples (mono, float32) */
+  audio: Float32Array
+  /** Sample rate in Hz (e.g. 24000) */
+  sampleRate: number
+}
+
 /** Pipeline mode */
 export type PipelineMode = 'cascade' | 'e2e'
 

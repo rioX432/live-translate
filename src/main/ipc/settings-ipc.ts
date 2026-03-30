@@ -32,7 +32,11 @@ export function registerSettingsIpc(ctx: AppContext): void {
       sherpaOnnxModel: store.get('sherpaOnnxModel'),
       sourceLanguage: store.get('sourceLanguage'),
       targetLanguage: store.get('targetLanguage'),
-      wsAudioPort: store.get('wsAudioPort')
+      wsAudioPort: store.get('wsAudioPort'),
+      ttsEnabled: store.get('ttsEnabled'),
+      ttsVoice: store.get('ttsVoice'),
+      ttsOutputDevice: store.get('ttsOutputDevice'),
+      ttsVolume: store.get('ttsVolume')
     }
   })
 

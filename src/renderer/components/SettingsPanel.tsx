@@ -6,6 +6,7 @@ import {
   STTSettings,
   TranslatorSettings,
   SubtitleSettings,
+  TTSSettings,
   SessionControls,
   UpdateStatus,
   CrashRecoveryBanner,
@@ -128,6 +129,8 @@ function SettingsPanel(): React.JSX.Element {
             selectedDisplay={s.selectedDisplay}
             onDisplayChange={s.handleDisplayChange}
           />
+
+          <TTSSettings disabled={disabled} />
 
           <UpdateStatus />
         </div>
