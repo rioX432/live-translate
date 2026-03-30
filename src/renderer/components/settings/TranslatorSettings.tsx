@@ -173,7 +173,7 @@ export function TranslatorSettings({
             style={{
               background: 'transparent',
               border: 'none',
-              color: '#64748b',
+              color: '#cbd5e1',
               fontSize: '11px',
               fontWeight: 600,
               textTransform: 'uppercase',
