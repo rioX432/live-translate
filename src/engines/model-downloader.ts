@@ -153,6 +153,33 @@ export function getHunyuanMT15Variants(): Record<string, GGUFVariant> {
   return HUNYUAN_MT_15_VARIANTS
 }
 
+/** LFM2-350M-ENJP-MT GGUF variants (official Liquid AI quantizations) */
+export const LFM2_VARIANTS: Record<string, GGUFVariant> = {
+  'Q4_K_M': {
+    filename: 'LFM2-350M-ENJP-MT-Q4_K_M.gguf',
+    url: 'https://huggingface.co/LiquidAI/LFM2-350M-ENJP-MT-GGUF/resolve/main/LFM2-350M-ENJP-MT-Q4_K_M.gguf',
+    sizeMB: 229,
+    label: 'Q4_K_M (Recommended, ~229MB)'
+  },
+  'Q6_K': {
+    filename: 'LFM2-350M-ENJP-MT-Q6_K.gguf',
+    url: 'https://huggingface.co/LiquidAI/LFM2-350M-ENJP-MT-GGUF/resolve/main/LFM2-350M-ENJP-MT-Q6_K.gguf',
+    sizeMB: 293,
+    label: 'Q6_K (Balanced, ~293MB)'
+  },
+  'Q8_0': {
+    filename: 'LFM2-350M-ENJP-MT-Q8_0.gguf',
+    url: 'https://huggingface.co/LiquidAI/LFM2-350M-ENJP-MT-GGUF/resolve/main/LFM2-350M-ENJP-MT-Q8_0.gguf',
+    sizeMB: 379,
+    label: 'Q8_0 (Best quality, ~379MB)'
+  }
+}
+
+/** Get LFM2-350M-ENJP-MT GGUF variants */
+export function getLFM2Variants(): Record<string, GGUFVariant> {
+  return LFM2_VARIANTS
+}
+
 export const GGUF_VARIANTS_4B: Record<string, GGUFVariant> = {
   'Q4_K_M': {
     filename: 'translategemma-4b-it.Q4_K_M.gguf',

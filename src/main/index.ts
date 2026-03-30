@@ -9,6 +9,7 @@ import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
 import { HunyuanMT15Translator } from '../engines/translator/HunyuanMT15Translator'
+import { LFM2Translator } from '../engines/translator/LFM2Translator'
 import { ANETranslator } from '../engines/translator/ANETranslator'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
@@ -79,6 +80,11 @@ async function initPipeline(): Promise<void> {
     speculativeDecoding: store.get('slmSpeculativeDecoding')
   }))
   ctx.pipeline.registerTranslator('hunyuan-mt', () => new HunyuanMTTranslator({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
+    kvCacheQuant: store.get('slmKvCacheQuant')
+  }))
+  // LFM2-350M ultra-fast JA↔EN translator — 350M params, ~230MB
+  ctx.pipeline.registerTranslator('lfm2', () => new LFM2Translator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     kvCacheQuant: store.get('slmKvCacheQuant')
   }))
