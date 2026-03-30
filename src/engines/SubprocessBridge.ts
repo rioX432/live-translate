@@ -2,11 +2,9 @@ import { spawn, type ChildProcess } from 'child_process'
 import { existsSync, realpathSync } from 'fs'
 import { join } from 'path'
 import {
-  BRIDGE_DISPOSE_GRACE_MS,
   BRIDGE_STDERR_MAX_LINES,
   BRIDGE_STDERR_WINDOW_MS,
-  BRIDGE_MAX_PENDING_REQUESTS,
-  BRIDGE_PENDING_TIMEOUT_MS
+  BRIDGE_MAX_PENDING_REQUESTS
 } from './constants'
 import { createLogger, type Logger } from '../main/logger'
 
