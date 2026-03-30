@@ -37,8 +37,10 @@ const ctx: AppContext = {
 }
 
 async function initPipeline(): Promise<void> {
-  // Dispose previous pipeline to prevent listener accumulation on reinitialization (#383)
+  // Remove all event listeners and dispose previous pipeline to prevent
+  // listener accumulation on reinitialization (#383, #428)
   if (ctx.pipeline) {
+    ctx.pipeline.removeAllListeners()
     await ctx.pipeline.dispose()
     ctx.pipeline = null
   }
