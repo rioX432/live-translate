@@ -91,7 +91,7 @@ export const sliderLabelStyle: React.CSSProperties = {
 
 export const colorInputStyle: React.CSSProperties = {
   width: '100%',
-  height: '32px',
+  height: '2rem',
   padding: '2px',
   background: '#1e293b',
   border: '1px solid #334155',
