@@ -53,7 +53,7 @@ export abstract class SubprocessBridge {
   /** Lazily initialized logger using the subclass log prefix */
   protected get log(): Logger {
     if (!this._log) {
-      // Strip brackets from prefix like '[ct2-opus-mt]' -> 'ct2-opus-mt'
+      // Strip brackets from prefix like '[opus-mt]' -> 'opus-mt'
       const prefix = this.getLogPrefix()
       const module = prefix.replace(/^\[|\]$/g, '')
       this._log = createLogger(module)
@@ -66,7 +66,7 @@ export abstract class SubprocessBridge {
     // Default: no-op. Subclasses can override to forward progress updates.
   }
 
-  /** Log prefix used in all console messages, e.g. '[ct2-opus-mt]'. */
+  /** Log prefix used in all console messages, e.g. '[opus-mt]'. */
   protected abstract getLogPrefix(): string
 
   /** Timeout in ms for the init command. */

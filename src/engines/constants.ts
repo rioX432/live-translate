@@ -43,21 +43,6 @@ export const WORKER_DISPOSE_GRACE_MS = 1_000
 /** Upper bound on pending requests in UtilityProcess workers before oldest is rejected */
 export const WORKER_MAX_PENDING_REQUESTS = 50
 
-// ---------------------------------------------------------------------------
-// CTranslate2 bridges (OPUS-MT, Madlad-400)
-// ---------------------------------------------------------------------------
-
-/** Command timeout for CT2 OPUS-MT translation (ms) */
-export const CT2_OPUS_MT_TRANSLATE_TIMEOUT_MS = 15_000
-
-/** Init timeout for CT2 OPUS-MT bridge (ms) */
-export const CT2_OPUS_MT_INIT_TIMEOUT_MS = 120_000
-
-/** Command timeout for CT2 Madlad-400 translation (ms) */
-export const CT2_MADLAD400_TRANSLATE_TIMEOUT_MS = 15_000
-
-/** Init timeout for CT2 Madlad-400 bridge (ms) */
-export const CT2_MADLAD400_INIT_TIMEOUT_MS = 180_000
 
 // ---------------------------------------------------------------------------
 // Python discovery (execSync import checks)
