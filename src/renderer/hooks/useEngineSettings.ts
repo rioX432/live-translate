@@ -36,7 +36,7 @@ export interface EngineSettingsInit {
 }
 
 export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState {
-  const [engineMode, setEngineMode] = useState<EngineMode>('offline-opus')
+  const [engineMode, setEngineMode] = useState<EngineMode>('offline-hymt15')
   const [gpuInfo, setGpuInfo] = useState<{ hasGpu: boolean; gpuNames: string[] } | null>(null)
   const [apiKey, setApiKey] = useState('')
   const [deeplApiKey, setDeeplApiKey] = useState('')
@@ -51,7 +51,7 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
   // Load engine-related settings on mount
   useEffect(() => {
     window.api.getSettings().then((s) => {
-      if (s.translationEngine) setEngineMode(str(s.translationEngine, 'offline-opus') as EngineMode)
+      if (s.translationEngine) setEngineMode(str(s.translationEngine, 'offline-hymt15') as EngineMode)
       if (s.googleApiKey) setApiKey(str(s.googleApiKey, ''))
       if (s.deeplApiKey) setDeeplApiKey(str(s.deeplApiKey, ''))
       if (s.geminiApiKey) setGeminiApiKey(str(s.geminiApiKey, ''))
@@ -71,14 +71,14 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
     })
   }, [])
 
-  // Detect GPU — fall back to OPUS-MT if no GPU
+  // Detect GPU — fall back to HY-MT1.5 if no GPU
   useEffect(() => {
     window.api.detectGpu().then((info) => {
       setGpuInfo(info)
       if (!info.hasGpu) {
         window.api.getSettings().then((s) => {
           if (!s.translationEngine) {
-            setEngineMode('offline-opus')
+            setEngineMode('offline-hymt15')
           }
         })
       }
