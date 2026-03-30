@@ -117,6 +117,19 @@ export function TranslatorSettings({
           <input
             type="radio"
             name="engine"
+            checked={engineMode === 'offline-plamo'}
+            onChange={() => onEngineModeChange('offline-plamo')}
+            disabled={disabled}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>PLaMo-2 10B (Quality, JA↔EN)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Japan Gov "Gennai" adopted, style-aware, ~5.5GB</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
             checked={engineMode === 'offline-hunyuan-mt'}
             onChange={() => onEngineModeChange('offline-hunyuan-mt')}
             disabled={disabled}

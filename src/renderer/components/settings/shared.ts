@@ -25,7 +25,7 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
 
 export const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
 
-export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-hybrid' | 'offline-lfm2'
+export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-hybrid' | 'offline-lfm2' | 'offline-plamo'
 
 export type SttEngineType = 'whisper-local' | 'mlx-whisper'
 export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo' | 'distil-large-v3' | 'base' | 'small'
@@ -105,7 +105,7 @@ export const colorInputStyle: React.CSSProperties = {
 export const API_ENGINE_MODES: EngineMode[] = ['rotation', 'online', 'online-deepl', 'online-gemini']
 
 /** LLM-based engine modes that support KV cache / SimulMT options */
-export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hymt15', 'offline-hunyuan-mt', 'offline-hybrid', 'offline-lfm2']
+export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hymt15', 'offline-hunyuan-mt', 'offline-hybrid', 'offline-lfm2', 'offline-plamo']
 
 /** Display name for each engine mode */
 export function getEngineDisplayName(mode: EngineMode): string {
@@ -114,6 +114,7 @@ export function getEngineDisplayName(mode: EngineMode): string {
     case 'offline-hymt15': return 'HY-MT 1.5 (Recommended)'
     case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B (High Quality)'
     case 'offline-lfm2': return 'LFM2 (Ultra-fast)'
+    case 'offline-plamo': return 'PLaMo-2 10B (Quality)'
     case 'offline-hybrid': return 'Hybrid (OPUS-MT + TranslateGemma)'
     case 'rotation': return 'API Auto Rotation'
     case 'online': return 'Google Translation'
@@ -181,6 +182,8 @@ export function buildEngineConfig(
       return { ...base, translatorEngineId: 'gemini-translate', geminiApiKey: apiKeys.geminiApiKey }
     case 'offline-lfm2':
       return { ...base, translatorEngineId: 'lfm2' }
+    case 'offline-plamo':
+      return { ...base, translatorEngineId: 'plamo' }
     case 'offline-hymt15':
       return { ...base, translatorEngineId: 'hunyuan-mt-15' }
     case 'offline-hunyuan-mt':

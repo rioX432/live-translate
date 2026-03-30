@@ -1,10 +1,10 @@
 /**
  * UtilityProcess worker for SLM inference via node-llama-cpp.
- * Supports TranslateGemma and Hunyuan-MT models.
+ * Supports TranslateGemma, Hunyuan-MT, LFM2, and PLaMo-2 models.
  * Runs in a separate process to avoid blocking the main process.
  *
  * IPC protocol:
- *   Main → Worker: { type: 'init', modelPath: string, kvCacheQuant?: boolean, modelType?: 'translategemma' | 'hunyuan-mt', draftModelPath?: string }
+ *   Main → Worker: { type: 'init', modelPath: string, kvCacheQuant?: boolean, modelType?: ModelType, draftModelPath?: string }
  *   Main → Worker: { type: 'translate', id: string, text: string, from: string, to: string }
  *   Main → Worker: { type: 'translate-incremental', id: string, text: string, previousOutput: string, from: string, to: string }
  *   Main → Worker: { type: 'summarize', id: string, transcript: string }
@@ -21,7 +21,7 @@ import { createLogger } from './logger'
 
 const log = createLogger('slm-worker')
 
-type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15' | 'lfm2'
+type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15' | 'lfm2' | 'plamo'
 
 /** Messages sent from main process to this worker */
 type WorkerInboundMessage =
@@ -161,6 +161,13 @@ function buildTranslationPrompt(
   const toLang = LANG_NAMES_EN[to] ?? to
   const contextSection = buildContextPrompt(translateContext)
 
+  if (activeModelType === 'plamo') {
+    // PLaMo-2-Translate uses structured tags for translation.
+    // The prompt is passed directly as user content; node-llama-cpp
+    // applies the chat template which includes the <|plamo:op|> tags.
+    return `<|plamo:op|>dataset\ntranslation\n<|plamo:op|>input lang=${fromLang}\n${contextSection}${text}\n<|plamo:op|>output lang=${toLang}\n`
+  }
+
   if (activeModelType === 'lfm2') {
     // LFM2 uses a simple system prompt via chat template;
     // the system message is set by node-llama-cpp's chat session,
@@ -200,6 +207,10 @@ function getLFM2SystemPrompt(to: string): string {
 
 /** Get inference parameters based on model type */
 function getInferenceParams(): { temperature: number; maxTokens: number; topK?: number; topP?: number; minP?: number; repeatPenalty?: { penalty: number } } {
+  if (activeModelType === 'plamo') {
+    // PLaMo-2-Translate recommends greedy decoding (temperature=0) for translation
+    return { temperature: 0, maxTokens: 1024 }
+  }
   if (activeModelType === 'lfm2') {
     return { temperature: 0.5, maxTokens: 512, topP: 1.0, minP: 0.1, repeatPenalty: { penalty: 1.05 } }
   }
