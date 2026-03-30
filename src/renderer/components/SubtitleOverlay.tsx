@@ -140,7 +140,7 @@ function SubtitleOverlay(): React.JSX.Element {
         display: 'flex',
         flexDirection: 'column',
         justifyContent: config.position === 'top' ? 'flex-start' : 'flex-end',
-        padding: '1rem 3rem',
+        padding: '1rem clamp(1rem, 5%, 3rem)',
         fontFamily:
           '"Hiragino Sans", "Hiragino Kaku Gothic ProN", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         userSelect: 'none'
