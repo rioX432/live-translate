@@ -11,6 +11,7 @@ import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
 import { HunyuanMT15Translator } from '../engines/translator/HunyuanMT15Translator'
 import { LFM2Translator } from '../engines/translator/LFM2Translator'
+import { PLaMoTranslator } from '../engines/translator/PLaMoTranslator'
 import { ANETranslator } from '../engines/translator/ANETranslator'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
@@ -87,6 +88,11 @@ async function initPipeline(): Promise<void> {
   }))
   // LFM2-350M ultra-fast JA↔EN translator — 350M params, ~230MB
   ctx.pipeline.registerTranslator('lfm2', () => new LFM2Translator({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
+    kvCacheQuant: store.get('slmKvCacheQuant')
+  }))
+  // PLaMo-2-Translate 10B quality translator — Japan Gov "Gennai" adopted, ~5.5GB
+  ctx.pipeline.registerTranslator('plamo', () => new PLaMoTranslator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     kvCacheQuant: store.get('slmKvCacheQuant')
   }))

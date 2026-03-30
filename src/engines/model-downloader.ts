@@ -180,6 +180,39 @@ export function getLFM2Variants(): Record<string, GGUFVariant> {
   return LFM2_VARIANTS
 }
 
+/** PLaMo-2-Translate 10B GGUF variants (mmnga quantizations) */
+export const PLAMO_VARIANTS: Record<string, GGUFVariant> = {
+  'Q4_K_S': {
+    filename: 'plamo-2-translate-Q4_K_S.gguf',
+    url: 'https://huggingface.co/mmnga/plamo-2-translate-gguf/resolve/main/plamo-2-translate-Q4_K_S.gguf',
+    sizeMB: 5510,
+    label: 'Q4_K_S (Recommended, ~5.5GB)'
+  },
+  'Q3_K_M': {
+    filename: 'plamo-2-translate-Q3_K_M.gguf',
+    url: 'https://huggingface.co/mmnga/plamo-2-translate-gguf/resolve/main/plamo-2-translate-Q3_K_M.gguf',
+    sizeMB: 4640,
+    label: 'Q3_K_M (Smallest, ~4.6GB)'
+  },
+  'Q6_K': {
+    filename: 'plamo-2-translate-Q6_K.gguf',
+    url: 'https://huggingface.co/mmnga/plamo-2-translate-gguf/resolve/main/plamo-2-translate-Q6_K.gguf',
+    sizeMB: 7820,
+    label: 'Q6_K (Balanced, ~7.8GB)'
+  },
+  'Q8_0': {
+    filename: 'plamo-2-translate-Q8_0.gguf',
+    url: 'https://huggingface.co/mmnga/plamo-2-translate-gguf/resolve/main/plamo-2-translate-Q8_0.gguf',
+    sizeMB: 10100,
+    label: 'Q8_0 (Best quality, ~10.1GB)'
+  }
+}
+
+/** Get PLaMo-2-Translate GGUF variants */
+export function getPLaMoVariants(): Record<string, GGUFVariant> {
+  return PLAMO_VARIANTS
+}
+
 export const GGUF_VARIANTS_4B: Record<string, GGUFVariant> = {
   'Q4_K_M': {
     filename: 'translategemma-4b-it.Q4_K_M.gguf',
