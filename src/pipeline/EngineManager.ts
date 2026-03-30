@@ -57,19 +57,24 @@ export class EngineManager {
       if (!sttFactory) throw new Error(`STT engine not found: ${sttId}`)
       if (!translatorFactory) throw new Error(`Translator engine not found: ${translatorId}`)
 
-      emitter.emit('engine-loading', 'Loading STT model...')
-      this.sttEngine = await Promise.resolve(sttFactory())
-      await this.withTimeout(this.sttEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'STT initialization')
+      try {
+        emitter.emit('engine-loading', 'Loading STT model...')
+        this.sttEngine = await Promise.resolve(sttFactory())
+        await this.withTimeout(this.sttEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'STT initialization')
 
-      emitter.emit('engine-loading', 'Initializing translator...')
-      this.translator = await Promise.resolve(translatorFactory())
-      await this.withTimeout(this.translator.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Translator initialization')
+        emitter.emit('engine-loading', 'Initializing translator...')
+        this.translator = await Promise.resolve(translatorFactory())
+        await this.withTimeout(this.translator.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Translator initialization')
 
-      // Wire up draft callback for hybrid translator (#235)
-      if (this.translator instanceof HybridTranslator) {
-        this.translator.setOnDraft((draft) => {
-          emitter.emit('draft-result', draft)
-        })
+        // Wire up draft callback for hybrid translator (#235)
+        if (this.translator instanceof HybridTranslator) {
+          this.translator.setOnDraft((draft) => {
+            emitter.emit('draft-result', draft)
+          })
+        }
+      } catch (err) {
+        await this.disposeEngines()
+        throw err
       }
     } else if (config.mode === 'e2e') {
       const e2eId = config.e2eEngineId
