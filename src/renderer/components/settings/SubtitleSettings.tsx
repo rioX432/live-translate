@@ -14,6 +14,8 @@ interface SubtitleSettingsProps {
   onBgOpacityChange: (v: number) => void
   position: SubtitlePositionType
   onPositionChange: (v: SubtitlePositionType) => void
+  showConfidenceIndicator: boolean
+  onShowConfidenceIndicatorChange: (v: boolean) => void
   displays: DisplayInfo[]
   selectedDisplay: number
   onDisplayChange: (displayId: number) => void
@@ -30,6 +32,8 @@ export function SubtitleSettings({
   onBgOpacityChange,
   position,
   onPositionChange,
+  showConfidenceIndicator,
+  onShowConfidenceIndicatorChange,
   displays,
   selectedDisplay,
   onDisplayChange
@@ -93,6 +97,23 @@ export function SubtitleSettings({
               <option value="top">Top</option>
             </select>
           </div>
+          <label style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            marginTop: '4px',
+            fontSize: '13px',
+            color: '#94a3b8',
+            cursor: 'pointer'
+          }}>
+            <input
+              type="checkbox"
+              checked={showConfidenceIndicator}
+              onChange={(e) => onShowConfidenceIndicatorChange(e.target.checked)}
+              aria-label="Show confidence indicator"
+            />
+            <span>Show confidence indicator</span>
+          </label>
         </div>
       </Section>
 

@@ -209,7 +209,8 @@ export class StreamingProcessor {
         targetLanguage: targetLang,
         timestamp: Date.now(),
         isInterim: false,
-        speakerId
+        speakerId,
+        confidence: sttResult.confidence
       }
 
       this.deps.emitter.emit('result', result)

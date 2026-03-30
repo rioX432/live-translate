@@ -11,6 +11,8 @@ interface SubtitleLine {
   speakerId?: string
   /** Whether this line is a draft from hybrid translation, pending refinement */
   isDraft?: boolean
+  /** STT confidence score (0.0–1.0) for confidence-based styling */
+  confidence?: number
 }
 
 interface SubtitleConfig {
@@ -19,6 +21,7 @@ interface SubtitleConfig {
   translatedTextColor: string
   backgroundOpacity: number
   position: 'top' | 'bottom'
+  showConfidenceIndicator: boolean
 }
 
 const DEFAULT_CONFIG: SubtitleConfig = {
@@ -26,13 +29,25 @@ const DEFAULT_CONFIG: SubtitleConfig = {
   sourceTextColor: '#ffffff',
   translatedTextColor: '#7dd3fc',
   backgroundOpacity: 78,
-  position: 'bottom'
+  position: 'bottom',
+  showConfidenceIndicator: true
 }
 
 const MAX_LINES = 3
 const FADE_DURATION_MS = 8000
 const INTERIM_LINE_ID = -1
 const DRAFT_LINE_ID = -2
+
+/** Compute opacity and fontStyle overrides based on STT confidence level */
+function getConfidenceStyle(
+  confidence: number | undefined,
+  enabled: boolean
+): { opacity: number; fontStyle: 'normal' | 'italic' } {
+  if (!enabled || confidence === undefined) return { opacity: 1, fontStyle: 'normal' }
+  if (confidence >= 0.9) return { opacity: 1, fontStyle: 'normal' }
+  if (confidence >= 0.5) return { opacity: 0.8, fontStyle: 'normal' }
+  return { opacity: 0.5, fontStyle: 'italic' }
+}
 
 function SubtitleOverlay(): React.JSX.Element {
   const [lines, setLines] = useState<SubtitleLine[]>([])
@@ -44,12 +59,15 @@ function SubtitleOverlay(): React.JSX.Element {
   useEffect(() => {
     window.api.getSettings().then((s) => {
       if (s.subtitleSettings) {
-        setConfig(s.subtitleSettings as SubtitleConfig)
+        setConfig((prev) => ({ ...prev, ...s.subtitleSettings as Partial<SubtitleConfig> }))
+      }
+      if (typeof s.showConfidenceIndicator === 'boolean') {
+        setConfig((prev) => ({ ...prev, showConfidenceIndicator: s.showConfidenceIndicator as boolean }))
       }
     })
 
     const unsubscribe = window.api.onSubtitleSettingsChanged((settings) => {
-      setConfig(settings as SubtitleConfig)
+      setConfig((prev) => ({ ...prev, ...settings as Partial<SubtitleConfig> }))
     })
     return () => unsubscribe?.()
   }, [])
@@ -146,67 +164,70 @@ function SubtitleOverlay(): React.JSX.Element {
         userSelect: 'none'
       }}
     >
-      {lines.map((line) => (
-        <div
-          key={line.id}
-          style={{
-            background: (line.isInterim || line.isDraft)
-              ? `rgba(0, 0, 0, ${Math.max(0, config.backgroundOpacity - 13) / 100})`
-              : `rgba(0, 0, 0, ${config.backgroundOpacity / 100})`,
-            borderRadius: '0.625rem',
-            padding: '0.625rem 1.25rem',
-            marginBottom: '0.375rem',
-            opacity: line.opacity,
-            transition: 'opacity 0.3s ease-out',
-            backdropFilter: 'blur(8px)',
-            WebkitBackdropFilter: 'blur(8px)',
-            borderLeft: `0.25rem solid ${
-              line.isInterim
-                ? '#94a3b8'
-                : line.isDraft
-                  ? '#f59e0b'
-                  : line.sourceLanguage === 'ja'
-                    ? '#4ade80'
-                    : '#60a5fa'
-            }`
-          }}
-        >
+      {lines.map((line) => {
+        const confStyle = getConfidenceStyle(line.confidence, config.showConfidenceIndicator)
+        return (
           <div
+            key={line.id}
             style={{
-              color: line.isInterim ? '#cbd5e1' : line.isDraft ? '#d4d4d8' : config.sourceTextColor,
-              fontSize: `${config.fontSize}px`,
-              fontWeight: 600,
-              lineHeight: 1.4,
-              textShadow: '0 1px 3px rgba(0,0,0,0.5)',
-              fontStyle: line.isInterim || line.isDraft ? 'italic' : 'normal',
-              opacity: line.isDraft ? 0.85 : 1
+              background: (line.isInterim || line.isDraft)
+                ? `rgba(0, 0, 0, ${Math.max(0, config.backgroundOpacity - 13) / 100})`
+                : `rgba(0, 0, 0, ${config.backgroundOpacity / 100})`,
+              borderRadius: '0.625rem',
+              padding: '0.625rem 1.25rem',
+              marginBottom: '0.375rem',
+              opacity: line.opacity,
+              transition: 'opacity 0.3s ease-out',
+              backdropFilter: 'blur(8px)',
+              WebkitBackdropFilter: 'blur(8px)',
+              borderLeft: `0.25rem solid ${
+                line.isInterim
+                  ? '#94a3b8'
+                  : line.isDraft
+                    ? '#f59e0b'
+                    : line.sourceLanguage === 'ja'
+                      ? '#4ade80'
+                      : '#60a5fa'
+              }`
             }}
           >
-            {line.speakerId && (
-              <span style={{ fontSize: '0.7em', opacity: 0.7, marginRight: '0.5rem', maxWidth: '7.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}>
-                [{line.speakerId}]
-              </span>
-            )}
-            {line.sourceText}
-          </div>
-          {line.translatedText && (
             <div
               style={{
-                color: line.isInterim ? '#94a3b8' : line.isDraft ? '#b4b4bb' : config.translatedTextColor,
-                fontSize: `${translatedFontSize}px`,
+                color: line.isInterim ? '#cbd5e1' : line.isDraft ? '#d4d4d8' : config.sourceTextColor,
+                fontSize: `${config.fontSize}px`,
                 fontWeight: 600,
                 lineHeight: 1.4,
-                marginTop: '0.125rem',
                 textShadow: '0 1px 3px rgba(0,0,0,0.5)',
-                fontStyle: line.isInterim || line.isDraft ? 'italic' : 'normal',
-                opacity: line.isDraft ? 0.85 : 1
+                fontStyle: line.isInterim || line.isDraft ? 'italic' : confStyle.fontStyle,
+                opacity: line.isDraft ? 0.85 : confStyle.opacity
               }}
             >
-              {line.translatedText}
+              {line.speakerId && (
+                <span style={{ fontSize: '0.7em', opacity: 0.7, marginRight: '0.5rem', maxWidth: '7.5rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}>
+                  [{line.speakerId}]
+                </span>
+              )}
+              {line.sourceText}
             </div>
-          )}
-        </div>
-      ))}
+            {line.translatedText && (
+              <div
+                style={{
+                  color: line.isInterim ? '#94a3b8' : line.isDraft ? '#b4b4bb' : config.translatedTextColor,
+                  fontSize: `${translatedFontSize}px`,
+                  fontWeight: 600,
+                  lineHeight: 1.4,
+                  marginTop: '0.125rem',
+                  textShadow: '0 1px 3px rgba(0,0,0,0.5)',
+                  fontStyle: line.isInterim || line.isDraft ? 'italic' : confStyle.fontStyle,
+                  opacity: line.isDraft ? 0.85 : confStyle.opacity
+                }}
+              >
+                {line.translatedText}
+              </div>
+            )}
+          </div>
+        )
+      })}
     </div>
   )
 }

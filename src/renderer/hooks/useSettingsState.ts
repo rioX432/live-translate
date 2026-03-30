@@ -75,6 +75,8 @@ export interface SettingsState {
   setSubtitleBgOpacity: (v: number) => void
   subtitlePosition: SubtitlePositionType
   setSubtitlePosition: (v: SubtitlePositionType) => void
+  showConfidenceIndicator: boolean
+  setShowConfidenceIndicator: (v: boolean) => void
 
   // SLM options
   slmKvCacheQuant: boolean
@@ -275,6 +277,7 @@ export function useSettingsState(): SettingsState {
     subtitleTranslatedColor: subtitle.subtitleTranslatedColor, setSubtitleTranslatedColor: subtitle.setSubtitleTranslatedColor,
     subtitleBgOpacity: subtitle.subtitleBgOpacity, setSubtitleBgOpacity: subtitle.setSubtitleBgOpacity,
     subtitlePosition: subtitle.subtitlePosition, setSubtitlePosition: subtitle.setSubtitlePosition,
+    showConfidenceIndicator: subtitle.showConfidenceIndicator, setShowConfidenceIndicator: subtitle.setShowConfidenceIndicator,
     pushSubtitleSettings: subtitle.pushSubtitleSettings,
 
     // Language

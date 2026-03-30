@@ -374,7 +374,8 @@ export class TranslationPipeline extends EventEmitter {
         sourceLanguage: sttResult.language,
         targetLanguage: targetLang,
         timestamp: Date.now(),
-        speakerId
+        speakerId,
+        confidence: sttResult.confidence
       }
     } catch (translatorErr) {
       log.error('Translator error:', translatorErr)

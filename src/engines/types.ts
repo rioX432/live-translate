@@ -61,6 +61,8 @@ export interface TranslationResult {
   speakerId?: string
   /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), or 'ger-corrected' (GER post-correction) */
   translationStage?: 'draft' | 'refined' | 'ger-corrected'
+  /** STT confidence score (0.0–1.0), forwarded from STTResult for UI styling */
+  confidence?: number
 }
 
 /**
