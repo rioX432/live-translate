@@ -151,12 +151,12 @@ function SettingsPanel(): React.JSX.Element {
 }
 
 const containerStyle: React.CSSProperties = {
-  padding: '20px 24px',
+  padding: '1.25rem 1.5rem',
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   color: '#e2e8f0',
   background: '#0f172a',
   minHeight: '100vh',
-  fontSize: '14px'
+  fontSize: '0.875rem'
 }
 
 const titleStyle: React.CSSProperties = {
