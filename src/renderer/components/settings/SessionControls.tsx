@@ -165,7 +165,8 @@ export function SessionControls({
                     }
                   }}
                   style={{
-                    padding: '4px 8px',
+                    padding: '8px 12px',
+                    minHeight: '44px',
                     fontSize: '11px',
                     background: '#334155',
                     color: '#94a3b8',
