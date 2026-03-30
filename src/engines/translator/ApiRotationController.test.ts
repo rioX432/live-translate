@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ApiRotationController } from './ApiRotationController'
-import type { TranslatorEngine, Language } from '../types'
+import type { TranslatorEngine } from '../types'
 import type { ProviderConfig, QuotaPersistence, QuotaStore } from './ApiRotationController'
 
 function createMockEngine(id: string, result = 'translated'): TranslatorEngine {
@@ -75,7 +75,7 @@ describe('ApiRotationController', () => {
   })
 
   it('falls back when first provider throws', async () => {
-    ;(engine1.translate as any).mockRejectedValue(new Error('API error'))
+    vi.mocked(engine1.translate).mockRejectedValue(new Error('API error'))
     await controller.initialize()
 
     const result = await controller.translate('hello', 'en', 'ja')
@@ -83,8 +83,8 @@ describe('ApiRotationController', () => {
   })
 
   it('throws when all providers fail', async () => {
-    ;(engine1.translate as any).mockRejectedValue(new Error('fail-a'))
-    ;(engine2.translate as any).mockRejectedValue(new Error('fail-b'))
+    vi.mocked(engine1.translate).mockRejectedValue(new Error('fail-a'))
+    vi.mocked(engine2.translate).mockRejectedValue(new Error('fail-b'))
     await controller.initialize()
 
     await expect(controller.translate('hello', 'en', 'ja')).rejects.toThrow('All translation providers exhausted')
