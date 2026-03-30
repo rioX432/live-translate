@@ -178,7 +178,8 @@ function SubtitleOverlay(): React.JSX.Element {
               fontWeight: 600,
               lineHeight: 1.4,
               textShadow: '0 1px 3px rgba(0,0,0,0.5)',
-              fontStyle: line.isInterim ? 'italic' : 'normal'
+              fontStyle: line.isInterim || line.isDraft ? 'italic' : 'normal',
+              opacity: line.isDraft ? 0.85 : 1
             }}
           >
             {line.speakerId && (
@@ -191,13 +192,14 @@ function SubtitleOverlay(): React.JSX.Element {
           {line.translatedText && (
             <div
               style={{
-                color: line.isInterim ? '#94a3b8' : line.isDraft ? '#a1a1aa' : config.translatedTextColor,
+                color: line.isInterim ? '#94a3b8' : line.isDraft ? '#b4b4bb' : config.translatedTextColor,
                 fontSize: `${translatedFontSize}px`,
                 fontWeight: 600,
                 lineHeight: 1.4,
                 marginTop: '2px',
                 textShadow: '0 1px 3px rgba(0,0,0,0.5)',
-                fontStyle: line.isInterim ? 'italic' : 'normal'
+                fontStyle: line.isInterim || line.isDraft ? 'italic' : 'normal',
+                opacity: line.isDraft ? 0.85 : 1
               }}
             >
               {line.translatedText}
