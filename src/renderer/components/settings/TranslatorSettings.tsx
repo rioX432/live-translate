@@ -78,13 +78,26 @@ export function TranslatorSettings({
           <input
             type="radio"
             name="engine"
+            checked={engineMode === 'offline-hymt15'}
+            onChange={() => onEngineModeChange('offline-hymt15')}
+            disabled={disabled}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>HY-MT 1.5 (Recommended)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Fast + high quality, 36 languages, ~1GB — surpasses Google/DeepL</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
             checked={engineMode === 'offline-opus'}
             onChange={() => onEngineModeChange('offline-opus')}
             disabled={disabled}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>OPUS-MT (Recommended)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>~200ms latency, ONNX accelerated — best speed/quality balance</div>
+            <div style={{ fontWeight: 500 }}>OPUS-MT (Lightweight)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>~200ms latency, ONNX accelerated — minimal resource usage</div>
           </div>
         </label>
         <label style={radioLabelStyle}>

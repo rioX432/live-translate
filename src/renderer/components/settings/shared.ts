@@ -25,7 +25,7 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
 
 export const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
 
-export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-hunyuan-mt' | 'offline-hybrid'
+export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-hybrid'
 
 export type SttEngineType = 'whisper-local' | 'mlx-whisper'
 export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo' | 'distil-large-v3' | 'base' | 'small'
@@ -105,12 +105,13 @@ export const colorInputStyle: React.CSSProperties = {
 export const API_ENGINE_MODES: EngineMode[] = ['rotation', 'online', 'online-deepl', 'online-gemini']
 
 /** LLM-based engine modes that support KV cache / SimulMT options */
-export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hunyuan-mt', 'offline-hybrid']
+export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hymt15', 'offline-hunyuan-mt', 'offline-hybrid']
 
 /** Display name for each engine mode */
 export function getEngineDisplayName(mode: EngineMode): string {
   switch (mode) {
-    case 'offline-opus': return 'OPUS-MT (Fast Offline)'
+    case 'offline-opus': return 'OPUS-MT (Lightweight)'
+    case 'offline-hymt15': return 'HY-MT 1.5 (Recommended)'
     case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B (High Quality)'
     case 'offline-hybrid': return 'Hybrid (OPUS-MT + TranslateGemma)'
     case 'rotation': return 'API Auto Rotation'
@@ -150,7 +151,7 @@ export function resolveEngineMode(
   const hasKeys = !!(apiKeys.apiKey || apiKeys.deeplApiKey || apiKeys.geminiApiKey || (apiKeys.microsoftApiKey && apiKeys.microsoftRegion))
   if (hasKeys) return 'rotation'
   if (gpuInfo?.hasGpu) return 'offline-hunyuan-mt'
-  return 'offline-opus' // maps to opus-mt (ONNX-based)
+  return 'offline-hymt15' // HY-MT1.5-1.8B — fast + high quality, ~1GB
 }
 
 /** Build pipeline config from resolved engine mode and settings */
@@ -177,6 +178,8 @@ export function buildEngineConfig(
       return { ...base, translatorEngineId: 'deepl-translate', deeplApiKey: apiKeys.deeplApiKey }
     case 'online-gemini':
       return { ...base, translatorEngineId: 'gemini-translate', geminiApiKey: apiKeys.geminiApiKey }
+    case 'offline-hymt15':
+      return { ...base, translatorEngineId: 'hunyuan-mt-15' }
     case 'offline-hunyuan-mt':
       return { ...base, translatorEngineId: 'hunyuan-mt' }
     case 'offline-hybrid':
