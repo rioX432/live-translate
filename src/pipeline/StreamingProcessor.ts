@@ -244,14 +244,20 @@ export class StreamingProcessor {
   /**
    * Wait for the streaming lock to be released with a timeout and backpressure cap.
    * If more than MAX_STREAMING_LOCK_RESOLVERS are already waiting, the oldest
-   * resolvers are auto-resolved to prevent unbounded growth (#292).
+   * resolvers are auto-resolved to prevent unbounded growth (#292, #431).
    */
   private waitForStreamingLock(): Promise<void> {
     return new Promise<void>((resolve) => {
-      // Evict oldest waiters when the queue is full
-      while (this.streamingLockResolvers.length >= MAX_STREAMING_LOCK_RESOLVERS) {
-        const oldest = this.streamingLockResolvers.shift()
-        if (oldest) oldest()
+      // Evict oldest waiters when the queue is full to prevent unbounded growth (#431)
+      if (this.streamingLockResolvers.length >= MAX_STREAMING_LOCK_RESOLVERS) {
+        const evictCount = this.streamingLockResolvers.length - MAX_STREAMING_LOCK_RESOLVERS + 1
+        log.warn(
+          `streamingLock resolver queue overflow: evicting ${evictCount} oldest resolver(s) (queue size: ${this.streamingLockResolvers.length})`
+        )
+        for (let i = 0; i < evictCount; i++) {
+          const oldest = this.streamingLockResolvers.shift()
+          if (oldest) oldest()
+        }
       }
 
       // Auto-resolve after timeout so callers never hang indefinitely
