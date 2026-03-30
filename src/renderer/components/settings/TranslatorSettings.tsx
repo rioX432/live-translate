@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Section } from './Section'
 import { API_ENGINE_MODES, LLM_ENGINE_MODES, inputStyle, radioLabelStyle } from './shared'
 import type { EngineMode } from './shared'
@@ -34,6 +34,22 @@ interface TranslatorSettingsProps {
   // Glossary
   glossaryTerms: Array<{ source: string; target: string }>
   onGlossaryTermsChange: (terms: Array<{ source: string; target: string }>) => void
+  // Organization glossary (#517)
+  orgGlossaryTerms: Array<{ source: string; target: string }>
+  onOrgGlossaryTermsChange: (terms: Array<{ source: string; target: string }>) => void
+}
+
+/** Small action button style shared across glossary sections */
+const glossaryButtonStyle: React.CSSProperties = {
+  padding: '6px 10px',
+  fontSize: '11px',
+  fontWeight: 600,
+  background: '#334155',
+  color: '#e2e8f0',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap'
 }
 
 export function TranslatorSettings({
@@ -60,10 +76,74 @@ export function TranslatorSettings({
   showApiOptions,
   onShowApiOptionsChange,
   glossaryTerms,
-  onGlossaryTermsChange
+  onGlossaryTermsChange,
+  orgGlossaryTerms,
+  onOrgGlossaryTermsChange
 }: TranslatorSettingsProps): React.JSX.Element {
   const [newGlossarySource, setNewGlossarySource] = useState('')
   const [newGlossaryTarget, setNewGlossaryTarget] = useState('')
+  const [glossaryStatus, setGlossaryStatus] = useState('')
+  const [showOrgGlossary, setShowOrgGlossary] = useState(orgGlossaryTerms.length > 0)
+  const [conflicts, setConflicts] = useState<Array<{ source: string; personalTarget: string; orgTarget: string }>>([])
+
+  // Load conflict preview when glossaries change
+  useEffect(() => {
+    if (orgGlossaryTerms.length > 0 && glossaryTerms.length > 0) {
+      window.api.getMergedGlossary().then((result) => {
+        setConflicts(result.conflicts)
+      }).catch(() => { /* ignore */ })
+    } else {
+      setConflicts([])
+    }
+  }, [glossaryTerms, orgGlossaryTerms])
+
+  // Expand org section if org terms are loaded
+  useEffect(() => {
+    if (orgGlossaryTerms.length > 0) setShowOrgGlossary(true)
+  }, [orgGlossaryTerms.length])
+
+  const handleImport = async (target: 'personal' | 'org'): Promise<void> => {
+    setGlossaryStatus('Importing...')
+    try {
+      const result = await window.api.importGlossary(target)
+      if (result.canceled) {
+        setGlossaryStatus('')
+        return
+      }
+      if (result.error) {
+        setGlossaryStatus(result.error)
+        return
+      }
+      if (result.entries) {
+        if (target === 'org') {
+          onOrgGlossaryTermsChange(result.entries)
+        } else {
+          onGlossaryTermsChange(result.entries)
+        }
+        setGlossaryStatus(`Imported ${result.count} terms`)
+      }
+    } catch (err) {
+      setGlossaryStatus(`Import failed: ${err}`)
+    }
+  }
+
+  const handleExport = async (target: 'personal' | 'org', format: 'json' | 'csv'): Promise<void> => {
+    setGlossaryStatus('Exporting...')
+    try {
+      const result = await window.api.exportGlossary(target, format)
+      if (result.canceled) {
+        setGlossaryStatus('')
+        return
+      }
+      if (result.error) {
+        setGlossaryStatus(result.error)
+        return
+      }
+      setGlossaryStatus(`Exported ${result.count} terms`)
+    } catch (err) {
+      setGlossaryStatus(`Export failed: ${err}`)
+    }
+  }
 
   const showLlmOptions = LLM_ENGINE_MODES.includes(engineMode)
   const isApiEngine = API_ENGINE_MODES.includes(engineMode)
@@ -336,10 +416,28 @@ export function TranslatorSettings({
         </div>
       </Section>
 
-      {/* Glossary */}
-      <Section label="Translation Glossary">
+      {/* Personal Glossary */}
+      <Section label="Personal Glossary">
         <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>
           Define fixed translations for specific terms (e.g. proper nouns).
+        </div>
+        <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+          <button onClick={() => handleImport('personal')} disabled={disabled} style={glossaryButtonStyle}>
+            Import JSON/CSV
+          </button>
+          {glossaryTerms.length > 0 && (
+            <>
+              <button onClick={() => handleExport('personal', 'json')} disabled={disabled} style={glossaryButtonStyle}>
+                Export JSON
+              </button>
+              <button onClick={() => handleExport('personal', 'csv')} disabled={disabled} style={glossaryButtonStyle}>
+                Export CSV
+              </button>
+            </>
+          )}
+          <span style={{ fontSize: '11px', color: '#64748b', alignSelf: 'center' }}>
+            {glossaryTerms.length} terms
+          </span>
         </div>
         {glossaryTerms.length === 0 ? (
           <div
@@ -354,7 +452,7 @@ export function TranslatorSettings({
             No glossary terms added yet
           </div>
         ) : (
-          <div style={{ marginBottom: '8px' }}>
+          <div style={{ marginBottom: '8px', maxHeight: '200px', overflowY: 'auto' }}>
             {glossaryTerms.map((term, idx) => (
               <div
                 key={idx}
@@ -460,6 +558,123 @@ export function TranslatorSettings({
             Add
           </button>
         </div>
+      </Section>
+
+      {/* Organization Glossary (#517) */}
+      <Section label="Organization Glossary">
+        <button
+          onClick={() => setShowOrgGlossary(!showOrgGlossary)}
+          style={{
+            background: 'transparent',
+            border: 'none',
+            color: '#cbd5e1',
+            fontSize: '12px',
+            cursor: 'pointer',
+            padding: '4px 0',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px'
+          }}
+        >
+          <span style={{ transform: showOrgGlossary ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', fontSize: '10px' }}>
+            &#9654;
+          </span>
+          Shared team glossary — org terms override personal when conflicts
+        </button>
+
+        {showOrgGlossary && (
+          <div style={{ marginTop: '8px' }}>
+            <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+              <button onClick={() => handleImport('org')} disabled={disabled} style={glossaryButtonStyle}>
+                Import JSON/CSV
+              </button>
+              {orgGlossaryTerms.length > 0 && (
+                <>
+                  <button onClick={() => handleExport('org', 'json')} disabled={disabled} style={glossaryButtonStyle}>
+                    Export JSON
+                  </button>
+                  <button onClick={() => handleExport('org', 'csv')} disabled={disabled} style={glossaryButtonStyle}>
+                    Export CSV
+                  </button>
+                  <button
+                    onClick={() => {
+                      onOrgGlossaryTermsChange([])
+                      window.api.saveOrgGlossary([])
+                      setGlossaryStatus('Organization glossary cleared')
+                    }}
+                    disabled={disabled}
+                    style={{ ...glossaryButtonStyle, color: '#ef4444' }}
+                  >
+                    Clear
+                  </button>
+                </>
+              )}
+              <span style={{ fontSize: '11px', color: '#64748b', alignSelf: 'center' }}>
+                {orgGlossaryTerms.length} terms
+              </span>
+            </div>
+
+            {orgGlossaryTerms.length === 0 ? (
+              <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '12px 0' }}>
+                No organization glossary imported. Import a JSON or CSV file shared by your team.
+              </div>
+            ) : (
+              <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
+                {orgGlossaryTerms.map((term, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      padding: '4px 0',
+                      borderBottom: '1px solid #1e293b',
+                      fontSize: '12px'
+                    }}
+                  >
+                    <span style={{ flex: 1, minWidth: 0, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={term.source}>
+                      {term.source}
+                    </span>
+                    <span style={{ color: '#64748b', flexShrink: 0 }}>&rarr;</span>
+                    <span style={{ flex: 1, minWidth: 0, color: '#a78bfa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={term.target}>
+                      {term.target}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Conflict preview */}
+            {conflicts.length > 0 && (
+              <div style={{ marginTop: '8px', padding: '8px', background: '#1e293b', borderRadius: '6px' }}>
+                <div style={{ fontSize: '11px', fontWeight: 600, color: '#f59e0b', marginBottom: '4px' }}>
+                  {conflicts.length} conflict{conflicts.length > 1 ? 's' : ''} (org overrides personal)
+                </div>
+                {conflicts.slice(0, 5).map((c, idx) => (
+                  <div key={idx} style={{ fontSize: '11px', color: '#94a3b8', padding: '2px 0' }}>
+                    <span style={{ color: '#e2e8f0' }}>{c.source}</span>
+                    {' '}
+                    <span style={{ textDecoration: 'line-through', color: '#64748b' }}>{c.personalTarget}</span>
+                    {' '}
+                    <span style={{ color: '#a78bfa' }}>{c.orgTarget}</span>
+                  </div>
+                ))}
+                {conflicts.length > 5 && (
+                  <div style={{ fontSize: '11px', color: '#64748b' }}>
+                    ...and {conflicts.length - 5} more
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Status message */}
+        {glossaryStatus && (
+          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px' }}>
+            {glossaryStatus}
+          </div>
+        )}
       </Section>
     </>
   )

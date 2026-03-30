@@ -1,9 +1,17 @@
-import { ipcMain } from 'electron'
+import { ipcMain, dialog } from 'electron'
+import { readFile, writeFile } from 'fs/promises'
 import { store } from '../store'
 import type { AppSettings, SubtitleSettings } from '../store'
 import { validateSubtitleSettings } from '../ipc-validators'
 import type { AppContext } from '../app-context'
 import { createLogger } from '../logger'
+import {
+  parseGlossary,
+  detectGlossaryFormat,
+  exportJsonGlossary,
+  exportCsvGlossary,
+  mergeGlossaries
+} from '../../engines/translator/glossary-manager'
 
 const _log = createLogger('ipc:settings')
 
@@ -25,6 +33,7 @@ export function registerSettingsIpc(ctx: AppContext): void {
       slmModelSize: store.get('slmModelSize'),
       slmSpeculativeDecoding: store.get('slmSpeculativeDecoding'),
       glossaryTerms: store.get('glossaryTerms') || [],
+      orgGlossaryTerms: store.get('orgGlossaryTerms') || [],
       simulMtEnabled: store.get('simulMtEnabled'),
       simulMtWaitK: store.get('simulMtWaitK'),
       whisperVariant: store.get('whisperVariant'),
@@ -57,13 +66,126 @@ export function registerSettingsIpc(ctx: AppContext): void {
     }
   })
 
+  /** Sync the merged glossary (personal + org) to the running pipeline */
+  function syncMergedGlossary(): void {
+    if (!ctx.pipeline) return
+    const personal = store.get('glossaryTerms') || []
+    const org = store.get('orgGlossaryTerms') || []
+    ctx.pipeline.setGlossary(mergeGlossaries(personal, org))
+  }
+
   // Glossary terms persistence (#240)
   ipcMain.handle('save-glossary', (_event, terms: Array<{ source: string; target: string }>) => {
     store.set('glossaryTerms', terms)
-    // Update running pipeline glossary in real-time
-    if (ctx.pipeline) {
-      ctx.pipeline.setGlossary(terms)
+    syncMergedGlossary()
+  })
+
+  // Organization glossary persistence (#517)
+  ipcMain.handle('save-org-glossary', (_event, terms: Array<{ source: string; target: string }>) => {
+    store.set('orgGlossaryTerms', terms)
+    syncMergedGlossary()
+  })
+
+  // Import glossary from file via native dialog (#517)
+  ipcMain.handle('import-glossary', async (_event, target: 'personal' | 'org') => {
+    const win = ctx.mainWindow
+    if (!win) return { error: 'No main window' }
+
+    const result = await dialog.showOpenDialog(win, {
+      title: 'Import Glossary',
+      filters: [
+        { name: 'Glossary Files', extensions: ['json', 'csv'] },
+        { name: 'JSON', extensions: ['json'] },
+        { name: 'CSV', extensions: ['csv'] }
+      ],
+      properties: ['openFile']
+    })
+
+    if (result.canceled || result.filePaths.length === 0) {
+      return { canceled: true }
     }
+
+    const filePath = result.filePaths[0]
+    try {
+      const format = detectGlossaryFormat(filePath)
+      if (!format) {
+        return { error: 'Unsupported file format. Use .json or .csv files.' }
+      }
+
+      const content = await readFile(filePath, 'utf-8')
+      const entries = parseGlossary(content, format)
+
+      if (entries.length === 0) {
+        return { error: 'No valid glossary entries found in file.' }
+      }
+
+      const storeKey = target === 'org' ? 'orgGlossaryTerms' : 'glossaryTerms'
+      store.set(storeKey, entries)
+      syncMergedGlossary()
+
+      _log.info(`Imported ${entries.length} ${target} glossary entries from ${filePath}`)
+      return { entries, count: entries.length }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      _log.error(`Glossary import failed: ${message}`)
+      return { error: `Import failed: ${message}` }
+    }
+  })
+
+  // Export glossary to file via native dialog (#517)
+  ipcMain.handle('export-glossary', async (_event, target: 'personal' | 'org', format: 'json' | 'csv') => {
+    const win = ctx.mainWindow
+    if (!win) return { error: 'No main window' }
+
+    const storeKey = target === 'org' ? 'orgGlossaryTerms' : 'glossaryTerms'
+    const terms = store.get(storeKey) || []
+
+    if (terms.length === 0) {
+      return { error: 'No glossary terms to export.' }
+    }
+
+    const ext = format === 'json' ? 'json' : 'csv'
+    const result = await dialog.showSaveDialog(win, {
+      title: 'Export Glossary',
+      defaultPath: `glossary-${target}.${ext}`,
+      filters: [
+        { name: format === 'json' ? 'JSON' : 'CSV', extensions: [ext] }
+      ]
+    })
+
+    if (result.canceled || !result.filePath) {
+      return { canceled: true }
+    }
+
+    try {
+      const content = format === 'json'
+        ? exportJsonGlossary(terms)
+        : exportCsvGlossary(terms)
+      await writeFile(result.filePath, content, 'utf-8')
+      _log.info(`Exported ${terms.length} ${target} glossary entries to ${result.filePath}`)
+      return { success: true, path: result.filePath, count: terms.length }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      _log.error(`Glossary export failed: ${message}`)
+      return { error: `Export failed: ${message}` }
+    }
+  })
+
+  // Get merged glossary preview (#517)
+  ipcMain.handle('get-merged-glossary', () => {
+    const personal = store.get('glossaryTerms') || []
+    const org = store.get('orgGlossaryTerms') || []
+    const merged = mergeGlossaries(personal, org)
+    // Find conflicts: entries where same source exists in both with different targets
+    const personalMap = new Map(personal.map((e) => [e.source, e.target]))
+    const conflicts = org
+      .filter((e) => personalMap.has(e.source) && personalMap.get(e.source) !== e.target)
+      .map((e) => ({
+        source: e.source,
+        personalTarget: personalMap.get(e.source)!,
+        orgTarget: e.target
+      }))
+    return { merged, conflicts, personalCount: personal.length, orgCount: org.length }
   })
 
   // #54: crash recovery — check if previous session ended uncleanly

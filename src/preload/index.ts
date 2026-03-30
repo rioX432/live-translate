@@ -81,9 +81,16 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('subtitle-settings-changed', handler)
   },
 
-  // Glossary management (#240)
+  // Glossary management (#240, #517)
   saveGlossary: (terms: Array<{ source: string; target: string }>) =>
     ipcRenderer.invoke('save-glossary', terms),
+  saveOrgGlossary: (terms: Array<{ source: string; target: string }>) =>
+    ipcRenderer.invoke('save-org-glossary', terms),
+  importGlossary: (target: 'personal' | 'org') =>
+    ipcRenderer.invoke('import-glossary', target),
+  exportGlossary: (target: 'personal' | 'org', format: 'json' | 'csv') =>
+    ipcRenderer.invoke('export-glossary', target, format),
+  getMergedGlossary: () => ipcRenderer.invoke('get-merged-glossary'),
 
   // #238: Check if draft model is available for speculative decoding
   isDraftModelAvailable: (engine?: string) => ipcRenderer.invoke('is-draft-model-available', engine),

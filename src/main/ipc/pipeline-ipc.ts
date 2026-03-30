@@ -116,9 +116,11 @@ export function registerPipelineIpc(ctx: AppContext): void {
         throw err
       }
 
-      // Load glossary terms from store
-      const glossaryTerms = store.get('glossaryTerms') || []
-      ctx.pipeline!.setGlossary(glossaryTerms)
+      // Load merged glossary (personal + org) from store (#517)
+      const personal = store.get('glossaryTerms') || []
+      const org = store.get('orgGlossaryTerms') || []
+      const { mergeGlossaries } = await import('../../engines/translator/glossary-manager')
+      ctx.pipeline!.setGlossary(mergeGlossaries(personal, org))
 
       // Configure language settings (#263)
       ctx.pipeline!.setLanguageConfig(store.get('sourceLanguage'), store.get('targetLanguage'))

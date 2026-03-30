@@ -89,6 +89,8 @@ export interface SettingsState {
   // Glossary
   glossaryTerms: Array<{ source: string; target: string }>
   setGlossaryTerms: (v: Array<{ source: string; target: string }>) => void
+  orgGlossaryTerms: Array<{ source: string; target: string }>
+  setOrgGlossaryTerms: (v: Array<{ source: string; target: string }>) => void
 
   // Platform
   platform: string
@@ -267,6 +269,7 @@ export function useSettingsState(): SettingsState {
     simulMtEnabled: engine.simulMtEnabled, setSimulMtEnabled: engine.setSimulMtEnabled,
     simulMtWaitK: engine.simulMtWaitK, setSimulMtWaitK: engine.setSimulMtWaitK,
     glossaryTerms: engine.glossaryTerms, setGlossaryTerms: engine.setGlossaryTerms,
+    orgGlossaryTerms: engine.orgGlossaryTerms, setOrgGlossaryTerms: engine.setOrgGlossaryTerms,
 
     // Display
     displays: display.displays, selectedDisplay: display.selectedDisplay,

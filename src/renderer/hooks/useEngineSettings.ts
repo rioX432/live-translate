@@ -28,6 +28,8 @@ export interface EngineSettingsState {
 
   glossaryTerms: Array<{ source: string; target: string }>
   setGlossaryTerms: (v: Array<{ source: string; target: string }>) => void
+  orgGlossaryTerms: Array<{ source: string; target: string }>
+  setOrgGlossaryTerms: (v: Array<{ source: string; target: string }>) => void
 }
 
 export interface EngineSettingsInit {
@@ -47,6 +49,7 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
   const [simulMtEnabled, setSimulMtEnabled] = useState(false)
   const [simulMtWaitK, setSimulMtWaitK] = useState(3)
   const [glossaryTerms, setGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
+  const [orgGlossaryTerms, setOrgGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
 
   // Load engine-related settings on mount
   useEffect(() => {
@@ -59,6 +62,7 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
       if (s.microsoftRegion) setMicrosoftRegion(str(s.microsoftRegion, ''))
       if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(bool(s.slmKvCacheQuant, true))
       if (s.glossaryTerms) setGlossaryTerms(arr<{ source: string; target: string }>(s.glossaryTerms, []))
+      if (s.orgGlossaryTerms) setOrgGlossaryTerms(arr<{ source: string; target: string }>(s.orgGlossaryTerms, []))
       if (s.simulMtEnabled !== undefined) setSimulMtEnabled(bool(s.simulMtEnabled, false))
       if (s.simulMtWaitK !== undefined) setSimulMtWaitK(num(s.simulMtWaitK, 3))
 
@@ -96,6 +100,7 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
     slmKvCacheQuant, setSlmKvCacheQuant,
     simulMtEnabled, setSimulMtEnabled,
     simulMtWaitK, setSimulMtWaitK,
-    glossaryTerms, setGlossaryTerms
+    glossaryTerms, setGlossaryTerms,
+    orgGlossaryTerms, setOrgGlossaryTerms
   }
 }

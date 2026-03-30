@@ -36,6 +36,26 @@ export interface ElectronAPI {
   getWhisperVariants: () => Promise<Array<{ key: string; label: string; description: string; filename: string; sizeMB: number; downloaded: boolean }>>
   getPlatform: () => Promise<string>
   saveGlossary: (terms: Array<{ source: string; target: string }>) => Promise<void>
+  saveOrgGlossary: (terms: Array<{ source: string; target: string }>) => Promise<void>
+  importGlossary: (target: 'personal' | 'org') => Promise<{
+    entries?: Array<{ source: string; target: string }>
+    count?: number
+    canceled?: boolean
+    error?: string
+  }>
+  exportGlossary: (target: 'personal' | 'org', format: 'json' | 'csv') => Promise<{
+    success?: boolean
+    path?: string
+    count?: number
+    canceled?: boolean
+    error?: string
+  }>
+  getMergedGlossary: () => Promise<{
+    merged: Array<{ source: string; target: string }>
+    conflicts: Array<{ source: string; personalTarget: string; orgTarget: string }>
+    personalCount: number
+    orgCount: number
+  }>
   isDraftModelAvailable: (engine?: string) => Promise<boolean>
   wsAudioStart: (port?: number) => Promise<void>
   wsAudioStop: () => Promise<void>
