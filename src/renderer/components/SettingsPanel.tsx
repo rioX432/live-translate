@@ -117,6 +117,12 @@ function SettingsPanel(): React.JSX.Element {
             onBgOpacityChange={(v) => { s.setSubtitleBgOpacity(v); s.pushSubtitleSettings({ backgroundOpacity: v }) }}
             position={s.subtitlePosition}
             onPositionChange={(v) => { s.setSubtitlePosition(v); s.pushSubtitleSettings({ position: v }) }}
+            showConfidenceIndicator={s.showConfidenceIndicator}
+            onShowConfidenceIndicatorChange={(v) => {
+              s.setShowConfidenceIndicator(v)
+              s.pushSubtitleSettings({ showConfidenceIndicator: v })
+              window.api.saveSettings({ showConfidenceIndicator: v })
+            }}
             displays={s.displays}
             selectedDisplay={s.selectedDisplay}
             onDisplayChange={s.handleDisplayChange}

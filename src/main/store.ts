@@ -71,6 +71,8 @@ export interface AppSettings {
   noiseSuppressionEnabled: boolean
   /** Streaming chunk interval in ms (default 1000, range 500-3000) */
   streamingIntervalMs: number
+  /** Show confidence-based styling on subtitle text (opacity/italic for low-confidence) */
+  showConfidenceIndicator: boolean
 }
 
 export const store = new Store<AppSettings>({
@@ -108,6 +110,7 @@ export const store = new Store<AppSettings>({
     targetLanguage: 'en',
     wsAudioPort: DEFAULT_WS_PORT,
     noiseSuppressionEnabled: false,
-    streamingIntervalMs: 1000
+    streamingIntervalMs: 1000,
+    showConfidenceIndicator: true
   }
 })
