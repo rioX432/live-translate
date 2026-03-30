@@ -22,7 +22,7 @@ import { WsAudioServer } from './ws-audio-server'
 import type { AppContext } from './app-context'
 import type { EngineConfig } from '../engines/types'
 import { DEFAULT_WS_PORT, SAMPLE_RATE } from './constants'
-import { validateSessionId, validateSearchQuery, validatePathWithinDir, VALID_EXPORT_FORMATS } from './ipc-validators'
+import { validateSessionId, validateSearchQuery, validatePathWithinDir, validateSubtitleSettings, VALID_EXPORT_FORMATS } from './ipc-validators'
 import type { ExportFormat } from './ipc-validators'
 
 const log = createLogger('ipc')
@@ -252,8 +252,13 @@ export function registerIpcHandlers(ctx: AppContext): void {
   })
 
   ipcMain.handle('save-subtitle-settings', (_event, settings: Record<string, unknown>) => {
-    store.set('subtitleSettings', settings as unknown as SubtitleSettings)
-    ctx.subtitleWindow?.webContents.send('subtitle-settings-changed', settings)
+    const validationError = validateSubtitleSettings(settings)
+    if (validationError) {
+      throw new Error(`Invalid subtitle settings: ${validationError}`)
+    }
+    const validated = settings as unknown as SubtitleSettings
+    store.set('subtitleSettings', validated)
+    ctx.subtitleWindow?.webContents.send('subtitle-settings-changed', validated)
   })
 
   ipcMain.handle('save-settings', (_event, settings: Record<string, unknown>) => {

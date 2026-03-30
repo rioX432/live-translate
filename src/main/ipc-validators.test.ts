@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { mkdirSync, writeFileSync, symlinkSync, rmSync } from 'fs'
 import { join } from 'path'
 import { tmpdir } from 'os'
-import { validateSessionId, validateSearchQuery, validatePathWithinDir } from './ipc-validators'
+import { validateSessionId, validateSearchQuery, validatePathWithinDir, validateSubtitleSettings } from './ipc-validators'
 
 describe('validateSessionId', () => {
   it('accepts valid session IDs', () => {
@@ -113,5 +113,51 @@ describe('validateSearchQuery', () => {
   it('rejects queries exceeding max length', () => {
     const longQuery = 'a'.repeat(257)
     expect(validateSearchQuery(longQuery)).toBe('Search query exceeds max length (256)')
+  })
+})
+
+describe('validateSubtitleSettings', () => {
+  const validSettings = {
+    fontSize: 28,
+    sourceTextColor: '#ffffff',
+    translatedTextColor: '#00ff00',
+    backgroundOpacity: 0.8,
+    position: 'bottom'
+  }
+
+  it('accepts valid subtitle settings', () => {
+    expect(validateSubtitleSettings(validSettings)).toBeNull()
+    expect(validateSubtitleSettings({ ...validSettings, position: 'top' })).toBeNull()
+  })
+
+  it('rejects non-object input', () => {
+    expect(validateSubtitleSettings(null)).toBe('Subtitle settings must be an object')
+    expect(validateSubtitleSettings(undefined)).toBe('Subtitle settings must be an object')
+    expect(validateSubtitleSettings('string')).toBe('Subtitle settings must be an object')
+    expect(validateSubtitleSettings(42)).toBe('Subtitle settings must be an object')
+  })
+
+  it('rejects invalid fontSize', () => {
+    expect(validateSubtitleSettings({ ...validSettings, fontSize: 'big' })).toBe('fontSize must be a finite number')
+    expect(validateSubtitleSettings({ ...validSettings, fontSize: NaN })).toBe('fontSize must be a finite number')
+    expect(validateSubtitleSettings({ ...validSettings, fontSize: Infinity })).toBe('fontSize must be a finite number')
+  })
+
+  it('rejects invalid sourceTextColor', () => {
+    expect(validateSubtitleSettings({ ...validSettings, sourceTextColor: 123 })).toBe('sourceTextColor must be a string')
+  })
+
+  it('rejects invalid translatedTextColor', () => {
+    expect(validateSubtitleSettings({ ...validSettings, translatedTextColor: null })).toBe('translatedTextColor must be a string')
+  })
+
+  it('rejects invalid backgroundOpacity', () => {
+    expect(validateSubtitleSettings({ ...validSettings, backgroundOpacity: 'half' })).toBe('backgroundOpacity must be a finite number')
+    expect(validateSubtitleSettings({ ...validSettings, backgroundOpacity: NaN })).toBe('backgroundOpacity must be a finite number')
+  })
+
+  it('rejects invalid position', () => {
+    expect(validateSubtitleSettings({ ...validSettings, position: 'left' })).toBe('position must be one of: top, bottom')
+    expect(validateSubtitleSettings({ ...validSettings, position: 123 })).toBe('position must be one of: top, bottom')
   })
 })
