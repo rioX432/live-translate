@@ -156,7 +156,6 @@ export class SherpaOnnxEngine implements STTEngine {
     }
 
     // Dynamic require to avoid hard dependency — sherpa-onnx-node is optional.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     let sherpaOnnx: SherpaOnnxModule
     try {
       sherpaOnnx = require('sherpa-onnx-node') as SherpaOnnxModule
