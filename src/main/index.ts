@@ -6,8 +6,6 @@ import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
 import { SherpaOnnxEngine } from '../engines/stt/SherpaOnnxEngine'
 import { SpeechSwiftEngine } from '../engines/stt/SpeechSwiftEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
-import { CT2OpusMTTranslator } from '../engines/translator/CT2OpusMTTranslator'
-import { CT2Madlad400Translator } from '../engines/translator/CT2Madlad400Translator'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
 import { HunyuanMT15Translator } from '../engines/translator/HunyuanMT15Translator'
@@ -69,16 +67,8 @@ async function initPipeline(): Promise<void> {
   }
 
   // Register translator engines
-  // ONNX-based OPUS-MT — fallback, superseded by CT2 version as default (#404)
+  // ONNX-based OPUS-MT — fast default offline translator
   ctx.pipeline.registerTranslator('opus-mt', () => new OpusMTTranslator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-  }))
-  // CTranslate2-accelerated OPUS-MT — default offline translator (#404)
-  ctx.pipeline.registerTranslator('ct2-opus-mt', () => new CT2OpusMTTranslator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-  }))
-  // Experimental: requires Python ctranslate2 — not shown in default UI
-  ctx.pipeline.registerTranslator('ct2-madlad-400', () => new CT2Madlad400Translator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))
   // Experimental: TranslateGemma ~8s/sentence — too slow for real-time, kept for hybrid mode
