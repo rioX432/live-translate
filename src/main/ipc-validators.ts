@@ -54,6 +54,33 @@ export function validateSearchQuery(query: unknown): string | null {
   return null
 }
 
+/** Valid subtitle position values */
+const VALID_SUBTITLE_POSITIONS = ['top', 'bottom'] as const
+
+/**
+ * Validate subtitle settings from IPC input.
+ * Returns an error string if invalid, or null if valid.
+ */
+export function validateSubtitleSettings(data: unknown): string | null {
+  if (data == null || typeof data !== 'object') return 'Subtitle settings must be an object'
+
+  const obj = data as Record<string, unknown>
+
+  if (typeof obj.fontSize !== 'number' || !Number.isFinite(obj.fontSize)) {
+    return 'fontSize must be a finite number'
+  }
+  if (typeof obj.sourceTextColor !== 'string') return 'sourceTextColor must be a string'
+  if (typeof obj.translatedTextColor !== 'string') return 'translatedTextColor must be a string'
+  if (typeof obj.backgroundOpacity !== 'number' || !Number.isFinite(obj.backgroundOpacity)) {
+    return 'backgroundOpacity must be a finite number'
+  }
+  if (!VALID_SUBTITLE_POSITIONS.includes(obj.position as (typeof VALID_SUBTITLE_POSITIONS)[number])) {
+    return `position must be one of: ${VALID_SUBTITLE_POSITIONS.join(', ')}`
+  }
+
+  return null
+}
+
 /** Valid export formats */
 export const VALID_EXPORT_FORMATS = ['text', 'srt', 'markdown'] as const
 export type ExportFormat = (typeof VALID_EXPORT_FORMATS)[number]
