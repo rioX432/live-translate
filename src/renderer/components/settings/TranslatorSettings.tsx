@@ -316,9 +316,33 @@ export function TranslatorSettings({
                   fontSize: '12px'
                 }}
               >
-                <span style={{ flex: 1, color: '#e2e8f0' }}>{term.source}</span>
-                <span style={{ color: '#64748b' }}>&rarr;</span>
-                <span style={{ flex: 1, color: '#93c5fd' }}>{term.target}</span>
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    color: '#e2e8f0',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={term.source}
+                >
+                  {term.source}
+                </span>
+                <span style={{ color: '#64748b', flexShrink: 0 }}>&rarr;</span>
+                <span
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    color: '#93c5fd',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={term.target}
+                >
+                  {term.target}
+                </span>
                 <button
                   onClick={() => {
                     const updated = glossaryTerms.filter((_, i) => i !== idx)
