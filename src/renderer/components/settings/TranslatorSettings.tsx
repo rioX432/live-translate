@@ -302,7 +302,19 @@ export function TranslatorSettings({
         <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>
           Define fixed translations for specific terms (e.g. proper nouns).
         </div>
-        {glossaryTerms.length > 0 && (
+        {glossaryTerms.length === 0 ? (
+          <div
+            style={{
+              fontSize: '12px',
+              color: '#64748b',
+              textAlign: 'center',
+              padding: '16px 0',
+              borderBottom: '1px solid #1e293b'
+            }}
+          >
+            No glossary terms added yet
+          </div>
+        ) : (
           <div style={{ marginBottom: '8px' }}>
             {glossaryTerms.map((term, idx) => (
               <div
