@@ -6,8 +6,24 @@
  */
 
 const SPEAKER_CHANGE_GAP_MS = 2000
-const SPEAKER_COLORS = ['#60a5fa', '#4ade80', '#f472b6', '#facc15', '#a78bfa', '#fb923c']
-const SPEAKER_NAMES = ['A', 'B', 'C', 'D', 'E', 'F']
+
+/** Default 8-color palette for speaker identification */
+export const SPEAKER_COLORS = [
+  '#60a5fa', '#4ade80', '#f472b6', '#facc15',
+  '#a78bfa', '#fb923c', '#2dd4bf', '#f87171'
+]
+export const SPEAKER_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
+
+/**
+ * Map a speakerId string (e.g. "Speaker A") to its palette color.
+ * Returns undefined if the speakerId does not match the expected format.
+ */
+export function getSpeakerColor(speakerId: string): string | undefined {
+  const match = speakerId.match(/^Speaker ([A-H])$/)
+  if (!match) return undefined
+  const idx = match[1]!.charCodeAt(0) - 'A'.charCodeAt(0)
+  return SPEAKER_COLORS[idx]
+}
 
 export class SpeakerTracker {
   private currentSpeaker = 0

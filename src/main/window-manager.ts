@@ -48,9 +48,16 @@ export function createSubtitleWindow(ctx: AppContext): void {
   const targetDisplay = savedDisplay || externalDisplay || displays[0]
 
   const subtitleHeight = getSubtitleHeight(targetDisplay)
+
+  // Restore saved position for this display if available (#509)
+  const savedPositions = (store.get('subtitlePositions' as never) as Record<string, { x: number; y: number }> | undefined) || {}
+  const savedPos = savedPositions[String(targetDisplay.id)]
+  const initialX = savedPos?.x ?? targetDisplay.bounds.x
+  const initialY = savedPos?.y ?? (targetDisplay.bounds.y + targetDisplay.bounds.height - subtitleHeight)
+
   ctx.subtitleWindow = new BrowserWindow({
-    x: targetDisplay.bounds.x,
-    y: targetDisplay.bounds.y + targetDisplay.bounds.height - subtitleHeight,
+    x: initialX,
+    y: initialY,
     width: targetDisplay.bounds.width,
     height: subtitleHeight,
     transparent: true,
