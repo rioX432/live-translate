@@ -47,9 +47,12 @@ export function useSessionSettings(): SessionSettingsState {
 
   const [crashedSession, setCrashedSession] = useState<{ config: Record<string, unknown>; startedAt: number } | null>(null)
 
+  // Streaming interval from settings (#506)
+  const [streamingIntervalMs, setStreamingIntervalMs] = useState<number | undefined>(undefined)
+
   // Noise suppression + audio capture
   const noiseSuppression = useNoiseSuppression()
-  const audio = useAudioCapture(noiseSuppression.enabled ? noiseSuppression : undefined)
+  const audio = useAudioCapture(noiseSuppression.enabled ? noiseSuppression : undefined, streamingIntervalMs)
 
   // --- Timer helpers ---
   const formatDuration = useCallback((ms: number): string => {
@@ -84,6 +87,7 @@ export function useSessionSettings(): SessionSettingsState {
     window.api.getSettings().then((s) => {
       if (s.noiseSuppressionEnabled !== undefined) noiseSuppression.setEnabled(bool(s.noiseSuppressionEnabled, false))
       if (s.selectedMicrophone) audio.setSelectedDevice(typeof s.selectedMicrophone === 'string' ? s.selectedMicrophone : '')
+      if (typeof s.streamingIntervalMs === 'number') setStreamingIntervalMs(s.streamingIntervalMs)
     })
 
     // Check for crashed session

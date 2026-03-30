@@ -30,9 +30,11 @@ export interface NoiseSuppressionProcessor {
   destroy: () => Promise<void>
 }
 
-const DEFAULT_STREAMING_INTERVAL_MS = 1500
+const DEFAULT_STREAMING_INTERVAL_MS = 1000
 const SAMPLE_RATE = 16000
 const MAX_ROLLING_BUFFER_SECONDS = 3
+/** Overlap from previous chunk to prevent word boundary cutting (200ms at 16kHz) */
+const CHUNK_OVERLAP_SAMPLES = Math.floor(SAMPLE_RATE * 0.2)
 /** RMS threshold below which a frame is considered silence for trimming */
 const SILENCE_RMS_THRESHOLD = 0.01
 
@@ -73,7 +75,10 @@ function trimSilence(buffer: Float32Array): Float32Array | null {
   return buffer.subarray(start, end)
 }
 
-export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): UseAudioCaptureReturn {
+export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, streamingIntervalMs?: number): UseAudioCaptureReturn {
+  const effectiveInterval = streamingIntervalMs != null
+    ? Math.max(500, Math.min(3000, streamingIntervalMs))
+    : DEFAULT_STREAMING_INTERVAL_MS
   const [devices, setDevices] = useState<AudioDevice[]>([])
   const [selectedDevice, setSelectedDevice] = useState<string>('')
   const [isCapturing, setIsCapturing] = useState(false)
@@ -92,6 +97,8 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
   const rollingBufferIndexRef = useRef(0)
   const rollingBufferFullRef = useRef(false)
   const streamingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  // Previous chunk tail for overlap to prevent word boundary cutting (#506)
+  const prevChunkTailRef = useRef<Float32Array | null>(null)
 
   // Enumerate audio input devices
   useEffect(() => {
@@ -164,11 +171,27 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
       if (!isSpeakingRef.current) return
       const buffer = getRollingBuffer()
       if (buffer) {
-        console.log(`[audio-capture] Streaming chunk: ${buffer.length} samples (${(buffer.length / SAMPLE_RATE).toFixed(1)}s)`)
-        streamingCallbackRef.current?.(buffer)
+        // Prepend overlap from previous chunk tail to prevent word boundary cutting (#506)
+        let output: Float32Array
+        const tail = prevChunkTailRef.current
+        if (tail && tail.length > 0) {
+          output = new Float32Array(tail.length + buffer.length)
+          output.set(tail, 0)
+          output.set(buffer, tail.length)
+        } else {
+          output = buffer
+        }
+        // Save tail of current chunk for next overlap
+        if (buffer.length > CHUNK_OVERLAP_SAMPLES) {
+          prevChunkTailRef.current = buffer.slice(buffer.length - CHUNK_OVERLAP_SAMPLES)
+        } else {
+          prevChunkTailRef.current = new Float32Array(buffer)
+        }
+        console.log(`[audio-capture] Streaming chunk: ${output.length} samples (${(output.length / SAMPLE_RATE).toFixed(1)}s)`)
+        streamingCallbackRef.current?.(output)
       }
-    }, DEFAULT_STREAMING_INTERVAL_MS)
-  }, [getRollingBuffer])
+    }, effectiveInterval)
+  }, [getRollingBuffer, effectiveInterval])
 
   const stopStreamingTimer = useCallback(() => {
     if (streamingTimerRef.current) {
@@ -248,6 +271,7 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
           rollingBufferRef.current = []
           rollingBufferIndexRef.current = 0
           rollingBufferFullRef.current = false
+          prevChunkTailRef.current = null
 
           // Also fire legacy callback
           chunkCallbackRef.current?.(audio)
@@ -258,6 +282,7 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
           rollingBufferRef.current = []
           rollingBufferIndexRef.current = 0
           rollingBufferFullRef.current = false
+          prevChunkTailRef.current = null
         },
         onVADMisfire: () => {
           console.log('[audio-capture] VAD misfire (speech too short)')
@@ -265,6 +290,7 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
           rollingBufferRef.current = []
           rollingBufferIndexRef.current = 0
           rollingBufferFullRef.current = false
+          prevChunkTailRef.current = null
         }
       })
 
@@ -285,6 +311,7 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
       rollingBufferRef.current = []
       rollingBufferIndexRef.current = 0
       rollingBufferFullRef.current = false
+      prevChunkTailRef.current = null
       setIsCapturing(false)
       throw err
     }
@@ -302,6 +329,7 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
     rollingBufferRef.current = []
     rollingBufferIndexRef.current = 0
     rollingBufferFullRef.current = false
+    prevChunkTailRef.current = null
     setIsCapturing(false)
     setVolume(0)
     console.log('[audio-capture] VAD stopped')
