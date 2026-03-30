@@ -2,6 +2,7 @@ import { app } from 'electron'
 import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
 import { isHallucination } from './hallucination-filter'
+import { applyGlossary } from './glossary-utils'
 import { createLogger } from '../../main/logger'
 
 const log = createLogger('opus-mt')
@@ -70,14 +71,7 @@ export class OpusMTTranslator implements TranslatorEngine {
     if (trimmed.length < 3) return ''
 
     // Apply glossary term replacements before translation
-    let input = text
-    if (context?.glossary?.length) {
-      for (const entry of context.glossary) {
-        if (entry.source?.trim() && input.includes(entry.source)) {
-          input = input.replaceAll(entry.source, entry.target)
-        }
-      }
-    }
+    const input = applyGlossary(text, context?.glossary)
 
     const pipe = from === 'ja' ? this.jaToEn : this.enToJa
     if (!pipe) {

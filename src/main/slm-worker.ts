@@ -16,6 +16,7 @@
 
 import type { Llama, LlamaModel, LlamaContext, LlamaContextSequence } from 'node-llama-cpp'
 import { LANG_NAMES_EN, LANG_NAMES_ZH } from '../engines/language-names'
+import { formatGlossaryPrompt } from '../engines/translator/glossary-utils'
 import { createLogger } from './logger'
 
 const log = createLogger('slm-worker')
@@ -125,12 +126,9 @@ function buildContextPrompt(ctx?: {
   const parts: string[] = []
 
   // Glossary terms
-  if (ctx.glossary && ctx.glossary.length > 0) {
-    const entries = ctx.glossary
-      .filter((g) => g.source && g.target)
-      .map((g) => `  "${g.source}" → "${g.target}"`)
-      .join('\n')
-    parts.push(`Use these fixed translations for specific terms:\n${entries}`)
+  const glossaryPrompt = formatGlossaryPrompt(ctx.glossary)
+  if (glossaryPrompt) {
+    parts.push(glossaryPrompt)
   }
 
   // Previous segments for coherence
