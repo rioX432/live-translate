@@ -21,11 +21,17 @@ export function AudioSettings({ audio, disabled, noiseSuppressionEnabled, onNois
         disabled={disabled}
         aria-label="Microphone device"
       >
-        {audio.devices.map((d) => (
-          <option key={d.deviceId} value={d.deviceId}>
-            {d.label}
+        {audio.devices.length === 0 ? (
+          <option value="" disabled>
+            No audio devices found
           </option>
-        ))}
+        ) : (
+          audio.devices.map((d) => (
+            <option key={d.deviceId} value={d.deviceId}>
+              {d.label}
+            </option>
+          ))
+        )}
       </select>
       {/* Volume meter */}
       <div style={{ marginTop: '6px', height: '4px', background: '#1e293b', borderRadius: '2px' }}>
