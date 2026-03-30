@@ -64,6 +64,8 @@ class WorkerPool {
   private currentModelPath: string | null = null
   private initPromise: Promise<void> | null = null
   private onProgress?: (message: string) => void
+  /** Mutex to serialize initModel/disposeModel operations */
+  private opLock: Promise<void> = Promise.resolve()
 
   /**
    * Acquire a reference to the shared worker, initializing it with the given model.
@@ -182,85 +184,103 @@ class WorkerPool {
     await this.disposeModel()
     // Re-init with new model
     await this.initModel(options)
+    // Re-register the persistent message handler (initModel clears all listeners)
+    this.registerMessageHandler()
   }
 
   private initModel(options: WorkerInitOptions): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      let settled = false
+    const op = this.opLock.then(
+      () =>
+        new Promise<void>((resolve, reject) => {
+          let settled = false
 
-      const cleanup = (): void => {
-        this.worker?.removeListener('message', initHandler)
-      }
+          const cleanup = (): void => {
+            this.worker?.removeListener('message', initHandler)
+          }
 
-      const timeout = setTimeout(() => {
-        if (settled) return
-        settled = true
-        cleanup()
-        reject(new Error('Worker initialization timed out'))
-      }, WORKER_INIT_TIMEOUT_MS)
+          const timeout = setTimeout(() => {
+            if (settled) return
+            settled = true
+            cleanup()
+            reject(new Error('Worker initialization timed out'))
+          }, WORKER_INIT_TIMEOUT_MS)
 
-      const initHandler = (msg: WorkerMessage): void => {
-        if (settled || !this.worker) return
+          const initHandler = (msg: WorkerMessage): void => {
+            if (settled || !this.worker) return
 
-        if (msg.type === 'ready') {
-          settled = true
-          clearTimeout(timeout)
-          cleanup()
-          this.currentModelPath = options.modelPath
-          resolve()
-        } else if (msg.type === 'error') {
-          settled = true
-          clearTimeout(timeout)
-          cleanup()
-          reject(new Error(msg.message))
-        }
-      }
+            if (msg.type === 'ready') {
+              settled = true
+              clearTimeout(timeout)
+              cleanup()
+              this.currentModelPath = options.modelPath
+              resolve()
+            } else if (msg.type === 'error') {
+              settled = true
+              clearTimeout(timeout)
+              cleanup()
+              reject(new Error(msg.message))
+            }
+          }
 
-      this.worker!.on('message', initHandler)
-      this.worker!.postMessage({
-        type: 'init',
-        modelPath: options.modelPath,
-        kvCacheQuant: options.kvCacheQuant,
-        modelType: options.modelType,
-        ...(options.draftModelPath && { draftModelPath: options.draftModelPath })
-      })
-    })
+          // Remove stale one-off listeners before attaching new handler
+          this.worker?.removeAllListeners('message')
+          this.worker!.on('message', initHandler)
+          this.worker!.postMessage({
+            type: 'init',
+            modelPath: options.modelPath,
+            kvCacheQuant: options.kvCacheQuant,
+            modelType: options.modelType,
+            ...(options.draftModelPath && { draftModelPath: options.draftModelPath })
+          })
+        })
+    )
+    // Chain the lock so subsequent ops wait, but don't propagate rejections to the chain
+    this.opLock = op.catch(() => {})
+    return op
   }
 
   private disposeModel(): Promise<void> {
-    return new Promise<void>((resolve) => {
-      if (!this.worker) {
-        resolve()
-        return
-      }
+    const op = this.opLock.then(
+      () =>
+        new Promise<void>((resolve) => {
+          if (!this.worker) {
+            resolve()
+            return
+          }
 
-      let settled = false
+          let settled = false
 
-      const cleanup = (): void => {
-        this.worker?.removeListener('message', disposeHandler)
-      }
+          const cleanup = (): void => {
+            this.worker?.removeListener('message', disposeHandler)
+          }
 
-      const timeout = setTimeout(() => {
-        if (settled) return
-        settled = true
-        cleanup()
-        resolve()
-      }, WORKER_DISPOSE_GRACE_MS)
+          const timeout = setTimeout(() => {
+            if (settled) return
+            settled = true
+            cleanup()
+            resolve()
+          }, WORKER_DISPOSE_GRACE_MS)
 
-      const disposeHandler = (msg: WorkerMessage): void => {
-        if (settled) return
-        if (msg.type === 'disposed') {
-          settled = true
-          clearTimeout(timeout)
-          cleanup()
-          this.currentModelPath = null
-          resolve()
-        }
-      }
+          const disposeHandler = (msg: WorkerMessage): void => {
+            if (settled) return
+            if (msg.type === 'disposed') {
+              settled = true
+              clearTimeout(timeout)
+              cleanup()
+              this.currentModelPath = null
+              resolve()
+            }
+          }
 
-      this.worker.on('message', disposeHandler)
-      this.worker.postMessage({ type: 'dispose' })
-    })
+          // Remove stale one-off listeners before attaching new handler
+          this.worker.removeAllListeners('message')
+          this.worker.on('message', disposeHandler)
+          this.worker.postMessage({ type: 'dispose' })
+        })
+    )
+    // Chain the lock so subsequent ops wait
+    this.opLock = op.catch(() => {})
+    return op
   }
 
   private registerMessageHandler(): void {
