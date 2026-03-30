@@ -140,6 +140,14 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('tts-audio', handler)
   },
 
+  // Quick Start onboarding (#510)
+  quickStartRecommend: () => ipcRenderer.invoke('quick-start-recommend'),
+  quickStartApply: (options: { sourceLanguage: string; targetLanguage: string; recommendation: unknown }) =>
+    ipcRenderer.invoke('quick-start-apply', options),
+  quickStartIsCompleted: () => ipcRenderer.invoke('quick-start-is-completed'),
+  quickStartSkip: () => ipcRenderer.invoke('quick-start-skip'),
+  quickStartSystemInfo: () => ipcRenderer.invoke('quick-start-system-info'),
+
   // Auto-update (#314)
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateDownload: () => ipcRenderer.invoke('update-download'),

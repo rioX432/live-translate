@@ -75,6 +75,8 @@ export interface AppSettings {
   showConfidenceIndicator: boolean
   /** Audio source: microphone only, system audio (loopback), or both mixed */
   audioSource: 'microphone' | 'system' | 'both'
+  /** Whether the user has completed the Quick Start onboarding (#510) */
+  hasCompletedSetup: boolean
   /** Enable text-to-speech for translated output (#508) */
   ttsEnabled: boolean
   /** TTS voice ID (e.g. 'af_heart', 'jf_alpha') */
@@ -88,6 +90,7 @@ export interface AppSettings {
 export const store = new Store<AppSettings>({
   encryptionKey: 'live-translate-v1',
   defaults: {
+    hasCompletedSetup: false,
     translationEngine: 'offline-hymt15',
     googleApiKey: '',
     microsoftApiKey: '',

@@ -1,0 +1,160 @@
+import type { GpuInfo } from './gpu-detector'
+import {
+  WHISPER_VARIANTS,
+  HUNYUAN_MT_15_VARIANTS,
+  LFM2_VARIANTS,
+  isModelDownloaded,
+  isGGUFDownloaded
+} from './model-downloader'
+import type { WhisperVariant } from './model-downloader'
+
+/** Engine recommendation produced by hardware analysis */
+export interface EngineRecommendation {
+  sttEngine: 'whisper-local' | 'mlx-whisper'
+  translationEngine: string
+  whisperVariant: WhisperVariant
+  /** Models that need downloading before offline engines can run */
+  downloads: DownloadItem[]
+  /** Total download size in MB */
+  totalDownloadMB: number
+  /** Whether the user needs to download models before starting */
+  needsDownload: boolean
+  /** Fallback translation engine to use while models download (API-based or lighter) */
+  fallbackEngine: string | null
+  /** Human-readable reason for the recommendation */
+  reason: string
+}
+
+export interface DownloadItem {
+  type: 'whisper' | 'gguf'
+  /** For whisper: the variant key (e.g. 'kotoba-v2.0'). For gguf: the filename. */
+  key: string
+  filename: string
+  url: string
+  sizeMB: number
+  label: string
+}
+
+/** Detect if running on Apple Silicon (M1+) */
+function isAppleSilicon(platform: string, gpuInfo: GpuInfo): boolean {
+  if (platform !== 'darwin') return false
+  return gpuInfo.gpuNames.some((name) =>
+    /apple/i.test(name) || /m[1-4]/i.test(name)
+  )
+}
+
+/**
+ * Recommend optimal engines based on hardware capabilities.
+ *
+ * Priority:
+ * 1. Apple Silicon M1+ with >=16GB: MLX Whisper + HY-MT1.5-1.8B
+ * 2. Apple Silicon M1+ with >=8GB: MLX Whisper + LFM2 (lighter)
+ * 3. Apple Silicon M1+ with <8GB: MLX Whisper + API fallback
+ * 4. Intel Mac / other: Whisper Local (base) + API fallback
+ */
+export function recommendEngines(
+  gpuInfo: GpuInfo,
+  platform: string,
+  totalMemoryMB: number
+): EngineRecommendation {
+  const appleSilicon = isAppleSilicon(platform, gpuInfo)
+  const downloads: DownloadItem[] = []
+
+  if (appleSilicon && totalMemoryMB >= 16384) {
+    // Best experience: MLX Whisper + HY-MT1.5
+    const sttEngine = 'mlx-whisper' as const
+    const translationEngine = 'offline-hymt15'
+    const whisperVariant: WhisperVariant = 'kotoba-v2.0'
+
+    // Check which models need downloading
+    if (!isModelDownloaded(whisperVariant)) {
+      const v = WHISPER_VARIANTS[whisperVariant]
+      downloads.push({ type: 'whisper', key: whisperVariant, filename: v.filename, url: v.url, sizeMB: v.sizeMB, label: v.label })
+    }
+    const gguf = HUNYUAN_MT_15_VARIANTS['Q4_K_M']
+    if (!isGGUFDownloaded(gguf.filename)) {
+      downloads.push({ type: 'gguf', key: gguf.filename, filename: gguf.filename, url: gguf.url, sizeMB: gguf.sizeMB, label: gguf.label })
+    }
+
+    return {
+      sttEngine,
+      translationEngine,
+      whisperVariant,
+      downloads,
+      totalDownloadMB: downloads.reduce((sum, d) => sum + d.sizeMB, 0),
+      needsDownload: downloads.length > 0,
+      fallbackEngine: downloads.length > 0 ? 'offline-opus' : null,
+      reason: 'Apple Silicon with 16GB+ RAM — using MLX Whisper + HY-MT 1.5 for best offline quality'
+    }
+  }
+
+  if (appleSilicon && totalMemoryMB >= 8192) {
+    // Good experience: MLX Whisper + LFM2 (ultra-light)
+    const sttEngine = 'mlx-whisper' as const
+    const translationEngine = 'offline-lfm2'
+    const whisperVariant: WhisperVariant = 'kotoba-v2.0'
+
+    if (!isModelDownloaded(whisperVariant)) {
+      const v = WHISPER_VARIANTS[whisperVariant]
+      downloads.push({ type: 'whisper', key: whisperVariant, filename: v.filename, url: v.url, sizeMB: v.sizeMB, label: v.label })
+    }
+    const gguf = LFM2_VARIANTS['Q4_K_M']
+    if (!isGGUFDownloaded(gguf.filename)) {
+      downloads.push({ type: 'gguf', key: gguf.filename, filename: gguf.filename, url: gguf.url, sizeMB: gguf.sizeMB, label: gguf.label })
+    }
+
+    return {
+      sttEngine,
+      translationEngine,
+      whisperVariant,
+      downloads,
+      totalDownloadMB: downloads.reduce((sum, d) => sum + d.sizeMB, 0),
+      needsDownload: downloads.length > 0,
+      fallbackEngine: downloads.length > 0 ? 'offline-opus' : null,
+      reason: 'Apple Silicon with 8GB RAM — using MLX Whisper + LFM2 for lightweight offline translation'
+    }
+  }
+
+  if (appleSilicon) {
+    // Low memory Apple Silicon: MLX Whisper + OPUS-MT (no GGUF download needed)
+    const sttEngine = 'mlx-whisper' as const
+    const translationEngine = 'offline-opus'
+    const whisperVariant: WhisperVariant = 'base'
+
+    if (!isModelDownloaded(whisperVariant)) {
+      const v = WHISPER_VARIANTS[whisperVariant]
+      downloads.push({ type: 'whisper', key: whisperVariant, filename: v.filename, url: v.url, sizeMB: v.sizeMB, label: v.label })
+    }
+
+    return {
+      sttEngine,
+      translationEngine,
+      whisperVariant,
+      downloads,
+      totalDownloadMB: downloads.reduce((sum, d) => sum + d.sizeMB, 0),
+      needsDownload: downloads.length > 0,
+      fallbackEngine: null,
+      reason: 'Apple Silicon with limited RAM — using MLX Whisper (base) + OPUS-MT for lightweight operation'
+    }
+  }
+
+  // Non-Apple Silicon (Intel Mac or other platforms)
+  const sttEngine = 'whisper-local' as const
+  const whisperVariant: WhisperVariant = 'base'
+
+  if (!isModelDownloaded(whisperVariant)) {
+    const v = WHISPER_VARIANTS[whisperVariant]
+    downloads.push({ type: 'whisper', key: whisperVariant, filename: v.filename, url: v.url, sizeMB: v.sizeMB, label: v.label })
+  }
+
+  return {
+    sttEngine,
+    translationEngine: 'offline-opus',
+    whisperVariant,
+    downloads,
+    totalDownloadMB: downloads.reduce((sum, d) => sum + d.sizeMB, 0),
+    needsDownload: downloads.length > 0,
+    fallbackEngine: null,
+    reason: 'Non-Apple Silicon — using Whisper Local (base) + OPUS-MT for broad compatibility'
+  }
+}

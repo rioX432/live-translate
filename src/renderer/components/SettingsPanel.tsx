@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { useSettingsState } from '../hooks/useSettingsState'
 import {
   AudioSettings,
@@ -10,12 +10,40 @@ import {
   SessionControls,
   UpdateStatus,
   CrashRecoveryBanner,
-  ConfigSummary
+  ConfigSummary,
+  QuickStartPanel
 } from './settings'
 
 function SettingsPanel(): React.JSX.Element {
   const s = useSettingsState()
   const disabled = s.isRunning || s.isStarting
+
+  const [showQuickStart, setShowQuickStart] = useState(false)
+  const [quickStartChecked, setQuickStartChecked] = useState(false)
+
+  // Check if Quick Start should be shown on mount
+  useEffect(() => {
+    window.api.quickStartIsCompleted().then((completed) => {
+      setShowQuickStart(!completed)
+      setQuickStartChecked(true)
+    }).catch(() => {
+      setQuickStartChecked(true)
+    })
+  }, [])
+
+  // Show nothing until we know whether to show Quick Start
+  if (!quickStartChecked) {
+    return <div style={containerStyle} />
+  }
+
+  // Show Quick Start panel for first-time users
+  if (showQuickStart) {
+    return (
+      <div style={containerStyle}>
+        <QuickStartPanel onSetupComplete={() => setShowQuickStart(false)} />
+      </div>
+    )
+  }
 
   return (
     <div style={containerStyle}>
