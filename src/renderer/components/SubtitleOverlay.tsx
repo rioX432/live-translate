@@ -182,7 +182,7 @@ function SubtitleOverlay(): React.JSX.Element {
             }}
           >
             {line.speakerId && (
-              <span style={{ fontSize: '0.7em', opacity: 0.7, marginRight: '8px' }}>
+              <span style={{ fontSize: '0.7em', opacity: 0.7, marginRight: '8px', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}>
                 [{line.speakerId}]
               </span>
             )}
