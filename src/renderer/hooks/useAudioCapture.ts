@@ -307,6 +307,20 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor): U
     console.log('[audio-capture] VAD stopped')
   }, [stopStreamingTimer, noiseSuppression])
 
+  // #443: Safety net — clear streaming timer and VAD on unmount if stop() was not called
+  useEffect(() => {
+    return () => {
+      if (streamingTimerRef.current) {
+        clearInterval(streamingTimerRef.current)
+        streamingTimerRef.current = null
+      }
+      if (vadRef.current) {
+        vadRef.current.destroy()
+        vadRef.current = null
+      }
+    }
+  }, [])
+
   const onAudioChunk = useCallback((callback: (chunk: Float32Array) => void) => {
     chunkCallbackRef.current = callback
     return () => { chunkCallbackRef.current = null }
