@@ -6,6 +6,7 @@ import { registerDisplayIpc } from './ipc/display-ipc'
 import { registerAudioIpc } from './ipc/audio-ipc'
 import { registerModelIpc } from './ipc/model-ipc'
 import { registerTtsIpc } from './ipc/tts-ipc'
+import { registerVirtualMicIpc } from './ipc/virtual-mic-ipc'
 import { registerQuickStartIpc } from './ipc/quickstart-ipc'
 
 /** Register all IPC handlers (pipeline, settings, session, display, model, ws-audio, tts) */
@@ -17,5 +18,6 @@ export function registerIpcHandlers(ctx: AppContext): void {
   registerModelIpc()
   registerAudioIpc(ctx)
   registerTtsIpc(ctx)
+  registerVirtualMicIpc(ctx)
   registerQuickStartIpc(ctx)
 }

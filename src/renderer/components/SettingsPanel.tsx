@@ -7,6 +7,7 @@ import {
   TranslatorSettings,
   SubtitleSettings,
   TTSSettings,
+  VirtualMicSettings,
   SessionControls,
   UpdateStatus,
   CrashRecoveryBanner,
@@ -161,6 +162,8 @@ function SettingsPanel(): React.JSX.Element {
           />
 
           <TTSSettings disabled={disabled} />
+
+          <VirtualMicSettings disabled={disabled} />
 
           <UpdateStatus />
         </div>

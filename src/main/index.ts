@@ -24,6 +24,7 @@ import { createLogger } from './logger'
 import { initAutoUpdater, registerUpdateHandlers, disposeAutoUpdater } from './auto-updater'
 import { createAppContext } from './app-context'
 import { TTSManager } from './tts-manager'
+import { VirtualMicManager } from './virtual-mic-manager'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
 import type { WhisperVariant } from '../engines/model-downloader'
 
@@ -200,6 +201,20 @@ app.whenReady().then(async () => {
   if (ttsVoice) ctx.ttsManager.setVoice(ttsVoice)
   ctx.ttsManager.setVolume(store.get('ttsVolume') ?? 0.8)
 
+  // Initialize virtual mic manager (#515)
+  ctx.virtualMicManager = new VirtualMicManager()
+  await ctx.virtualMicManager.initialize()
+  // Connect TTS → virtual mic routing
+  ctx.ttsManager.setVirtualMicManager(ctx.virtualMicManager)
+  // Restore virtual mic state from persisted settings
+  const vmEnabled = store.get('virtualMicEnabled')
+  const vmDeviceId = store.get('virtualMicDeviceId')
+  if (vmEnabled && vmDeviceId >= 0 && ctx.virtualMicManager.isAvailable()) {
+    ctx.virtualMicManager.enable(vmDeviceId).catch((err) => {
+      log.error('Virtual mic auto-restore failed:', err)
+    })
+  }
+
   createMainWindow(ctx)
   createSubtitleWindow(ctx)
   cleanupDisplayHandlers = registerDisplayHandlers(ctx)
@@ -226,7 +241,8 @@ app.on('before-quit', (event) => {
         Promise.all([
           ctx.pipeline?.dispose() ?? Promise.resolve(),
           ctx.wsAudioServer?.stop() ?? Promise.resolve(),
-          ctx.ttsManager?.dispose() ?? Promise.resolve()
+          ctx.ttsManager?.dispose() ?? Promise.resolve(),
+          ctx.virtualMicManager?.dispose() ?? Promise.resolve()
         ]),
         new Promise((_resolve, reject) =>
           setTimeout(() => reject(new Error('Cleanup timed out')), 5000)
