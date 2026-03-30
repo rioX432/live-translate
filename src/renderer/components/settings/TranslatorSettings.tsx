@@ -91,6 +91,19 @@ export function TranslatorSettings({
           <input
             type="radio"
             name="engine"
+            checked={engineMode === 'offline-lfm2'}
+            onChange={() => onEngineModeChange('offline-lfm2')}
+            disabled={disabled}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>LFM2 (Ultra-fast, JA↔EN)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>350M params, ~230MB — GPT-4o-class quality at minimal cost</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
             checked={engineMode === 'offline-opus'}
             onChange={() => onEngineModeChange('offline-opus')}
             disabled={disabled}

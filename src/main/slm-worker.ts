@@ -21,7 +21,7 @@ import { createLogger } from './logger'
 
 const log = createLogger('slm-worker')
 
-type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15'
+type ModelType = 'translategemma' | 'hunyuan-mt' | 'hunyuan-mt-15' | 'lfm2'
 
 /** Messages sent from main process to this worker */
 type WorkerInboundMessage =
@@ -161,6 +161,13 @@ function buildTranslationPrompt(
   const toLang = LANG_NAMES_EN[to] ?? to
   const contextSection = buildContextPrompt(translateContext)
 
+  if (activeModelType === 'lfm2') {
+    // LFM2 uses a simple system prompt via chat template;
+    // the system message is set by node-llama-cpp's chat session,
+    // so we just return the user text as the prompt body.
+    return `${contextSection}${text}`
+  }
+
   if (activeModelType === 'hunyuan-mt-15') {
     const isChinese = from === 'zh' || from === 'zh-Hant' || to === 'zh' || to === 'zh-Hant'
     if (isChinese) {
@@ -185,8 +192,17 @@ function buildTranslationPrompt(
   return `${contextSection}Translate the following text from ${fromLang} to ${toLang}. Output only the translation, nothing else.\n\n${text}`
 }
 
+/** Get the system prompt for LFM2 based on target language */
+function getLFM2SystemPrompt(to: string): string {
+  const toLang = LANG_NAMES_EN[to] ?? to
+  return `Translate to ${toLang}.`
+}
+
 /** Get inference parameters based on model type */
-function getInferenceParams(): { temperature: number; maxTokens: number; topK?: number; topP?: number; repeatPenalty?: { penalty: number } } {
+function getInferenceParams(): { temperature: number; maxTokens: number; topK?: number; topP?: number; minP?: number; repeatPenalty?: { penalty: number } } {
+  if (activeModelType === 'lfm2') {
+    return { temperature: 0.5, maxTokens: 512, topP: 1.0, minP: 0.1, repeatPenalty: { penalty: 1.05 } }
+  }
   if (activeModelType === 'hunyuan-mt' || activeModelType === 'hunyuan-mt-15') {
     return { temperature: 0.7, maxTokens: 512, topK: 20, topP: 0.6, repeatPenalty: { penalty: 1.05 } }
   }
@@ -213,7 +229,8 @@ async function createContextSequence(): Promise<LlamaContextSequence> {
 /** Run translation inference and return the result */
 async function runInference(
   prompt: string,
-  previousOutput?: string
+  previousOutput?: string,
+  systemPrompt?: string
 ): Promise<{ response: string; inferenceMs: number; contextMs: number }> {
   const { LlamaChatSession } = await import('node-llama-cpp')
 
@@ -221,7 +238,10 @@ async function runInference(
   const contextSequence = await createContextSequence()
   const contextMs = performance.now() - t0
 
-  const session = new LlamaChatSession({ contextSequence })
+  const session = new LlamaChatSession({
+    contextSequence,
+    ...(systemPrompt && { systemPrompt })
+  })
 
   const inferenceParams = getInferenceParams()
   const t1 = performance.now()
@@ -267,7 +287,8 @@ async function handleTranslate(
     const prompt = buildTranslationPrompt(text, from, to, translateContext)
     const promptMs = performance.now() - t0
 
-    const { response, inferenceMs, contextMs } = await runInference(prompt)
+    const systemPrompt = activeModelType === 'lfm2' ? getLFM2SystemPrompt(to) : undefined
+    const { response, inferenceMs, contextMs } = await runInference(prompt, undefined, systemPrompt)
     const memAfter = process.memoryUsage()
     const totalMs = performance.now() - t0
 
@@ -315,7 +336,8 @@ async function handleTranslateIncremental(
     const t0 = performance.now()
     const prompt = buildTranslationPrompt(text, from, to, translateContext)
     const promptMs = performance.now() - t0
-    const { response, inferenceMs, contextMs } = await runInference(prompt, previousOutput)
+    const systemPrompt = activeModelType === 'lfm2' ? getLFM2SystemPrompt(to) : undefined
+    const { response, inferenceMs, contextMs } = await runInference(prompt, previousOutput, systemPrompt)
     const memAfter = process.memoryUsage()
     const totalMs = performance.now() - t0
 
