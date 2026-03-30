@@ -1,7 +1,6 @@
 import { app } from 'electron'
 import { join } from 'path'
 import { existsSync, mkdirSync, unlinkSync, statSync, createWriteStream } from 'fs'
-import { writeFile } from 'fs/promises'
 import { createHash } from 'crypto'
 import { createLogger } from '../main/logger'
 
