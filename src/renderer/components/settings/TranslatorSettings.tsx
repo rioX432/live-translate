@@ -327,8 +327,9 @@ export function TranslatorSettings({
                   }}
                   disabled={disabled}
                   style={{
-                    padding: '2px 6px',
-                    fontSize: '11px',
+                    padding: '8px 16px',
+                    minHeight: '44px',
+                    fontSize: '12px',
                     background: '#334155',
                     color: '#ef4444',
                     border: 'none',
