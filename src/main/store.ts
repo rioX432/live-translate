@@ -91,6 +91,8 @@ export interface AppSettings {
   virtualMicEnabled: boolean
   /** PortAudio device ID for virtual mic output (#515) */
   virtualMicDeviceId: number
+  /** Enable draft STT (Moonshine Tiny JA) for fast interim results (#536) */
+  draftSttEnabled: boolean
 }
 
 export const store = new Store<AppSettings>({
@@ -138,6 +140,7 @@ export const store = new Store<AppSettings>({
     ttsOutputDevice: '',
     ttsVolume: 0.8,
     virtualMicEnabled: false,
-    virtualMicDeviceId: -1
+    virtualMicDeviceId: -1,
+    draftSttEnabled: false
   }
 })

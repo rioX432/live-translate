@@ -12,6 +12,8 @@ export interface LanguageSettingsState {
   whisperVariant: WhisperVariantType
   setWhisperVariant: (v: WhisperVariantType) => void
   platform: string
+  draftSttEnabled: boolean
+  setDraftSttEnabled: (v: boolean) => void
 }
 
 export function useLanguageSettings(): LanguageSettingsState {
@@ -20,6 +22,7 @@ export function useLanguageSettings(): LanguageSettingsState {
   const [sttEngine, setSttEngine] = useState<SttEngineType>('mlx-whisper')
   const [whisperVariant, setWhisperVariant] = useState<WhisperVariantType>('kotoba-v2.0')
   const [platform, setPlatform] = useState<string>('darwin')
+  const [draftSttEnabled, setDraftSttEnabled] = useState(false)
 
   // Load language/STT settings on mount
   useEffect(() => {
@@ -28,6 +31,7 @@ export function useLanguageSettings(): LanguageSettingsState {
       if (s.whisperVariant) setWhisperVariant(str(s.whisperVariant, 'kotoba-v2.0') as WhisperVariantType)
       if (s.sourceLanguage) setSourceLanguage(str(s.sourceLanguage, 'auto') as SourceLanguage)
       if (s.targetLanguage) setTargetLanguage(str(s.targetLanguage, 'en') as Language)
+      if (s.draftSttEnabled !== undefined) setDraftSttEnabled(!!s.draftSttEnabled)
     })
 
     // Set platform-aware STT default (mlx-whisper on macOS)
@@ -58,6 +62,7 @@ export function useLanguageSettings(): LanguageSettingsState {
     targetLanguage, setTargetLanguage,
     sttEngine, setSttEngine,
     whisperVariant, setWhisperVariant,
-    platform
+    platform,
+    draftSttEnabled, setDraftSttEnabled
   }
 }

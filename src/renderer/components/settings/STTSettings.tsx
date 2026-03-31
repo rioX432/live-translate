@@ -11,6 +11,8 @@ interface STTSettingsProps {
   platform: string
   disabled: boolean
   sourceLanguage: SourceLanguage
+  draftSttEnabled: boolean
+  onDraftSttEnabledChange: (v: boolean) => void
 }
 
 export function STTSettings({
@@ -20,7 +22,9 @@ export function STTSettings({
   onWhisperVariantChange,
   platform,
   disabled,
-  sourceLanguage
+  sourceLanguage,
+  draftSttEnabled,
+  onDraftSttEnabledChange
 }: STTSettingsProps): React.JSX.Element {
   // Kotoba-Whisper outputs JA only — show when source is JA or auto, on Apple Silicon
   const showKotobaWhisper = platform === 'darwin' && (sourceLanguage === 'ja' || sourceLanguage === 'auto')
@@ -113,6 +117,28 @@ export function STTSettings({
       {sttEngine === 'mlx-whisper' && (
         <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
           MLX Whisper: optimized for Apple Silicon. JA CER 8.1%, EN WER 3.8%, ~3s latency.
+        </div>
+      )}
+      {(sourceLanguage === 'ja' || sourceLanguage === 'auto') && (
+        <div style={{ marginTop: '12px', borderTop: '1px solid #334155', paddingTop: '10px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#e2e8f0', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={draftSttEnabled}
+              onChange={(e) => onDraftSttEnabledChange(e.target.checked)}
+              disabled={disabled}
+              style={{ width: '16px', height: '16px' }}
+            />
+            Fast interim results (Moonshine Tiny JA)
+          </label>
+          <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+            Uses ultra-fast draft STT (27M params, 845ms) for instant interim transcription while primary STT processes final results. Japanese source only.
+          </div>
+          {draftSttEnabled && sourceLanguage === 'auto' && (
+            <div style={{ marginTop: '2px', fontSize: '11px', color: '#f59e0b' }}>
+              Warning: draft STT outputs Japanese only. Non-JA audio will produce incorrect interim results.
+            </div>
+          )}
         </div>
       )}
     </Section>
