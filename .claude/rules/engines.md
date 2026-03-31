@@ -7,7 +7,7 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 
 ## Current Engine Landscape
 
-### STT Engines (2 primary + 3 experimental)
+### STT Engines (2 primary + 4 experimental)
 
 **Primary (shown in UI):**
 | Engine | File | Notes |
@@ -17,6 +17,7 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 
 **Experimental (hidden from UI):**
 - SenseVoice, Qwen3-ASR, Sherpa-ONNX — under evaluation
+- Apple SpeechTranscriber (`AppleSpeechTranscriberEngine.ts`) — macOS 26+ only, zero model management
 
 **Removed (benchmark failures):**
 - Lightning Whisper MLX — JA CER 162%

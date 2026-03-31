@@ -7,6 +7,7 @@ import { KotobaWhisperEngine } from '../engines/stt/KotobaWhisperEngine'
 import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
 import { SherpaOnnxEngine } from '../engines/stt/SherpaOnnxEngine'
 import { SpeechSwiftEngine } from '../engines/stt/SpeechSwiftEngine'
+import { AppleSpeechTranscriberEngine } from '../engines/stt/AppleSpeechTranscriberEngine'
 import { Qwen3ASREngine } from '../engines/stt/Qwen3ASREngine'
 import { MoonshineTinyJaEngine } from '../engines/stt/MoonshineTinyJaEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
@@ -80,6 +81,12 @@ async function initPipeline(): Promise<void> {
   // Experimental: requires speech-swift binary (Homebrew) — Apple Silicon only, not shown in UI
   if (process.platform === 'darwin') {
     ctx.pipeline.registerSTT('speech-swift', () => new SpeechSwiftEngine({
+      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+    }))
+  }
+  // Experimental: Apple SpeechTranscriber (macOS 26+) — requires apple-stt CLI, not shown in UI
+  if (process.platform === 'darwin') {
+    ctx.pipeline.registerSTT('apple-speech-transcriber', () => new AppleSpeechTranscriberEngine({
       onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
     }))
   }
