@@ -12,8 +12,11 @@ concurrency:
 
 jobs:
   typecheck:
-    name: Type Check
-    runs-on: ubuntu-latest
+    name: Type Check (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -22,15 +25,18 @@ jobs:
           node-version: 20
           cache: npm
 
-      # Skip postinstall (native addon scripts are macOS-only)
+      # Skip postinstall (native addon scripts are platform-specific)
       - run: npm ci --ignore-scripts
 
       # VAD assets are not needed for type checking
       - run: npm run typecheck
 
   test:
-    name: Unit Tests
-    runs-on: ubuntu-latest
+    name: Unit Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -44,8 +50,11 @@ jobs:
       - run: npm run test
 
   build:
-    name: Vite Build
-    runs-on: ubuntu-latest
+    name: Vite Build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
 

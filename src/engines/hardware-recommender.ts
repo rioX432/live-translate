@@ -43,6 +43,12 @@ function isAppleSilicon(platform: string, gpuInfo: GpuInfo): boolean {
   )
 }
 
+/** Detect if running on Windows with NVIDIA CUDA-capable GPU */
+function hasNvidiaCuda(platform: string, gpuInfo: GpuInfo): boolean {
+  if (platform !== 'win32') return false
+  return gpuInfo.gpuNames.some((name) => /nvidia|geforce|rtx|gtx/i.test(name))
+}
+
 /**
  * Recommend optimal engines based on hardware capabilities.
  *
@@ -144,7 +150,58 @@ export function recommendEngines(
     }
   }
 
-  // Non-Apple Silicon (Intel Mac or other platforms)
+  // Windows with NVIDIA GPU: CUDA-accelerated Whisper + GGUF translation
+  const nvidiaCuda = hasNvidiaCuda(platform, gpuInfo)
+
+  if (nvidiaCuda && totalMemoryMB >= 16384) {
+    // Windows + NVIDIA + 16GB+: Whisper Local (CUDA) + HY-MT1.5
+    const whisperVariant: WhisperVariant = 'base'
+    if (!isModelDownloaded(whisperVariant)) {
+      const v = WHISPER_VARIANTS[whisperVariant]
+      downloads.push({ type: 'whisper', key: whisperVariant, filename: v.filename, url: v.url, sizeMB: v.sizeMB, label: v.label })
+    }
+    const gguf = HUNYUAN_MT_15_VARIANTS['Q4_K_M']
+    if (!isGGUFDownloaded(gguf.filename)) {
+      downloads.push({ type: 'gguf', key: gguf.filename, filename: gguf.filename, url: gguf.url, sizeMB: gguf.sizeMB, label: gguf.label })
+    }
+
+    return {
+      sttEngine: 'whisper-local' as const,
+      translationEngine: 'offline-hymt15',
+      whisperVariant,
+      downloads,
+      totalDownloadMB: downloads.reduce((sum, d) => sum + d.sizeMB, 0),
+      needsDownload: downloads.length > 0,
+      fallbackEngine: downloads.length > 0 ? 'offline-opus' : null,
+      reason: 'Windows with NVIDIA GPU + 16GB+ RAM — using CUDA Whisper + HY-MT 1.5 for best offline quality'
+    }
+  }
+
+  if (nvidiaCuda && totalMemoryMB >= 8192) {
+    // Windows + NVIDIA + 8GB+: Whisper Local (CUDA) + LFM2
+    const whisperVariant: WhisperVariant = 'base'
+    if (!isModelDownloaded(whisperVariant)) {
+      const v = WHISPER_VARIANTS[whisperVariant]
+      downloads.push({ type: 'whisper', key: whisperVariant, filename: v.filename, url: v.url, sizeMB: v.sizeMB, label: v.label })
+    }
+    const gguf = LFM2_VARIANTS['Q4_K_M']
+    if (!isGGUFDownloaded(gguf.filename)) {
+      downloads.push({ type: 'gguf', key: gguf.filename, filename: gguf.filename, url: gguf.url, sizeMB: gguf.sizeMB, label: gguf.label })
+    }
+
+    return {
+      sttEngine: 'whisper-local' as const,
+      translationEngine: 'offline-lfm2',
+      whisperVariant,
+      downloads,
+      totalDownloadMB: downloads.reduce((sum, d) => sum + d.sizeMB, 0),
+      needsDownload: downloads.length > 0,
+      fallbackEngine: downloads.length > 0 ? 'offline-opus' : null,
+      reason: 'Windows with NVIDIA GPU + 8GB RAM — using CUDA Whisper + LFM2 for lightweight offline translation'
+    }
+  }
+
+  // Non-Apple Silicon, no NVIDIA CUDA (Intel Mac, Windows without GPU, or Linux)
   const sttEngine = 'whisper-local' as const
   const whisperVariant: WhisperVariant = 'base'
 
@@ -161,6 +218,6 @@ export function recommendEngines(
     totalDownloadMB: downloads.reduce((sum, d) => sum + d.sizeMB, 0),
     needsDownload: downloads.length > 0,
     fallbackEngine: null,
-    reason: 'Non-Apple Silicon — using Whisper Local (base) + OPUS-MT for broad compatibility'
+    reason: 'Using Whisper Local (base) + OPUS-MT for broad compatibility'
   }
 }

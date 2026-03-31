@@ -34,12 +34,16 @@ export function useLanguageSettings(): LanguageSettingsState {
       if (s.draftSttEnabled !== undefined) setDraftSttEnabled(!!s.draftSttEnabled)
     })
 
-    // Set platform-aware STT default (mlx-whisper on macOS)
+    // Set platform-aware STT default (mlx-whisper on macOS, whisper-local on Windows)
     window.api.getPlatform().then((p) => {
       setPlatform(p)
       window.api.getSettings().then((s) => {
-        if (!s.sttEngine && p === 'darwin') {
-          setSttEngine('mlx-whisper')
+        if (!s.sttEngine) {
+          if (p === 'darwin') {
+            setSttEngine('mlx-whisper')
+          } else {
+            setSttEngine('whisper-local')
+          }
         }
       })
     }).catch((e) => console.warn('[settings] Failed to load platform/settings:', e))

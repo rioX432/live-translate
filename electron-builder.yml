@@ -38,6 +38,9 @@ win:
       arch:
         - x64
   icon: build/icon.ico
+  asarUnpack:
+    - 'node_modules/@kutalia/whisper-node-addon/**'
+    - 'node_modules/node-llama-cpp/**'
 nsis:
   oneClick: false
   perMachine: false

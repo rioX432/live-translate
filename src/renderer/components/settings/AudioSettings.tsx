@@ -47,6 +47,11 @@ export function AudioSettings({ audio, disabled, noiseSuppressionEnabled, onNois
             {' '}— Requires Screen Recording permission
           </span>
         )}
+        {audio.audioSource !== 'microphone' && platform === 'win32' && (
+          <span style={{ color: '#94a3b8' }}>
+            {' '}— Uses WASAPI loopback (no extra setup needed)
+          </span>
+        )}
       </div>
       {/* Microphone device selector — hidden when system-only mode */}
       {showMicSelector && (
