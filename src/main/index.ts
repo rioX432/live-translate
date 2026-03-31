@@ -29,6 +29,8 @@ import { initAutoUpdater, registerUpdateHandlers, disposeAutoUpdater } from './a
 import { createAppContext } from './app-context'
 import { TTSManager } from './tts-manager'
 import { VirtualMicManager } from './virtual-mic-manager'
+import { loadMdmConfig } from './mdm-config'
+import { trackTranslatedCharacters } from './ipc/pipeline-ipc'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
 import type { WhisperVariant } from '../engines/model-downloader'
 
@@ -175,6 +177,10 @@ async function initPipeline(): Promise<void> {
     ctx.subtitleWindow?.webContents.send('translation-result', result)
     ctx.mainWindow?.webContents.send('translation-result', result)
     ctx.logger?.log(result)
+    // #519: Track translated character count for usage analytics
+    if (result.translatedText) {
+      trackTranslatedCharacters(result.translatedText.length)
+    }
     // TTS: synthesize translated text and send audio to renderer (#508)
     ctx.ttsManager?.handleTranslationResult(result, ctx.mainWindow).catch((err) => {
       log.error('TTS error:', err)
@@ -226,6 +232,9 @@ initAudioLoopback()
 // --- App Lifecycle ---
 
 app.whenReady().then(async () => {
+  // #519: Load MDM managed preferences early (before pipeline init)
+  loadMdmConfig()
+
   await initPipeline()
 
   // Initialize TTS manager (#508)
