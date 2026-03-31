@@ -80,6 +80,16 @@ export const SENSEVOICE_TRANSCRIBE_TIMEOUT_MS = 30_000
 export const SENSEVOICE_INIT_TIMEOUT_MS = 180_000
 
 // ---------------------------------------------------------------------------
+// Moonshine Tiny JA (draft STT)
+// ---------------------------------------------------------------------------
+
+/** Command timeout for Moonshine Tiny JA transcription (ms) */
+export const MOONSHINE_TINY_JA_TRANSCRIBE_TIMEOUT_MS = 15_000
+
+/** Init timeout for Moonshine Tiny JA bridge — model download on first run (~100MB) (ms) */
+export const MOONSHINE_TINY_JA_INIT_TIMEOUT_MS = 120_000
+
+// ---------------------------------------------------------------------------
 // ANE translator
 // ---------------------------------------------------------------------------
 

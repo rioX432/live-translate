@@ -46,7 +46,8 @@ export function registerSettingsIpc(ctx: AppContext): void {
       ttsVoice: store.get('ttsVoice'),
       ttsOutputDevice: store.get('ttsOutputDevice'),
       ttsVolume: store.get('ttsVolume'),
-      hasCompletedSetup: store.get('hasCompletedSetup')
+      hasCompletedSetup: store.get('hasCompletedSetup'),
+      draftSttEnabled: store.get('draftSttEnabled')
     }
   })
 

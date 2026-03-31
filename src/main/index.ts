@@ -8,6 +8,7 @@ import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
 import { SherpaOnnxEngine } from '../engines/stt/SherpaOnnxEngine'
 import { SpeechSwiftEngine } from '../engines/stt/SpeechSwiftEngine'
 import { Qwen3ASREngine } from '../engines/stt/Qwen3ASREngine'
+import { MoonshineTinyJaEngine } from '../engines/stt/MoonshineTinyJaEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
@@ -82,6 +83,11 @@ async function initPipeline(): Promise<void> {
       onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
     }))
   }
+  // Moonshine Tiny JA: ultra-fast draft STT for Japanese interim results (#536)
+  // Not a primary engine — used as draft STT alongside the primary STT
+  ctx.pipeline.registerSTT('moonshine-tiny-ja', () => new MoonshineTinyJaEngine({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+  }))
 
   // Register translator engines
   // ONNX-based OPUS-MT — fast default offline translator
@@ -170,6 +176,12 @@ async function initPipeline(): Promise<void> {
   ctx.pipeline.on('draft-result', (result: TranslationResult) => {
     ctx.subtitleWindow?.webContents.send('draft-result', result)
     ctx.mainWindow?.webContents.send('draft-result', result)
+  })
+
+  // Forward draft STT interim results (#536)
+  ctx.pipeline.on('draft-stt-result', (result: TranslationResult) => {
+    ctx.subtitleWindow?.webContents.send('interim-result', result)
+    ctx.mainWindow?.webContents.send('interim-result', result)
   })
 
   ctx.pipeline.on('error', (err: Error) => {

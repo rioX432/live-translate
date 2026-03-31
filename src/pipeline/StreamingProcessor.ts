@@ -32,6 +32,8 @@ export interface StreamingDeps {
   decrementProcessing(): void
   /** GER processor for async STT post-correction */
   getGER?(): GERProcessor | null
+  /** Draft STT engine for fast interim results (#536) */
+  getDraftSTTEngine?(): STTEngine | null
 }
 
 /**
@@ -79,6 +81,12 @@ export class StreamingProcessor {
     this.deps.incrementProcessing()
     this.streamingLock = true
     try {
+      // Fire draft STT in parallel for fast interim results (#536)
+      const draftSttEngine = this.deps.getDraftSTTEngine?.()
+      if (draftSttEngine) {
+        this.runDraftStt(draftSttEngine, audioBuffer, sampleRate)
+      }
+
       const t0 = performance.now()
       const sttResult = await sttEngine.processAudio(audioBuffer, sampleRate)
       const sttMs = (performance.now() - t0).toFixed(0)
@@ -240,6 +248,42 @@ export class StreamingProcessor {
       for (const r of this.streamingLockResolvers) r()
       this.streamingLockResolvers = []
     }
+  }
+
+  /**
+   * Run draft STT (Moonshine Tiny JA) in parallel with primary STT.
+   * Emits result as 'draft-stt-result' immediately for fast interim display (#536).
+   * Fire-and-forget — errors are logged but do not affect primary pipeline.
+   */
+  private runDraftStt(draftEngine: STTEngine, audioBuffer: Float32Array, sampleRate: number): void {
+    const t0 = performance.now()
+    draftEngine.processAudio(audioBuffer, sampleRate)
+      .then((draftResult) => {
+        const draftMs = (performance.now() - t0).toFixed(0)
+        if (!draftResult || !draftResult.text.trim()) {
+          log.info(`Draft STT: ${draftMs}ms → (no result)`)
+          return
+        }
+        log.info(`Draft STT: ${draftMs}ms → "${draftResult.text}" [${draftResult.language}]`)
+
+        const targetLang = this.deps.resolveTargetLanguage(draftResult.language)
+        const speakerId = draftResult.speakerId ?? this.deps.speakerTracker.update(Date.now())
+
+        const draftTranslationResult: TranslationResult = {
+          sourceText: draftResult.text,
+          translatedText: '', // Draft STT only provides source text — no translation yet
+          sourceLanguage: draftResult.language,
+          targetLanguage: targetLang,
+          timestamp: Date.now(),
+          isInterim: true,
+          speakerId
+        }
+
+        this.deps.emitter.emit('draft-stt-result', draftTranslationResult)
+      })
+      .catch((err) => {
+        log.warn('Draft STT error (non-fatal):', err instanceof Error ? err.message : err)
+      })
   }
 
   /**

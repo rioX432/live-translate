@@ -24,6 +24,7 @@ export class EngineManager {
   sttEngine: STTEngine | null = null
   translator: TranslatorEngine | null = null
   e2eEngine: E2ETranslationEngine | null = null
+  draftSttEngine: STTEngine | null = null
   config: EngineConfig | null = null
 
   registerSTT(id: string, factory: () => STTEngine): void {
@@ -89,12 +90,26 @@ export class EngineManager {
     }
   }
 
+  /**
+   * Initialize the draft STT engine for fast interim results (#536).
+   * Called separately from initializeEngines since draft STT is optional.
+   */
+  async initDraftStt(engineId: string, emitter: EventEmitter): Promise<void> {
+    const factory = this.sttFactories.get(engineId)
+    if (!factory) throw new Error(`Draft STT engine not found: ${engineId}`)
+
+    emitter.emit('engine-loading', 'Loading draft STT model...')
+    this.draftSttEngine = await Promise.resolve(factory())
+    await this.withTimeout(this.draftSttEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Draft STT initialization')
+  }
+
   /** Dispose all active engines and clear references */
   async disposeEngines(): Promise<void> {
-    const engines = [this.sttEngine, this.translator, this.e2eEngine]
+    const engines = [this.sttEngine, this.translator, this.e2eEngine, this.draftSttEngine]
     this.sttEngine = null
     this.translator = null
     this.e2eEngine = null
+    this.draftSttEngine = null
 
     for (const engine of engines) {
       if (engine) {

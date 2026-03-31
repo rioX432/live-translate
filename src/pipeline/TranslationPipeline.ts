@@ -25,6 +25,8 @@ export interface PipelineEvents {
   'interim-result': (result: TranslationResult) => void
   /** Draft result from hybrid translation mode — shown immediately before LLM refinement */
   'draft-result': (result: TranslationResult) => void
+  /** Draft STT interim result — fast Moonshine Tiny JA result before primary STT (#536) */
+  'draft-stt-result': (result: TranslationResult) => void
   /** GER-corrected result — async post-correction of STT errors (#409) */
   'ger-corrected': (result: TranslationResult) => void
   error: (error: Error) => void
@@ -82,6 +84,9 @@ export class TranslationPipeline extends EventEmitter {
   private simulMtEnabled = false
   private simulMtWaitK = 3
 
+  // Draft STT state (#536)
+  private draftSttEnabled = false
+
   // Batch processing mutex — STT engines assume sequential access (#217)
   private batchLock = false
 
@@ -121,7 +126,8 @@ export class TranslationPipeline extends EventEmitter {
           this.processingDoneResolvers = []
         }
       },
-      getGER: () => this.ger
+      getGER: () => this.ger,
+      getDraftSTTEngine: () => this.draftSttEnabled ? this.engineManager.draftSttEngine : null
     })
     this.ger = new GERProcessor({
       emitter: this,
@@ -199,6 +205,11 @@ export class TranslationPipeline extends EventEmitter {
     this.ger.setEnabled(enabled)
   }
 
+  /** Enable or disable draft STT for fast interim results (#536) */
+  setDraftSttEnabled(enabled: boolean): void {
+    this.draftSttEnabled = enabled
+  }
+
   // --- Engine registration (delegated to EngineManager) ---
 
   registerSTT(id: string, factory: () => STTEngine): void {
@@ -238,6 +249,16 @@ export class TranslationPipeline extends EventEmitter {
       await this.waitForProcessing()
       await this.engineManager.disposeEngines()
       await this.engineManager.initializeEngines(config, this)
+
+      // Initialize draft STT if enabled (#536)
+      if (this.draftSttEnabled) {
+        try {
+          await this.engineManager.initDraftStt('moonshine-tiny-ja', this)
+        } catch (err) {
+          log.warn('Draft STT initialization failed (non-fatal):', err)
+          this.emit('engine-loading', 'Draft STT not available — continuing without fast interim results')
+        }
+      }
 
       // If was RUNNING (hot-swap), go back to RUNNING; otherwise stay IDLE until start()
       if (prevState === PipelineState.RUNNING) {

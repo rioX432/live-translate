@@ -108,6 +108,8 @@ function SettingsPanel(): React.JSX.Element {
             platform={s.platform}
             disabled={disabled}
             sourceLanguage={s.sourceLanguage}
+            draftSttEnabled={s.draftSttEnabled}
+            onDraftSttEnabledChange={s.setDraftSttEnabled}
           />
 
           <TranslatorSettings

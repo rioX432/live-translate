@@ -64,6 +64,10 @@ export interface SettingsState {
   whisperVariant: WhisperVariantType
   setWhisperVariant: (v: WhisperVariantType) => void
 
+  // Draft STT
+  draftSttEnabled: boolean
+  setDraftSttEnabled: (v: boolean) => void
+
   // Subtitle
   subtitleFontSize: number
   setSubtitleFontSize: (v: number) => void
@@ -167,7 +171,8 @@ export function useSettingsState(): SettingsState {
         sourceLanguage: language.sourceLanguage,
         targetLanguage: language.targetLanguage,
         noiseSuppressionEnabled: session.noiseSuppression.enabled,
-        audioSource: session.audio.audioSource
+        audioSource: session.audio.audioSource,
+        draftSttEnabled: language.draftSttEnabled
       }), 10_000, 'saveSettings')
 
       const resolvedMode = resolveEngineMode(engine.engineMode, apiKeys, engine.gpuInfo)
@@ -290,6 +295,7 @@ export function useSettingsState(): SettingsState {
     sttEngine: language.sttEngine, setSttEngine: language.setSttEngine,
     whisperVariant: language.whisperVariant, setWhisperVariant: language.setWhisperVariant,
     platform: language.platform,
+    draftSttEnabled: language.draftSttEnabled, setDraftSttEnabled: language.setDraftSttEnabled,
 
     // Session
     status: session.status, setStatus: session.setStatus,

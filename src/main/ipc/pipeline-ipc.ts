@@ -128,6 +128,9 @@ export function registerPipelineIpc(ctx: AppContext): void {
       // Configure SimulMT (#239)
       ctx.pipeline!.setSimulMt(store.get('simulMtEnabled'), store.get('simulMtWaitK'))
 
+      // Configure draft STT (#536)
+      ctx.pipeline!.setDraftSttEnabled(store.get('draftSttEnabled'))
+
       // Start logger
       ctx.logger = new TranscriptLogger((msg) => ctx.mainWindow?.webContents.send('status-update', msg))
       const sessionLabel = config.mode === 'e2e'
