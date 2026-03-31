@@ -107,7 +107,7 @@ export function QuickStartPanel({ onSetupComplete }: QuickStartPanelProps): Reac
           <div style={infoRowStyle}>
             <span style={infoLabelStyle}>Platform</span>
             <span style={infoValueStyle}>
-              {systemInfo.platform === 'darwin' ? 'macOS' : systemInfo.platform}
+              {systemInfo.platform === 'darwin' ? 'macOS' : systemInfo.platform === 'win32' ? 'Windows' : systemInfo.platform}
             </span>
           </div>
           <div style={infoRowStyle}>

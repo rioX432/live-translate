@@ -137,7 +137,11 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
         // #48: surface permission errors to UI with specific messages
         const message = err instanceof Error ? err.message : String(err)
         if (message.includes('NotAllowedError') || message.includes('Permission')) {
-          setPermissionError('Microphone access denied. Please grant permission in System Settings > Privacy & Security > Microphone.')
+          // Platform-specific permission guidance
+          const permissionHint = navigator.userAgent.includes('Windows')
+            ? 'Please grant permission in Windows Settings > Privacy > Microphone.'
+            : 'Please grant permission in System Settings > Privacy & Security > Microphone.'
+          setPermissionError(`Microphone access denied. ${permissionHint}`)
         } else if (message.includes('NotFoundError') || message.includes('DevicesNotFoundError')) {
           setPermissionError('No microphone detected. Please connect a microphone and restart.')
         } else if (message.includes('NotReadableError') || message.includes('TrackStartError')) {

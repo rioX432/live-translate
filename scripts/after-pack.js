@@ -1,14 +1,21 @@
 // After-pack hook for electron-builder:
 // Recreate whisper-node-addon symlinks and fix rpath in the unpacked asar directory.
+// Handles both macOS (symlinks + rpath) and Windows (junctions).
 const fs = require('fs')
 const path = require('path')
 const { execSync } = require('child_process')
 
 exports.default = async function afterPack(context) {
-  // macOS-specific fixes: symlinks and rpath for whisper-node-addon
-  // Windows uses .dll and doesn't need these fixes
-  if (process.platform !== 'darwin') return
+  const platform = context.packager.platform.name // 'mac', 'windows', 'linux'
 
+  if (platform === 'mac') {
+    await fixMacOS(context)
+  } else if (platform === 'windows') {
+    await fixWindows(context)
+  }
+}
+
+async function fixMacOS(context) {
   const appOutDir = context.appOutDir
   const unpackedBase = path.join(
     appOutDir,
@@ -57,5 +64,46 @@ exports.default = async function afterPack(context) {
     }
   }
 
-  console.log('[after-pack] whisper-node-addon fixes applied')
+  console.log('[after-pack] macOS whisper-node-addon fixes applied')
+}
+
+async function fixWindows(context) {
+  const appOutDir = context.appOutDir
+  const unpackedBase = path.join(
+    appOutDir,
+    'resources',
+    'app.asar.unpacked',
+    'node_modules',
+    '@kutalia',
+    'whisper-node-addon',
+    'dist'
+  )
+
+  if (!fs.existsSync(unpackedBase)) {
+    console.log('[after-pack] whisper-node-addon dist not found in unpacked asar, skipping')
+    return
+  }
+
+  // Recreate win-x64 → win32-x64 junction (may be lost during packaging)
+  const symlinkMappings = [
+    { from: 'win-x64', to: 'win32-x64' }
+  ]
+
+  for (const { from, to } of symlinkMappings) {
+    const source = path.join(unpackedBase, from)
+    const target = path.join(unpackedBase, to)
+
+    if (fs.existsSync(source) && !fs.existsSync(target)) {
+      try {
+        fs.symlinkSync(source, target, 'junction')
+        console.log(`[after-pack] Created junction: ${to} -> ${from}`)
+      } catch (e) {
+        // Fallback: copy directory
+        fs.cpSync(source, target, { recursive: true })
+        console.log(`[after-pack] Copied directory: ${from} -> ${to}`)
+      }
+    }
+  }
+
+  console.log('[after-pack] Windows whisper-node-addon fixes applied')
 }

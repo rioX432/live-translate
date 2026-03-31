@@ -1,7 +1,8 @@
-// Fix whisper-node-addon issues on macOS:
-// 1. Directory naming: addon expects 'darwin-arm64' but ships as 'mac-arm64'
-// 2. dylib rpath: libraries have hardcoded build paths, need to add local rpath
-// 3. Copy vad-web assets to renderer public dir for serving
+// Fix whisper-node-addon platform-specific issues:
+// macOS: 1. Directory naming (mac-arm64 → darwin-arm64 symlink)
+//        2. dylib rpath (hardcoded build paths → local rpath)
+// Windows: 3. Directory naming (win-x64 → win32-x64 symlink)
+// All platforms: 4. Copy vad-web assets to renderer public dir for serving
 const fs = require('fs')
 const path = require('path')
 const { execSync } = require('child_process')
@@ -13,7 +14,7 @@ if (!fs.existsSync(addonDist)) {
   process.exit(0)
 }
 
-// Fix 1: Create symlinks for platform naming (macOS only)
+// Fix 1: Create symlinks for platform naming (macOS)
 if (process.platform === 'darwin') {
   const symlinkMappings = [
     { from: 'mac-arm64', to: 'darwin-arm64' },
@@ -29,8 +30,6 @@ if (process.platform === 'darwin') {
       console.log(`[fix-whisper-addon] Created symlink: ${to} -> ${from}`)
     }
   }
-} else {
-  console.log('[fix-whisper-addon] Skipping symlinks on non-macOS platform')
 }
 
 // Fix 2: Add rpath for dylib loading (macOS only)
@@ -45,6 +44,32 @@ if (process.platform === 'darwin') {
       console.log(`[fix-whisper-addon] Added rpath: ${addonDir}`)
     } catch (e) {
       console.warn(`[fix-whisper-addon] Failed to add rpath: ${e.message}`)
+    }
+  }
+}
+
+// Fix 3: Create symlinks for platform naming (Windows)
+// whisper-node-addon ships 'win-x64' but Node.js resolves 'win32-x64'
+if (process.platform === 'win32') {
+  const symlinkMappings = [
+    { from: 'win-x64', to: 'win32-x64' }
+  ]
+
+  for (const { from, to } of symlinkMappings) {
+    const source = path.join(addonDist, from)
+    const target = path.join(addonDist, to)
+
+    if (fs.existsSync(source) && !fs.existsSync(target)) {
+      try {
+        // Use junction on Windows (doesn't require admin privileges unlike symlinks)
+        fs.symlinkSync(source, target, 'junction')
+        console.log(`[fix-whisper-addon] Created junction: ${to} -> ${from}`)
+      } catch (e) {
+        // Fallback: copy directory if junction fails (e.g. on FAT32)
+        console.warn(`[fix-whisper-addon] Junction failed, copying directory: ${e.message}`)
+        fs.cpSync(source, target, { recursive: true })
+        console.log(`[fix-whisper-addon] Copied directory: ${from} -> ${to}`)
+      }
     }
   }
 }
