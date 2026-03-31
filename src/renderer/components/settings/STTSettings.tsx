@@ -1,7 +1,7 @@
 import React from 'react'
 import { Section } from './Section'
 import { selectStyle } from './shared'
-import type { SttEngineType, WhisperVariantType } from './shared'
+import type { SttEngineType, WhisperVariantType, SourceLanguage } from './shared'
 
 interface STTSettingsProps {
   sttEngine: SttEngineType
@@ -10,6 +10,7 @@ interface STTSettingsProps {
   onWhisperVariantChange: (v: WhisperVariantType) => void
   platform: string
   disabled: boolean
+  sourceLanguage: SourceLanguage
 }
 
 export function STTSettings({
@@ -18,8 +19,12 @@ export function STTSettings({
   whisperVariant,
   onWhisperVariantChange,
   platform,
-  disabled
+  disabled,
+  sourceLanguage
 }: STTSettingsProps): React.JSX.Element {
+  // Kotoba-Whisper outputs JA only — show when source is JA or auto, on Apple Silicon
+  const showKotobaWhisper = platform === 'darwin' && (sourceLanguage === 'ja' || sourceLanguage === 'auto')
+
   return (
     <Section label="Speech Recognition">
       <select
@@ -29,6 +34,9 @@ export function STTSettings({
         disabled={disabled}
         aria-label="STT engine"
       >
+        {showKotobaWhisper && (
+          <option value="kotoba-whisper">Kotoba-Whisper v2.0 (JA-optimized, Apple Silicon)</option>
+        )}
         {platform === 'darwin' && (
           <option value="mlx-whisper">mlx-whisper (Apple Silicon, recommended)</option>
         )}
@@ -71,6 +79,16 @@ export function STTSettings({
             <div style={{ marginTop: '4px', fontSize: '11px', color: '#f59e0b' }}>
               Fastest mode: minimal latency (&lt;1s) but significantly lower accuracy. Best for speed-critical use cases.
             </div>
+          )}
+        </div>
+      )}
+      {sttEngine === 'kotoba-whisper' && (
+        <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+          Kotoba-Whisper v2.0: JA CER 5.6% (31% better than MLX Whisper). Japanese output only.
+          {sourceLanguage === 'auto' && (
+            <span style={{ color: '#f59e0b' }}>
+              {' '}Warning: this model only outputs Japanese. Set source language to JA for best results.
+            </span>
           )}
         </div>
       )}

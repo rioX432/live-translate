@@ -107,6 +107,7 @@ function SettingsPanel(): React.JSX.Element {
             onWhisperVariantChange={s.setWhisperVariant}
             platform={s.platform}
             disabled={disabled}
+            sourceLanguage={s.sourceLanguage}
           />
 
           <TranslatorSettings
