@@ -38,6 +38,9 @@ export function STTSettings({
           <option value="kotoba-whisper">Kotoba-Whisper v2.0 (JA-optimized, Apple Silicon)</option>
         )}
         {platform === 'darwin' && (
+          <option value="qwen3-asr">Qwen3-ASR 0.6B (Best accuracy, Apple Silicon)</option>
+        )}
+        {platform === 'darwin' && (
           <option value="mlx-whisper">mlx-whisper (Apple Silicon, recommended)</option>
         )}
         <option value="whisper-local">Whisper (whisper.cpp)</option>
@@ -90,6 +93,21 @@ export function STTSettings({
               {' '}Warning: this model only outputs Japanese. Set source language to JA for best results.
             </span>
           )}
+        </div>
+      )}
+      {sttEngine === 'qwen3-asr' && (
+        <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+          Qwen3-ASR 0.6B: JA CER 6.8%, EN WER 1.9% — best combined JA+EN accuracy.
+          Requires{' '}
+          <span style={{ fontFamily: 'monospace', fontSize: '10px' }}>speech-swift</span>
+          {' '}(
+          <span style={{ fontFamily: 'monospace', fontSize: '10px' }}>
+            brew tap soniqo/speech https://github.com/soniqo/speech-swift &amp;&amp; brew install speech
+          </span>
+          ). Model (~600MB) auto-downloads on first use.
+          <div style={{ marginTop: '2px', color: '#f59e0b' }}>
+            Latency: ~2.2s per chunk (65% slower than MLX Whisper ~1.3s). Best for accuracy over speed.
+          </div>
         </div>
       )}
       {sttEngine === 'mlx-whisper' && (

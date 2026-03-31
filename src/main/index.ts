@@ -7,6 +7,7 @@ import { KotobaWhisperEngine } from '../engines/stt/KotobaWhisperEngine'
 import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
 import { SherpaOnnxEngine } from '../engines/stt/SherpaOnnxEngine'
 import { SpeechSwiftEngine } from '../engines/stt/SpeechSwiftEngine'
+import { Qwen3ASREngine } from '../engines/stt/Qwen3ASREngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
@@ -69,6 +70,12 @@ async function initPipeline(): Promise<void> {
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     modelKey: (store.get('sherpaOnnxModel') as string) || undefined
   }))
+  // Qwen3-ASR 0.6B via speech-swift — Apple Silicon only, primary engine
+  if (process.platform === 'darwin') {
+    ctx.pipeline.registerSTT('qwen3-asr', () => new Qwen3ASREngine({
+      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+    }))
+  }
   // Experimental: requires speech-swift binary (Homebrew) — Apple Silicon only, not shown in UI
   if (process.platform === 'darwin') {
     ctx.pipeline.registerSTT('speech-swift', () => new SpeechSwiftEngine({
