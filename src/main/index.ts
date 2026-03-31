@@ -125,7 +125,8 @@ async function initPipeline(): Promise<void> {
   // Experimental: untested smaller Hunyuan variant — not shown in default UI
   ctx.pipeline.registerTranslator('hunyuan-mt-15', () => new HunyuanMT15Translator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant')
+    kvCacheQuant: store.get('slmKvCacheQuant'),
+    speculativeDecoding: store.get('slmSpeculativeDecoding')
   }))
   // ANEMLL Apple Neural Engine translator — macOS Apple Silicon only (#241) — experimental
   if (process.platform === 'darwin') {
@@ -145,6 +146,13 @@ async function initPipeline(): Promise<void> {
       speculativeDecoding: store.get('slmSpeculativeDecoding')
     })
   ))
+  // Speculative decoding: LFM2-350M draft + HY-MT1.5-1.8B verifier (#518)
+  // Token-level speculative decoding for 1.5-2x throughput improvement
+  ctx.pipeline.registerTranslator('speculative-hybrid', () => new HunyuanMT15Translator({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
+    kvCacheQuant: store.get('slmKvCacheQuant'),
+    speculativeDecoding: true
+  }))
   // Auto-register discovered plugins (#145)
   for (const plugin of discoverPlugins()) {
     const { manifest } = plugin
