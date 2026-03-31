@@ -73,6 +73,12 @@ export const SPEECH_SWIFT_TRANSCRIBE_TIMEOUT_MS = 30_000
 /** Init timeout for speech-swift — first run triggers model download (ms) */
 export const SPEECH_SWIFT_INIT_TIMEOUT_MS = 300_000
 
+/** Command timeout for Apple SpeechTranscriber transcription (ms) */
+export const APPLE_STT_TRANSCRIBE_TIMEOUT_MS = 15_000
+
+/** Init timeout for Apple SpeechTranscriber — first run triggers AssetInventory download (ms) */
+export const APPLE_STT_INIT_TIMEOUT_MS = 300_000
+
 /** Command timeout for SenseVoice transcription (ms) */
 export const SENSEVOICE_TRANSCRIBE_TIMEOUT_MS = 30_000
 
