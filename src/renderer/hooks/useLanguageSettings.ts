@@ -41,6 +41,18 @@ export function useLanguageSettings(): LanguageSettingsState {
     }).catch((e) => console.warn('[settings] Failed to load platform/settings:', e))
   }, [])
 
+  // Auto-select Kotoba-Whisper when source language is set to JA on Apple Silicon (#534)
+  // Revert to mlx-whisper when source changes away from JA
+  useEffect(() => {
+    if (platform !== 'darwin') return
+    if (sourceLanguage === 'ja' && sttEngine === 'mlx-whisper') {
+      setSttEngine('kotoba-whisper')
+    } else if (sourceLanguage !== 'ja' && sourceLanguage !== 'auto' && sttEngine === 'kotoba-whisper') {
+      // Kotoba-Whisper only outputs JA — switch back to mlx-whisper for non-JA sources
+      setSttEngine('mlx-whisper')
+    }
+  }, [sourceLanguage, platform, sttEngine])
+
   return {
     sourceLanguage, setSourceLanguage,
     targetLanguage, setTargetLanguage,

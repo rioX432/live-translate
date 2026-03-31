@@ -3,6 +3,7 @@ import { initMain as initAudioLoopback } from 'electron-audio-loopback'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
 import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
+import { KotobaWhisperEngine } from '../engines/stt/KotobaWhisperEngine'
 import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
 import { SherpaOnnxEngine } from '../engines/stt/SherpaOnnxEngine'
 import { SpeechSwiftEngine } from '../engines/stt/SpeechSwiftEngine'
@@ -52,6 +53,10 @@ async function initPipeline(): Promise<void> {
   // mlx-whisper is Apple Silicon only — skip registration on other platforms
   if (process.platform === 'darwin') {
     ctx.pipeline.registerSTT('mlx-whisper', () => new MlxWhisperEngine({
+      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+    }))
+    // Kotoba-Whisper v2.0: JA-optimized MLX Whisper variant (JA CER 5.6%, JA-only output)
+    ctx.pipeline.registerSTT('kotoba-whisper', () => new KotobaWhisperEngine({
       onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
     }))
   }

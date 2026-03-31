@@ -27,7 +27,7 @@ export const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
 
 export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-hybrid' | 'offline-lfm2' | 'offline-plamo'
 
-export type SttEngineType = 'whisper-local' | 'mlx-whisper'
+export type SttEngineType = 'whisper-local' | 'mlx-whisper' | 'kotoba-whisper'
 export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo' | 'distil-large-v3' | 'base' | 'small'
 export type SubtitlePositionType = 'top' | 'bottom'
 
@@ -128,6 +128,7 @@ export function getEngineDisplayName(mode: EngineMode): string {
 /** Display name for STT engine + variant */
 export function getSttDisplayName(sttEngine: SttEngineType, whisperVariant: WhisperVariantType): string {
   switch (sttEngine) {
+    case 'kotoba-whisper': return 'Kotoba-Whisper v2.0 (JA-optimized)'
     case 'mlx-whisper': return 'mlx-whisper (Apple Silicon)'
     case 'whisper-local': {
       const variantLabels: Record<string, string> = {

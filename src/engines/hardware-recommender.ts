@@ -10,7 +10,7 @@ import type { WhisperVariant } from './model-downloader'
 
 /** Engine recommendation produced by hardware analysis */
 export interface EngineRecommendation {
-  sttEngine: 'whisper-local' | 'mlx-whisper'
+  sttEngine: 'whisper-local' | 'mlx-whisper' | 'kotoba-whisper'
   translationEngine: string
   whisperVariant: WhisperVariant
   /** Models that need downloading before offline engines can run */
@@ -47,22 +47,28 @@ function isAppleSilicon(platform: string, gpuInfo: GpuInfo): boolean {
  * Recommend optimal engines based on hardware capabilities.
  *
  * Priority:
- * 1. Apple Silicon M1+ with >=16GB: MLX Whisper + HY-MT1.5-1.8B
- * 2. Apple Silicon M1+ with >=8GB: MLX Whisper + LFM2 (lighter)
- * 3. Apple Silicon M1+ with <8GB: MLX Whisper + API fallback
+ * 1. Apple Silicon M1+ with >=16GB: MLX Whisper (or Kotoba-Whisper for JA) + HY-MT1.5-1.8B
+ * 2. Apple Silicon M1+ with >=8GB: MLX Whisper (or Kotoba-Whisper for JA) + LFM2 (lighter)
+ * 3. Apple Silicon M1+ with <8GB: MLX Whisper (or Kotoba-Whisper for JA) + API fallback
  * 4. Intel Mac / other: Whisper Local (base) + API fallback
+ *
+ * When sourceLanguage is 'ja', Kotoba-Whisper v2.0 is preferred on Apple Silicon
+ * (JA CER 5.6% vs MLX Whisper's 8.1%).
  */
 export function recommendEngines(
   gpuInfo: GpuInfo,
   platform: string,
-  totalMemoryMB: number
+  totalMemoryMB: number,
+  sourceLanguage?: string
 ): EngineRecommendation {
   const appleSilicon = isAppleSilicon(platform, gpuInfo)
   const downloads: DownloadItem[] = []
+  // Prefer Kotoba-Whisper for JA-only setups on Apple Silicon
+  const preferKotoba = appleSilicon && sourceLanguage === 'ja'
 
   if (appleSilicon && totalMemoryMB >= 16384) {
-    // Best experience: MLX Whisper + HY-MT1.5
-    const sttEngine = 'mlx-whisper' as const
+    // Best experience: MLX Whisper (or Kotoba-Whisper for JA) + HY-MT1.5
+    const sttEngine = preferKotoba ? 'kotoba-whisper' as const : 'mlx-whisper' as const
     const translationEngine = 'offline-hymt15'
     const whisperVariant: WhisperVariant = 'kotoba-v2.0'
 
@@ -89,8 +95,8 @@ export function recommendEngines(
   }
 
   if (appleSilicon && totalMemoryMB >= 8192) {
-    // Good experience: MLX Whisper + LFM2 (ultra-light)
-    const sttEngine = 'mlx-whisper' as const
+    // Good experience: MLX Whisper (or Kotoba-Whisper for JA) + LFM2 (ultra-light)
+    const sttEngine = preferKotoba ? 'kotoba-whisper' as const : 'mlx-whisper' as const
     const translationEngine = 'offline-lfm2'
     const whisperVariant: WhisperVariant = 'kotoba-v2.0'
 
@@ -116,8 +122,8 @@ export function recommendEngines(
   }
 
   if (appleSilicon) {
-    // Low memory Apple Silicon: MLX Whisper + OPUS-MT (no GGUF download needed)
-    const sttEngine = 'mlx-whisper' as const
+    // Low memory Apple Silicon: MLX Whisper (or Kotoba-Whisper for JA) + OPUS-MT (no GGUF download needed)
+    const sttEngine = preferKotoba ? 'kotoba-whisper' as const : 'mlx-whisper' as const
     const translationEngine = 'offline-opus'
     const whisperVariant: WhisperVariant = 'base'
 
