@@ -1,4 +1,5 @@
-// swift-tools-version: 6.1
+// swift-tools-version: 6.2
+// Requires Xcode 26+ (macOS 26 Tahoe SDK)
 
 import PackageDescription
 

@@ -7,11 +7,12 @@
 /// Outputs transcribed text to stdout. With --json, outputs JSON with
 /// text and locale fields.
 ///
-/// Requires macOS 26 (Tahoe) or later.
+/// Requires macOS 26 (Tahoe) or later. Build with Xcode 26+ CLI tools.
 
 import Foundation
 import Speech
-import AVFoundation
+import AVFAudio
+import Darwin
 
 // MARK: - CLI Argument Parsing
 
@@ -74,42 +75,42 @@ func transcribe(audioPath: String, locale: Locale, jsonOutput: Bool) async throw
     let url = URL(fileURLWithPath: audioPath)
     guard FileManager.default.fileExists(atPath: audioPath) else {
         fputs("Error: file not found: \(audioPath)\n", stderr)
-        Foundation.exit(1)
+        Darwin.exit(EXIT_FAILURE)
     }
 
-    // Ensure the language asset is available on-device
-    let transcriber = SpeechTranscriber(locale: locale)
+    // Configure transcriber for offline file processing
+    let transcriber = SpeechTranscriber(locale: locale, preset: .offlineTranscription)
+
+    // Download language model if not already installed
+    if !(await SpeechTranscriber.installedLocales).contains(locale) {
+        fputs("Downloading speech model for \(locale.identifier)...\n", stderr)
+        if let request = try await AssetInventory.assetInstallationRequest(supporting: [transcriber]) {
+            try await request.downloadAndInstall()
+        }
+    }
+
+    // Collect transcription results concurrently while analyzing
     let analyzer = SpeechAnalyzer(modules: [transcriber])
-
-    // Download language model if needed (AssetInventory)
-    let request = try await AssetInventory.assetInstallationRequest(
-        supporting: [transcriber]
-    )
-    if let request {
-        fputs("Downloading language model for \(locale.identifier)...\n", stderr)
-        try await request.downloadAndInstall()
-    }
-
-    // Open the audio file
     let audioFile = try AVAudioFile(forReading: url)
 
-    // Start the analyzer with the audio file
-    try await analyzer.start(
-        inputAudioFile: audioFile,
-        finishAfterFile: true
-    )
+    async let attrTranscript: AttributedString = transcriber.results
+        .reduce(into: AttributedString("")) { partial, result in
+            partial.append(result.text)
+            partial.append(AttributedString(" "))
+        }
 
-    // Collect transcription results
-    var fullText = ""
-    for try await result in transcriber.results {
-        fullText += result.text
+    if let lastSample = try await analyzer.analyzeSequence(from: audioFile) {
+        try await analyzer.finalizeAndFinish(through: lastSample)
+    } else {
+        await analyzer.cancelAndFinishNow()
     }
 
-    let trimmed = fullText.trimmingCharacters(in: .whitespacesAndNewlines)
+    let plainText = String((try await attrTranscript).characters)
+        .trimmingCharacters(in: .whitespacesAndNewlines)
 
     if jsonOutput {
         let output: [String: Any] = [
-            "text": trimmed,
+            "text": plainText,
             "locale": locale.identifier
         ]
         if let data = try? JSONSerialization.data(withJSONObject: output),
@@ -117,7 +118,7 @@ func transcribe(audioPath: String, locale: Locale, jsonOutput: Bool) async throw
             print(json)
         }
     } else {
-        print(trimmed)
+        print(plainText)
     }
 }
 
@@ -125,7 +126,7 @@ func transcribe(audioPath: String, locale: Locale, jsonOutput: Bool) async throw
 
 @available(macOS 26.0, *)
 func listLocales() async {
-    let locales = await SpeechTranscriber.supportedLocales
+    let locales = await SpeechTranscriber.installedLocales
     let identifiers = locales.map { $0.identifier }.sorted()
     for id in identifiers {
         print(id)
@@ -145,7 +146,7 @@ func printHelp() {
 
     Commands:
       transcribe    Transcribe an audio file to text
-      list-locales  List supported locales for on-device transcription
+      list-locales  List installed locales for on-device transcription
       help          Show this help message
 
     Options:
@@ -153,7 +154,7 @@ func printHelp() {
       --json         Output JSON with text and locale fields
 
     Requirements:
-      macOS 26 (Tahoe) or later
+      macOS 26 (Tahoe) or later, Xcode 26+ CLI tools
     """
     print(help)
 }
@@ -169,7 +170,7 @@ if #available(macOS 26.0, *) {
             try await transcribe(audioPath: path, locale: locale, jsonOutput: json)
         } catch {
             fputs("Error: \(error.localizedDescription)\n", stderr)
-            Foundation.exit(1)
+            Darwin.exit(EXIT_FAILURE)
         }
     case .listLocales:
         await listLocales()
@@ -178,5 +179,5 @@ if #available(macOS 26.0, *) {
     }
 } else {
     fputs("Error: apple-stt requires macOS 26 (Tahoe) or later\n", stderr)
-    Foundation.exit(1)
+    Darwin.exit(EXIT_FAILURE)
 }
