@@ -161,6 +161,13 @@ contextBridge.exposeInMainWorld('api', {
   quickStartSkip: () => ipcRenderer.invoke('quick-start-skip'),
   quickStartSystemInfo: () => ipcRenderer.invoke('quick-start-system-info'),
 
+  // Enterprise features (#519)
+  enterpriseGetUsageSummary: (days?: number) => ipcRenderer.invoke('enterprise-get-usage-summary', days),
+  enterpriseGetQuickStats: () => ipcRenderer.invoke('enterprise-get-quick-stats'),
+  enterpriseGetMdmConfig: () => ipcRenderer.invoke('enterprise-get-mdm-config'),
+  enterpriseGetTelemetryConsent: () => ipcRenderer.invoke('enterprise-get-telemetry-consent'),
+  enterpriseSetTelemetryConsent: (consent: boolean) => ipcRenderer.invoke('enterprise-set-telemetry-consent', consent),
+
   // Auto-update (#314)
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateDownload: () => ipcRenderer.invoke('update-download'),

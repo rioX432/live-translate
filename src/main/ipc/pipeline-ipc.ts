@@ -11,8 +11,21 @@ import type { AppContext } from '../app-context'
 import type { EngineConfig } from '../../engines/types'
 import { sanitizeErrorMessage } from '../error-utils'
 import { createLogger } from '../logger'
+import { getMdmConfig } from '../mdm-config'
+import { recordSessionEnd } from '../../logger/UsageAnalytics'
+import type { LiveSessionMetrics } from '../../logger/UsageAnalytics'
 
 const log = createLogger('ipc:pipeline')
+
+/** Live session metrics for usage analytics — tracks character count in real-time */
+let liveMetrics: LiveSessionMetrics | null = null
+
+/** Increment character count for the current live session (#519) */
+export function trackTranslatedCharacters(charCount: number): void {
+  if (liveMetrics && charCount > 0) {
+    liveMetrics.characterCount += charCount
+  }
+}
 
 /** Monthly character limits for API rotation providers */
 const QUOTA_LIMITS = {
@@ -40,6 +53,27 @@ export function registerPipelineIpc(ctx: AppContext): void {
     }
 
     try {
+      // #519: Apply MDM admin locks — override user-selected engine if locked
+      const mdm = getMdmConfig()
+      if (mdm.lockedEngine && config.translatorEngineId) {
+        log.info(`MDM: Overriding translator engine from ${config.translatorEngineId} to ${mdm.lockedEngine}`)
+        config.translatorEngineId = mdm.lockedEngine
+      }
+      if (mdm.lockedSttEngine && config.sttEngineId) {
+        log.info(`MDM: Overriding STT engine from ${config.sttEngineId} to ${mdm.lockedSttEngine}`)
+        config.sttEngineId = mdm.lockedSttEngine
+      }
+      // #519: Use managed API keys if provided by MDM
+      if (mdm.managedApiKey && !config.apiKey) {
+        config.apiKey = mdm.managedApiKey
+      }
+      if (mdm.managedDeeplApiKey && !config.deeplApiKey) {
+        config.deeplApiKey = mdm.managedDeeplApiKey
+      }
+      if (mdm.managedGeminiApiKey && !config.geminiApiKey) {
+        config.geminiApiKey = mdm.managedGeminiApiKey
+      }
+
       // Register online translators with provided API keys
       if (config.apiKey) {
         ctx.pipeline.registerTranslator('google-translate', () => new GoogleTranslator(config.apiKey!))
@@ -143,6 +177,16 @@ export function registerPipelineIpc(ctx: AppContext): void {
 
       ctx.pipeline.start()
 
+      // #519: Initialize live session metrics for usage analytics
+      liveMetrics = {
+        sessionId: String(Date.now()),
+        startedAt: Date.now(),
+        characterCount: 0,
+        engineMode: String(config.translatorEngineId || config.e2eEngineId || 'unknown'),
+        sourceLanguage: String(store.get('sourceLanguage') || 'auto'),
+        targetLanguage: String(store.get('targetLanguage') || 'en')
+      }
+
       return { success: true }
     } catch (err) {
       return { error: sanitizeErrorMessage(String(err)) }
@@ -164,6 +208,16 @@ export function registerPipelineIpc(ctx: AppContext): void {
       })
       // Keep last 100 session logs
       store.set('sessionLogs', logs.slice(-100))
+    }
+
+    // #519: Record usage analytics before stopping
+    if (liveMetrics) {
+      try {
+        recordSessionEnd(liveMetrics)
+      } catch (err) {
+        log.warn('Failed to record usage analytics:', err)
+      }
+      liveMetrics = null
     }
 
     await ctx.pipeline?.stop()

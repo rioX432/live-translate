@@ -93,6 +93,10 @@ export interface AppSettings {
   virtualMicDeviceId: number
   /** Enable draft STT (Moonshine Tiny JA) for fast interim results (#536) */
   draftSttEnabled: boolean
+  /** Opt-in anonymous telemetry consent (#519) */
+  telemetryConsent: boolean
+  /** Whether the telemetry consent dialog has been shown */
+  telemetryConsentShown: boolean
 }
 
 export const store = new Store<AppSettings>({
@@ -141,6 +145,8 @@ export const store = new Store<AppSettings>({
     ttsVolume: 0.8,
     virtualMicEnabled: false,
     virtualMicDeviceId: -1,
-    draftSttEnabled: false
+    draftSttEnabled: false,
+    telemetryConsent: false,
+    telemetryConsentShown: false
   }
 })

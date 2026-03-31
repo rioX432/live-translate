@@ -99,6 +99,44 @@ export interface ElectronAPI {
   quickStartSkip: () => Promise<{ success: boolean }>
   quickStartSystemInfo: () => Promise<{ platform: string; totalMemoryMB: number; gpuInfo: { hasGpu: boolean; gpuNames: string[] } }>
 
+  // Enterprise features (#519)
+  enterpriseGetUsageSummary: (days?: number) => Promise<{
+    periodStart: string
+    periodEnd: string
+    totalSessions: number
+    totalDurationMs: number
+    totalCharacters: number
+    averageSessionDurationMs: number
+    engineBreakdown: Record<string, number>
+    languagePairBreakdown: Record<string, number>
+    dailyStats: Array<{
+      date: string
+      totalSessionCount: number
+      totalDurationMs: number
+      totalCharacterCount: number
+      engineUsage: Record<string, number>
+      languagePairs: Record<string, number>
+    }>
+    error?: string
+  }>
+  enterpriseGetQuickStats: () => Promise<{ totalSessions: number; totalDurationMs: number }>
+  enterpriseGetMdmConfig: () => Promise<{
+    lockedEngine: string | null
+    lockedSttEngine: string | null
+    telemetryDisabled: boolean
+    hasManagedApiKey: boolean
+    hasManagedDeeplApiKey: boolean
+    hasManagedGeminiApiKey: boolean
+    organizationName: string | null
+    autoUpdateDisabled: boolean
+  }>
+  enterpriseGetTelemetryConsent: () => Promise<{
+    consent: boolean
+    consentShown: boolean
+    mdmDisabled: boolean
+  }>
+  enterpriseSetTelemetryConsent: (consent: boolean) => Promise<{ success: boolean; reason?: string }>
+
   // Auto-update (#314)
   updateCheck: () => Promise<{ success?: boolean; error?: string }>
   updateDownload: () => Promise<{ success?: boolean; error?: string }>

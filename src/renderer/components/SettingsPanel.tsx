@@ -12,7 +12,8 @@ import {
   UpdateStatus,
   CrashRecoveryBanner,
   ConfigSummary,
-  QuickStartPanel
+  QuickStartPanel,
+  EnterpriseSettings
 } from './settings'
 
 function SettingsPanel(): React.JSX.Element {
@@ -167,6 +168,8 @@ function SettingsPanel(): React.JSX.Element {
           <TTSSettings disabled={disabled} />
 
           <VirtualMicSettings disabled={disabled} />
+
+          <EnterpriseSettings disabled={disabled} />
 
           <UpdateStatus />
         </div>
