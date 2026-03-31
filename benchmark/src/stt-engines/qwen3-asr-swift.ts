@@ -22,11 +22,13 @@ export class Qwen3ASRSwiftBench implements STTBenchmarkEngine {
 
   private binaryPath: string | null = null
   private engine: string
+  private model: string
   private timeoutMs: number
 
   constructor(options?: { variant?: '0.6b' | '1.7b'; timeoutMs?: number }) {
     const variant = options?.variant ?? '0.6b'
-    this.engine = variant === '1.7b' ? 'qwen3-1.7b' : 'qwen3-mlx'
+    this.engine = 'qwen3'
+    this.model = variant === '1.7b' ? '1.7B' : '0.6B'
     this.id = `qwen3-asr-swift-${variant}`
     this.label = `Qwen3-ASR Swift ${variant.toUpperCase()}`
     this.timeoutMs = options?.timeoutMs ?? 60_000
@@ -53,7 +55,7 @@ export class Qwen3ASRSwiftBench implements STTBenchmarkEngine {
       throw new Error('Engine not initialized')
     }
 
-    const text = await runTranscribe(this.binaryPath, this.engine, audioPath, this.timeoutMs)
+    const text = await runTranscribe(this.binaryPath, this.engine, this.model, audioPath, this.timeoutMs)
 
     return {
       text: text.trim(),
@@ -78,11 +80,12 @@ function findSpeechSwiftBinary(): string | null {
 function runTranscribe(
   binaryPath: string,
   engine: string,
+  model: string,
   audioPath: string,
   timeoutMs: number
 ): Promise<string> {
   return new Promise((resolve, reject) => {
-    const args = ['transcribe', '--engine', engine, audioPath]
+    const args = ['transcribe', '--engine', engine, '--model', model, audioPath]
 
     execFile(binaryPath, args, { timeout: timeoutMs }, (err, stdout, stderr) => {
       if (err) {
@@ -90,7 +93,16 @@ function runTranscribe(
         reject(new Error(`speech-swift error: ${msg}`))
         return
       }
-      resolve(stdout)
+      // Parse "Result: <text>" line from CLI output
+      const lines = stdout.split('\n')
+      const resultLine = lines.find((l) => l.startsWith('Result: '))
+      if (resultLine) {
+        resolve(resultLine.replace('Result: ', ''))
+      } else {
+        // Fallback: return last non-empty line
+        const lastLine = lines.filter((l) => l.trim()).pop() ?? ''
+        resolve(lastLine)
+      }
     })
   })
 }

@@ -35,10 +35,14 @@ type EngineId = (typeof AVAILABLE_ENGINES)[number]
 const AVAILABLE_STT_ENGINES = [
   'whisper-local',
   'mlx-whisper',
+  'kotoba-whisper',
   'lightning-whisper',
   'moonshine',
+  'moonshine-tiny-ja',
   'sensevoice',
   'qwen-asr',
+  'qwen3-asr-swift-06b',
+  'qwen3-asr-swift-17b',
   'sherpa-onnx',
   'sherpa-sensevoice'
 ] as const
@@ -216,6 +220,14 @@ async function createSTTEngine(id: STTEngineId): Promise<STTBenchmarkEngine> {
       const { MLXWhisperBench } = await import('./src/stt-engines/mlx-whisper.js')
       return new MLXWhisperBench()
     }
+    case 'kotoba-whisper': {
+      const { MLXWhisperBench } = await import('./src/stt-engines/mlx-whisper.js')
+      return new MLXWhisperBench({
+        model: 'kaiinui/kotoba-whisper-v2.0-mlx',
+        id: 'kotoba-whisper',
+        label: 'Kotoba-Whisper v2.0 (MLX)'
+      })
+    }
     case 'lightning-whisper': {
       const { LightningWhisperBench } = await import('./src/stt-engines/lightning-whisper.js')
       return new LightningWhisperBench()
@@ -224,6 +236,10 @@ async function createSTTEngine(id: STTEngineId): Promise<STTBenchmarkEngine> {
       const { MoonshineBench } = await import('./src/stt-engines/moonshine.js')
       return new MoonshineBench()
     }
+    case 'moonshine-tiny-ja': {
+      const { MoonshineTinyJaBench } = await import('./src/stt-engines/moonshine-tiny-ja.js')
+      return new MoonshineTinyJaBench()
+    }
     case 'sensevoice': {
       const { SenseVoiceBench } = await import('./src/stt-engines/sensevoice.js')
       return new SenseVoiceBench()
@@ -231,6 +247,14 @@ async function createSTTEngine(id: STTEngineId): Promise<STTBenchmarkEngine> {
     case 'qwen-asr': {
       const { QwenASRBench } = await import('./src/stt-engines/qwen-asr.js')
       return new QwenASRBench()
+    }
+    case 'qwen3-asr-swift-06b': {
+      const { Qwen3ASRSwiftBench } = await import('./src/stt-engines/qwen3-asr-swift.js')
+      return new Qwen3ASRSwiftBench({ variant: '0.6b' })
+    }
+    case 'qwen3-asr-swift-17b': {
+      const { Qwen3ASRSwiftBench } = await import('./src/stt-engines/qwen3-asr-swift.js')
+      return new Qwen3ASRSwiftBench({ variant: '1.7b' })
     }
     case 'sherpa-onnx': {
       const { SherpaOnnxBench } = await import('./src/stt-engines/sherpa-onnx.js')

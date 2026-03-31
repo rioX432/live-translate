@@ -6,14 +6,16 @@ import type { STTBenchmarkEngine } from '../stt-types.js'
  * Matches the app's MoonshineEngine implementation.
  */
 export class MoonshineBench implements STTBenchmarkEngine {
-  readonly id = 'moonshine'
-  readonly label = 'Moonshine (Edge)'
+  readonly id: string
+  readonly label: string
 
   private pipeline: any = null
   private model: string
 
-  constructor(options?: { model?: string }) {
+  constructor(options?: { model?: string; id?: string; label?: string }) {
     this.model = options?.model ?? 'onnx-community/moonshine-base-ONNX'
+    this.id = options?.id ?? 'moonshine'
+    this.label = options?.label ?? 'Moonshine (Edge)'
   }
 
   async initialize(): Promise<void> {
