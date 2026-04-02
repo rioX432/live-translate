@@ -29,7 +29,6 @@ export interface SessionEntry {
   translatedText: string
   sourceLanguage: string
   targetLanguage: string
-  speakerId?: string
 }
 
 export interface SessionData {
@@ -79,8 +78,7 @@ export async function appendEntry(sessionId: string, result: TranslationResult):
     sourceText: result.sourceText,
     translatedText: result.translatedText,
     sourceLanguage: result.sourceLanguage,
-    targetLanguage: result.targetLanguage,
-    speakerId: result.speakerId
+    targetLanguage: result.targetLanguage
   }
 
   try {
@@ -201,9 +199,8 @@ export function exportAsText(data: SessionData): string {
   ]
   for (const e of data.entries) {
     const time = new Date(e.timestamp).toLocaleTimeString()
-    const speaker = e.speakerId ? `[${e.speakerId}] ` : ''
-    lines.push(`[${time}] ${speaker}[${e.sourceLanguage.toUpperCase()}] ${e.sourceText}`)
-    lines.push(`[${time}] ${speaker}[${e.targetLanguage.toUpperCase()}] ${e.translatedText}`)
+    lines.push(`[${time}] [${e.sourceLanguage.toUpperCase()}] ${e.sourceText}`)
+    lines.push(`[${time}] [${e.targetLanguage.toUpperCase()}] ${e.translatedText}`)
     lines.push('')
   }
   return lines.join('\n')
@@ -235,13 +232,12 @@ export function exportAsMarkdown(data: SessionData): string {
     `- **Duration:** ${data.metadata.durationMs ? Math.round(data.metadata.durationMs / 1000) + 's' : 'N/A'}`,
     `- **Entries:** ${data.metadata.entryCount}`,
     '',
-    '| Time | Speaker | Source | Translation |',
-    '|------|---------|--------|-------------|'
+    '| Time | Source | Translation |',
+    '|------|--------|-------------|'
   ]
   for (const e of data.entries) {
     const time = new Date(e.timestamp).toLocaleTimeString()
-    const speaker = e.speakerId ?? ''
-    lines.push(`| ${time} | ${speaker} | ${e.sourceText} | ${e.translatedText} |`)
+    lines.push(`| ${time} | ${e.sourceText} | ${e.translatedText} |`)
   }
   return lines.join('\n')
 }

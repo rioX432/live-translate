@@ -8,7 +8,6 @@ import type {
 import type { STTEngine } from '../engines/types'
 import type { LocalAgreement } from './LocalAgreement'
 import type { ContextBuffer } from './ContextBuffer'
-import type { SpeakerTracker } from './SpeakerTracker'
 import type { GERProcessor } from './GERProcessor'
 import { createLogger } from '../main/logger'
 
@@ -21,7 +20,6 @@ export interface StreamingDeps {
   readonly emitter: EventEmitter
   readonly agreement: LocalAgreement
   readonly contextBuffer: ContextBuffer
-  readonly speakerTracker: SpeakerTracker
   getSTTEngine(): STTEngine | null
   getTranslator(): TranslatorEngine | null
   getGlossary(): GlossaryEntry[]
@@ -103,7 +101,6 @@ export class StreamingProcessor {
       const agreement = this.deps.agreement.update(sttResult.text)
       const targetLang = this.deps.resolveTargetLanguage(sttResult.language)
 
-      const speakerId = sttResult.speakerId ?? this.deps.speakerTracker.update(Date.now())
       const glossaryEntries = this.deps.getGlossary()
       const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
       const translator = this.deps.getTranslator()
@@ -124,7 +121,7 @@ export class StreamingProcessor {
             this.simulMtPreviousOutput,
             sttResult.language,
             targetLang,
-            this.deps.contextBuffer.getContext(glossary, speakerId)
+            this.deps.contextBuffer.getContext(glossary)
           )
           this.simulMtPreviousOutput = translatedText
           this.lastTranslatedConfirmed = translatedText
@@ -137,7 +134,7 @@ export class StreamingProcessor {
           agreement.confirmedText,
           sttResult.language,
           targetLang,
-          this.deps.contextBuffer.getContext(glossary, speakerId)
+          this.deps.contextBuffer.getContext(glossary)
         )
         this.lastTranslatedConfirmed = translatedText
       } else {
@@ -150,8 +147,7 @@ export class StreamingProcessor {
         sourceLanguage: sttResult.language,
         targetLanguage: targetLang,
         timestamp: Date.now(),
-        isInterim: true,
-        speakerId
+        isInterim: true
       }
 
       this.deps.emitter.emit('interim-result', interimResult)
@@ -192,7 +188,6 @@ export class StreamingProcessor {
       const agreement = this.deps.agreement.finalize(sttResult.text)
       const targetLang = this.deps.resolveTargetLanguage(sttResult.language)
 
-      const speakerId = sttResult.speakerId ?? this.deps.speakerTracker.update(Date.now())
       const glossaryEntries = this.deps.getGlossary()
       const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
       const translator = this.deps.getTranslator()
@@ -203,9 +198,9 @@ export class StreamingProcessor {
           agreement.confirmedText,
           sttResult.language,
           targetLang,
-          this.deps.contextBuffer.getContext(glossary, speakerId)
+          this.deps.contextBuffer.getContext(glossary)
         )
-        this.deps.contextBuffer.add(agreement.confirmedText, translatedText, speakerId)
+        this.deps.contextBuffer.add(agreement.confirmedText, translatedText)
       }
 
       this.lastTranslatedConfirmed = ''
@@ -217,7 +212,6 @@ export class StreamingProcessor {
         targetLanguage: targetLang,
         timestamp: Date.now(),
         isInterim: false,
-        speakerId,
         confidence: sttResult.confidence
       }
 
@@ -231,8 +225,7 @@ export class StreamingProcessor {
           sttResult.confidence,
           sttResult.language,
           targetLang,
-          result.timestamp,
-          speakerId
+          result.timestamp
         )
       }
 
@@ -267,7 +260,6 @@ export class StreamingProcessor {
         log.info(`Draft STT: ${draftMs}ms → "${draftResult.text}" [${draftResult.language}]`)
 
         const targetLang = this.deps.resolveTargetLanguage(draftResult.language)
-        const speakerId = draftResult.speakerId ?? this.deps.speakerTracker.update(Date.now())
 
         const draftTranslationResult: TranslationResult = {
           sourceText: draftResult.text,
@@ -275,8 +267,7 @@ export class StreamingProcessor {
           sourceLanguage: draftResult.language,
           targetLanguage: targetLang,
           timestamp: Date.now(),
-          isInterim: true,
-          speakerId
+          isInterim: true
         }
 
         this.deps.emitter.emit('draft-stt-result', draftTranslationResult)

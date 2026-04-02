@@ -53,9 +53,6 @@ export class GeminiTranslator implements TranslatorEngine {
         .join('\n')
       contextParts.push(`Previous translations for context:\n${history}`)
     }
-    if (context?.speakerId) {
-      contextParts.push(`Current speaker: ${context.speakerId}. Maintain consistent style.`)
-    }
     const contextSection = contextParts.length > 0 ? contextParts.join('\n\n') + '\n\n' : ''
 
     const prompt = `${contextSection}Translate the following ${LANG_NAMES_EN[from]} text to ${LANG_NAMES_EN[to]}. Output ONLY the translated text, nothing else.\n\n${text}`

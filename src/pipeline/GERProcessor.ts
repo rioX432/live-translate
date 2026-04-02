@@ -70,15 +70,13 @@ export class GERProcessor {
    * @param language - Detected source language
    * @param targetLanguage - Translation target language
    * @param timestamp - Original result timestamp for deduplication
-   * @param speakerId - Speaker identifier
    */
   maybeCorrect(
     sttText: string,
     confidence: number | undefined,
     language: Language,
     targetLanguage: Language,
-    timestamp: number,
-    speakerId?: string
+    timestamp: number
   ): void {
     if (!this.enabled) return
 
@@ -104,7 +102,7 @@ export class GERProcessor {
     }
 
     this.pendingTimestamp = timestamp
-    this.runCorrection(sttText, language, targetLanguage, timestamp, speakerId).catch((err) => {
+    this.runCorrection(sttText, language, targetLanguage, timestamp).catch((err) => {
       log.warn('GER correction failed:', err)
     }).finally(() => {
       if (this.pendingTimestamp === timestamp) {
@@ -122,8 +120,7 @@ export class GERProcessor {
     sttText: string,
     language: Language,
     targetLanguage: Language,
-    timestamp: number,
-    speakerId?: string
+    timestamp: number
   ): Promise<void> {
     const t0 = performance.now()
 
@@ -179,7 +176,6 @@ export class GERProcessor {
       targetLanguage: targetLanguage,
       timestamp,
       isInterim: false,
-      speakerId,
       translationStage: 'ger-corrected'
     }
 

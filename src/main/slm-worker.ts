@@ -33,9 +33,8 @@ type WorkerInboundMessage =
   | { type: 'dispose' }
 
 interface TranslateContextPayload {
-  previousSegments?: Array<{ source: string; translated: string; speakerId?: string }>
+  previousSegments?: Array<{ source: string; translated: string }>
   glossary?: Array<{ source: string; target: string }>
-  speakerId?: string
 }
 
 /** Context size for translation (short segments) */
@@ -117,9 +116,8 @@ async function handleInit(
 
 /** Build context sections for the translation prompt */
 function buildContextPrompt(ctx?: {
-  previousSegments?: Array<{ source: string; translated: string; speakerId?: string }>
+  previousSegments?: Array<{ source: string; translated: string }>
   glossary?: Array<{ source: string; target: string }>
-  speakerId?: string
 }): string {
   if (!ctx) return ''
 
@@ -134,17 +132,9 @@ function buildContextPrompt(ctx?: {
   // Previous segments for coherence
   if (ctx.previousSegments && ctx.previousSegments.length > 0) {
     const history = ctx.previousSegments
-      .map((s) => {
-        const speaker = s.speakerId ? ` [${s.speakerId}]` : ''
-        return `  ${s.source}${speaker} → ${s.translated}`
-      })
+      .map((s) => `  ${s.source} → ${s.translated}`)
       .join('\n')
     parts.push(`Previous translations for context:\n${history}`)
-  }
-
-  // Speaker hint
-  if (ctx.speakerId) {
-    parts.push(`Current speaker: ${ctx.speakerId}. Maintain consistent style for this speaker.`)
   }
 
   return parts.length > 0 ? parts.join('\n\n') + '\n\n' : ''

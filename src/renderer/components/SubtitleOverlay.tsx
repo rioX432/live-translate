@@ -1,19 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
-/** Default 8-color palette for speaker identification — must match SpeakerTracker.ts */
-const SPEAKER_COLORS = [
-  '#60a5fa', '#4ade80', '#f472b6', '#facc15',
-  '#a78bfa', '#fb923c', '#2dd4bf', '#f87171'
-]
-
-/** Map a speakerId string (e.g. "Speaker A") to its palette color */
-function getSpeakerColor(speakerId: string): string | undefined {
-  const match = speakerId.match(/^Speaker ([A-H])$/)
-  if (!match) return undefined
-  const idx = match[1]!.charCodeAt(0) - 'A'.charCodeAt(0)
-  return SPEAKER_COLORS[idx]
-}
-
 interface SubtitleLine {
   id: number
   sourceText: string
@@ -22,7 +8,6 @@ interface SubtitleLine {
   timestamp: number
   opacity: number
   isInterim?: boolean
-  speakerId?: string
   /** Whether this line is a draft from hybrid translation, pending refinement */
   isDraft?: boolean
   /** STT confidence score (0.0–1.0) for confidence-based styling */
@@ -274,8 +259,7 @@ function SubtitleOverlay(): React.JSX.Element {
                   ? '#94a3b8'
                   : line.isDraft
                     ? '#f59e0b'
-                    : (line.speakerId && getSpeakerColor(line.speakerId))
-                      || (line.sourceLanguage === 'ja' ? '#4ade80' : '#60a5fa')
+                    : (line.sourceLanguage === 'ja' ? '#4ade80' : '#60a5fa')
               }`
             }}
           >
@@ -290,22 +274,6 @@ function SubtitleOverlay(): React.JSX.Element {
                 opacity: line.isDraft ? 0.85 : confStyle.opacity
               }}
             >
-              {line.speakerId && (
-                <span style={{
-                  fontSize: '0.7em',
-                  opacity: 0.85,
-                  marginRight: '0.5rem',
-                  maxWidth: '7.5rem',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                  display: 'inline-block',
-                  verticalAlign: 'middle',
-                  color: getSpeakerColor(line.speakerId) || 'inherit'
-                }}>
-                  [{line.speakerId}]
-                </span>
-              )}
               {line.sourceText}
             </div>
             {line.translatedText && (

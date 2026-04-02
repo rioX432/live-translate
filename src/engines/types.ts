@@ -37,8 +37,6 @@ export interface STTResult {
   isFinal: boolean
   /** Unix timestamp in ms */
   timestamp: number
-  /** Speaker identifier (if diarization is enabled) */
-  speakerId?: string
   /** STT confidence score (0.0–1.0). Used by GER to decide if correction is needed. */
   confidence?: number
 }
@@ -57,8 +55,6 @@ export interface TranslationResult {
   timestamp: number
   /** Whether this is an interim (unconfirmed) result from streaming mode */
   isInterim?: boolean
-  /** Speaker identifier (if diarization is enabled) */
-  speakerId?: string
   /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), or 'ger-corrected' (GER post-correction) */
   translationStage?: 'draft' | 'refined' | 'ger-corrected'
   /** STT confidence score (0.0–1.0), forwarded from STTResult for UI styling */
@@ -151,11 +147,9 @@ export interface GlossaryEntry {
 /** Context passed to translators that support context-aware translation */
 export interface TranslateContext {
   /** Previous confirmed translation segments for coherence */
-  previousSegments: Array<{ source: string; translated: string; speakerId?: string }>
+  previousSegments: Array<{ source: string; translated: string }>
   /** Glossary terms that must use fixed translations */
   glossary?: GlossaryEntry[]
-  /** Current speaker identifier for style adaptation */
-  speakerId?: string
 }
 
 /**

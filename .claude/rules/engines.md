@@ -66,7 +66,6 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 - Cascade mode: STTEngine → TranslatorEngine (all current modes)
 - Results emitted via EventEmitter `result` event
 - `ContextBuffer` provides previous segments for context-aware translation
-- `SpeakerTracker` assigns speaker IDs based on silence gaps
 
 ## UtilityProcess (LLM Engines)
 - Shared `worker-pool.ts` manages a single `slm-worker.ts` UtilityProcess

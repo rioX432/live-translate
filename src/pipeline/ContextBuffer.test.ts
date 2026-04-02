@@ -20,16 +20,6 @@ describe('ContextBuffer', () => {
     expect(ctx.previousSegments[0]).toEqual({ source: 'hello', translated: 'こんにちは' })
   })
 
-  it('stores segments with speakerId', () => {
-    buffer.add('hello', 'こんにちは', 'Speaker A')
-    const ctx = buffer.getContext()
-    expect(ctx.previousSegments[0]).toEqual({
-      source: 'hello',
-      translated: 'こんにちは',
-      speakerId: 'Speaker A'
-    })
-  })
-
   it('evicts oldest when max reached', () => {
     buffer.add('one', '1')
     buffer.add('two', '2')
@@ -55,18 +45,16 @@ describe('ContextBuffer', () => {
     expect(ctx2.previousSegments).toHaveLength(2)
   })
 
-  it('passes glossary and speakerId in context', () => {
+  it('passes glossary in context', () => {
     buffer.add('hello', 'world')
     const glossary = [{ source: 'API', target: 'API' }]
-    const ctx = buffer.getContext(glossary, 'Speaker B')
+    const ctx = buffer.getContext(glossary)
     expect(ctx.glossary).toEqual(glossary)
-    expect(ctx.speakerId).toBe('Speaker B')
   })
 
-  it('returns undefined glossary and speakerId when not provided', () => {
+  it('returns undefined glossary when not provided', () => {
     buffer.add('hello', 'world')
     const ctx = buffer.getContext()
     expect(ctx.glossary).toBeUndefined()
-    expect(ctx.speakerId).toBeUndefined()
   })
 })

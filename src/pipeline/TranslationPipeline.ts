@@ -11,7 +11,6 @@ import type {
 } from '../engines/types'
 import { LocalAgreement } from './LocalAgreement'
 import { ContextBuffer } from './ContextBuffer'
-import { SpeakerTracker } from './SpeakerTracker'
 import { EngineManager } from './EngineManager'
 import { StreamingProcessor } from './StreamingProcessor'
 import { GERProcessor } from './GERProcessor'
@@ -74,7 +73,6 @@ export class TranslationPipeline extends EventEmitter {
   private _state: PipelineState = PipelineState.IDLE
   private agreement = new LocalAgreement()
   private contextBuffer = new ContextBuffer()
-  private speakerTracker = new SpeakerTracker()
 
   // Language configuration
   private sourceLanguage: SourceLanguage = 'auto'
@@ -112,7 +110,6 @@ export class TranslationPipeline extends EventEmitter {
       emitter: this,
       agreement: this.agreement,
       contextBuffer: this.contextBuffer,
-      speakerTracker: this.speakerTracker,
       getSTTEngine: () => this.engineManager.sttEngine,
       getTranslator: () => this.engineManager.translator,
       getGlossary: () => this.glossary,
@@ -295,7 +292,6 @@ export class TranslationPipeline extends EventEmitter {
     this.ger.reset()
     this.agreement.reset()
     this.contextBuffer.reset()
-    this.speakerTracker.reset()
     // Dispose engines to free memory (#211)
     await this.engineManager.disposeEngines()
   }
@@ -366,18 +362,17 @@ export class TranslationPipeline extends EventEmitter {
 
     try {
       const t1 = performance.now()
-      const speakerId = sttResult.speakerId ?? this.speakerTracker.update(Date.now())
       const glossary = this.glossary.length > 0 ? this.glossary : undefined
       const translated = await this.engineManager.translator.translate(
         sttResult.text,
         sttResult.language,
         targetLang,
-        this.contextBuffer.getContext(glossary, speakerId)
+        this.contextBuffer.getContext(glossary)
       )
       const translateMs = (performance.now() - t1).toFixed(0)
       log.info(`Translate: ${translateMs}ms → "${translated}"`)
 
-      this.contextBuffer.add(sttResult.text, translated, speakerId)
+      this.contextBuffer.add(sttResult.text, translated)
 
       // Fire-and-forget GER correction (async, non-blocking)
       this.ger.maybeCorrect(
@@ -385,8 +380,7 @@ export class TranslationPipeline extends EventEmitter {
         sttResult.confidence,
         sttResult.language,
         targetLang,
-        Date.now(),
-        speakerId
+        Date.now()
       )
 
       return {
@@ -395,7 +389,6 @@ export class TranslationPipeline extends EventEmitter {
         sourceLanguage: sttResult.language,
         targetLanguage: targetLang,
         timestamp: Date.now(),
-        speakerId,
         confidence: sttResult.confidence
       }
     } catch (translatorErr) {

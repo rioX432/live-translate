@@ -3,13 +3,6 @@ import { Section } from './Section'
 import { buttonStyle, colorInputStyle, selectStyle, sliderLabelStyle } from './shared'
 import type { DisplayInfo, SubtitlePositionType } from './shared'
 
-/** Speaker color palette — must match SpeakerTracker.ts */
-const SPEAKER_COLORS = [
-  '#60a5fa', '#4ade80', '#f472b6', '#facc15',
-  '#a78bfa', '#fb923c', '#2dd4bf', '#f87171'
-]
-const SPEAKER_NAMES = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
-
 interface SubtitleSettingsProps {
   fontSize: number
   onFontSizeChange: (v: number) => void
@@ -142,39 +135,6 @@ export function SubtitleSettings({
       </Section>
 
       {/* Speaker color palette preview (#509) */}
-      <Section label="Speaker Colors">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-          <div style={sliderLabelStyle}>
-            Each speaker is automatically assigned a color
-          </div>
-          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {SPEAKER_COLORS.map((color, i) => (
-              <div
-                key={color}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                <div
-                  style={{
-                    width: '16px',
-                    height: '16px',
-                    borderRadius: '4px',
-                    background: color,
-                    border: '1px solid rgba(255,255,255,0.15)'
-                  }}
-                />
-                <span style={{ fontSize: '11px', color: '#94a3b8' }}>
-                  {SPEAKER_NAMES[i]}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </Section>
-
       <Section label="Subtitle Display">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <select
