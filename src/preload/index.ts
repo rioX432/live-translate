@@ -168,6 +168,17 @@ contextBridge.exposeInMainWorld('api', {
   enterpriseGetTelemetryConsent: () => ipcRenderer.invoke('enterprise-get-telemetry-consent'),
   enterpriseSetTelemetryConsent: (consent: boolean) => ipcRenderer.invoke('enterprise-set-telemetry-consent', consent),
 
+  // Audio MessagePort for zero-copy transfer (#553)
+  onAudioPort: (callback: (port: MessagePort) => void) => {
+    const handler = (event: Electron.IpcRendererEvent): void => {
+      if (event.ports && event.ports.length > 0) {
+        callback(event.ports[0])
+      }
+    }
+    ipcRenderer.on('audio-port', handler)
+    return () => ipcRenderer.off('audio-port', handler)
+  },
+
   // Auto-update (#314)
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateDownload: () => ipcRenderer.invoke('update-download'),

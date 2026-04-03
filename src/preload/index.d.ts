@@ -137,6 +137,9 @@ export interface ElectronAPI {
   }>
   enterpriseSetTelemetryConsent: (consent: boolean) => Promise<{ success: boolean; reason?: string }>
 
+  // Audio MessagePort for zero-copy transfer (#553)
+  onAudioPort: (callback: (port: MessagePort) => void) => (() => void)
+
   // Auto-update (#314)
   updateCheck: () => Promise<{ success?: boolean; error?: string }>
   updateDownload: () => Promise<{ success?: boolean; error?: string }>
