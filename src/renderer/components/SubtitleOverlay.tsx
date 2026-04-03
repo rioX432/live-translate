@@ -1,26 +1,11 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
-interface SubtitleLine {
-  id: number
-  sourceText: string
-  translatedText: string
-  sourceLanguage: string
-  timestamp: number
-  opacity: number
-  isInterim?: boolean
-  /** Whether this line is a draft from hybrid translation, pending refinement */
-  isDraft?: boolean
-  /** STT confidence score (0.0–1.0) for confidence-based styling */
-  confidence?: number
-}
-
 interface SubtitleConfig {
   fontSize: number
   sourceTextColor: string
   translatedTextColor: string
   backgroundOpacity: number
   position: 'top' | 'bottom'
-  showConfidenceIndicator: boolean
 }
 
 const DEFAULT_CONFIG: SubtitleConfig = {
@@ -28,36 +13,65 @@ const DEFAULT_CONFIG: SubtitleConfig = {
   sourceTextColor: '#ffffff',
   translatedTextColor: '#7dd3fc',
   backgroundOpacity: 78,
-  position: 'bottom',
-  showConfidenceIndicator: true
+  position: 'bottom'
 }
 
-const MAX_LINES = 3
-const FADE_DURATION_MS = 8000
-const INTERIM_LINE_ID = -1
-const DRAFT_LINE_ID = -2
+/** Silence timeout before subtitle fades out */
+const SILENCE_TIMEOUT_MS = 4000
+/** Fade-out transition duration */
+const FADE_OUT_MS = 800
 
-/** Compute opacity and fontStyle overrides based on STT confidence level */
-function getConfidenceStyle(
-  confidence: number | undefined,
-  enabled: boolean
-): { opacity: number; fontStyle: 'normal' | 'italic' } {
-  if (!enabled || confidence === undefined) return { opacity: 1, fontStyle: 'normal' }
-  if (confidence >= 0.9) return { opacity: 1, fontStyle: 'normal' }
-  if (confidence >= 0.5) return { opacity: 0.8, fontStyle: 'normal' }
-  return { opacity: 0.5, fontStyle: 'italic' }
+/** Dimmed color for interim (unconfirmed) text */
+const INTERIM_TEXT_COLOR = 'rgba(255, 255, 255, 0.5)'
+
+interface ResultData {
+  sourceText: string
+  translatedText: string
+  confirmedText?: string
+  interimText?: string
 }
 
 function SubtitleOverlay(): React.JSX.Element {
-  const [lines, setLines] = useState<SubtitleLine[]>([])
+  const [confirmedText, setConfirmedText] = useState('')
+  const [interimText, setInterimText] = useState('')
+  const [translatedText, setTranslatedText] = useState('')
+  const [visible, setVisible] = useState(false)
   const [config, setConfig] = useState<SubtitleConfig>(DEFAULT_CONFIG)
   const [isDragMode, setIsDragMode] = useState(false)
-  const fadeTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const nextLineIdRef = useRef(1)
+  const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef({ screenX: 0, screenY: 0 })
 
-  // Drag handlers — move the entire subtitle window by delta
+  const resetSilenceTimer = useCallback(() => {
+    if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
+    silenceTimerRef.current = setTimeout(() => {
+      setVisible(false)
+    }, SILENCE_TIMEOUT_MS)
+  }, [])
+
+  const handleResult = useCallback((data: unknown) => {
+    const result = data as ResultData
+    if (!result.sourceText?.trim()) return
+
+    // If confirmed/interim split is available, use it for stable display
+    if (result.confirmedText !== undefined) {
+      setConfirmedText(result.confirmedText)
+      setInterimText(result.interimText ?? '')
+    } else {
+      // Final result or non-streaming: all text is confirmed
+      setConfirmedText(result.sourceText)
+      setInterimText('')
+    }
+
+    if (result.translatedText) {
+      setTranslatedText(result.translatedText)
+    }
+
+    setVisible(true)
+    resetSilenceTimer()
+  }, [resetSilenceTimer])
+
+  // Drag handlers
   const handleDragMouseDown = useCallback((e: React.MouseEvent) => {
     isDraggingRef.current = true
     dragStartRef.current = { screenX: e.screenX, screenY: e.screenY }
@@ -96,16 +110,12 @@ function SubtitleOverlay(): React.JSX.Element {
       if (s.subtitleSettings) {
         setConfig((prev) => ({ ...prev, ...s.subtitleSettings as Partial<SubtitleConfig> }))
       }
-      if (typeof s.showConfidenceIndicator === 'boolean') {
-        setConfig((prev) => ({ ...prev, showConfidenceIndicator: s.showConfidenceIndicator as boolean }))
-      }
     })
 
     const unsubscribe = window.api.onSubtitleSettingsChanged((settings) => {
       setConfig((prev) => ({ ...prev, ...settings as Partial<SubtitleConfig> }))
     })
 
-    // Listen for drag mode toggle from main process
     const unsubDrag = window.api.onDragModeChanged?.((enabled: boolean) => {
       setIsDragMode(enabled)
     })
@@ -116,80 +126,22 @@ function SubtitleOverlay(): React.JSX.Element {
     }
   }, [])
 
+  // Subscribe to all result types — unified handler
   useEffect(() => {
-    // Final (confirmed) results — add as permanent line
-    const unsubscribeResult = window.api.onTranslationResult((data) => {
-      const result = data as Omit<SubtitleLine, 'id' | 'opacity'>
-      setLines((prev) => {
-        // Remove any interim or draft line, add the final result
-        const cleaned = prev.filter((l) => l.id !== INTERIM_LINE_ID && l.id !== DRAFT_LINE_ID)
-        if (nextLineIdRef.current >= Number.MAX_SAFE_INTEGER - 1000) {
-          nextLineIdRef.current = 1
-        }
-        const updated = [...cleaned, { ...result, id: nextLineIdRef.current++, opacity: 1 }]
-        return updated.slice(-MAX_LINES)
-      })
-    })
-
-    // Interim (streaming) results — replace the interim line in place
-    const unsubscribeInterim = window.api.onInterimResult((data) => {
-      const result = data as Omit<SubtitleLine, 'id' | 'opacity' | 'isInterim'>
-      setLines((prev) => {
-        const withoutInterim = prev.filter((l) => l.id !== INTERIM_LINE_ID)
-        const interimLine: SubtitleLine = {
-          ...result,
-          id: INTERIM_LINE_ID,
-          opacity: 1,
-          isInterim: true
-        }
-        const updated = [...withoutInterim, interimLine]
-        return updated.slice(-MAX_LINES)
-      })
-    })
-
-    // Draft results from hybrid translation (#235) — show immediately with dimmed style
-    const unsubscribeDraft = window.api.onDraftResult((data) => {
-      const result = data as Omit<SubtitleLine, 'id' | 'opacity' | 'isDraft'>
-      setLines((prev) => {
-        const withoutDraft = prev.filter((l) => l.id !== DRAFT_LINE_ID)
-        const draftLine: SubtitleLine = {
-          ...result,
-          id: DRAFT_LINE_ID,
-          opacity: 1,
-          isDraft: true
-        }
-        const updated = [...withoutDraft, draftLine]
-        return updated.slice(-MAX_LINES)
-      })
-    })
-
-    // Fade old lines
-    fadeTimerRef.current = setInterval(() => {
-      setLines((prev) => {
-        if (prev.length === 0) return prev
-        return prev
-          .map((line) => {
-            // Don't fade interim or draft lines
-            if (line.isInterim || line.isDraft) return line
-            const age = Date.now() - line.timestamp
-            if (age > FADE_DURATION_MS) {
-              return { ...line, opacity: Math.max(0, 1 - (age - FADE_DURATION_MS) / 2000) }
-            }
-            return line
-          })
-          .filter((line) => line.opacity > 0)
-      })
-    }, 500)
+    const unsubResult = window.api.onTranslationResult(handleResult)
+    const unsubInterim = window.api.onInterimResult(handleResult)
+    const unsubDraft = window.api.onDraftResult(handleResult)
 
     return () => {
-      unsubscribeResult?.()
-      unsubscribeInterim?.()
-      unsubscribeDraft?.()
-      if (fadeTimerRef.current) clearInterval(fadeTimerRef.current)
+      unsubResult?.()
+      unsubInterim?.()
+      unsubDraft?.()
+      if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
     }
-  }, [])
+  }, [handleResult])
 
   const translatedFontSize = Math.max(config.fontSize - 2, 16)
+  const hasContent = confirmedText || interimText
 
   return (
     <div
@@ -208,7 +160,7 @@ function SubtitleOverlay(): React.JSX.Element {
         userSelect: 'none'
       }}
     >
-      {/* Drag handle overlay — visible only in drag mode */}
+      {/* Drag handle overlay */}
       {isDragMode && (
         <div
           onMouseDown={handleDragMouseDown}
@@ -238,63 +190,52 @@ function SubtitleOverlay(): React.JSX.Element {
           </span>
         </div>
       )}
-      {lines.map((line) => {
-        const confStyle = getConfidenceStyle(line.confidence, config.showConfidenceIndicator)
-        return (
+
+      {/* Single subtitle slot */}
+      <div
+        style={{
+          background: `rgba(0, 0, 0, ${config.backgroundOpacity / 100})`,
+          borderRadius: '0.625rem',
+          padding: '0.625rem 1.25rem',
+          backdropFilter: 'blur(8px)',
+          WebkitBackdropFilter: 'blur(8px)',
+          opacity: visible && hasContent ? 1 : 0,
+          transition: `opacity ${visible ? '0.15s' : `${FADE_OUT_MS}ms`} ease-out`,
+          pointerEvents: visible ? 'auto' : 'none',
+          textAlign: 'center'
+        }}
+      >
+        {/* Source text: confirmed (stable) + interim (dimmed, still changing) */}
+        <div
+          style={{
+            fontSize: `${config.fontSize}px`,
+            fontWeight: 600,
+            lineHeight: 1.4,
+            textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+          }}
+        >
+          <span style={{ color: config.sourceTextColor }}>{confirmedText}</span>
+          {interimText && (
+            <span style={{ color: INTERIM_TEXT_COLOR }}>{interimText}</span>
+          )}
+        </div>
+
+        {/* Translation: only updates on finalized results */}
+        {translatedText && (
           <div
-            key={line.id}
             style={{
-              background: (line.isInterim || line.isDraft)
-                ? `rgba(0, 0, 0, ${Math.max(0, config.backgroundOpacity - 13) / 100})`
-                : `rgba(0, 0, 0, ${config.backgroundOpacity / 100})`,
-              borderRadius: '0.625rem',
-              padding: '0.625rem 1.25rem',
-              marginBottom: '0.375rem',
-              opacity: line.opacity,
-              transition: 'opacity 0.3s ease-out',
-              backdropFilter: 'blur(8px)',
-              WebkitBackdropFilter: 'blur(8px)',
-              borderLeft: `0.25rem solid ${
-                line.isInterim
-                  ? '#94a3b8'
-                  : line.isDraft
-                    ? '#f59e0b'
-                    : (line.sourceLanguage === 'ja' ? '#4ade80' : '#60a5fa')
-              }`
+              color: config.translatedTextColor,
+              fontSize: `${translatedFontSize}px`,
+              fontWeight: 600,
+              lineHeight: 1.4,
+              marginTop: '0.25rem',
+              textShadow: '0 1px 3px rgba(0,0,0,0.5)'
             }}
           >
-            <div
-              style={{
-                color: line.isInterim ? '#cbd5e1' : line.isDraft ? '#d4d4d8' : config.sourceTextColor,
-                fontSize: `${config.fontSize}px`,
-                fontWeight: 600,
-                lineHeight: 1.4,
-                textShadow: '0 1px 3px rgba(0,0,0,0.5)',
-                fontStyle: line.isInterim || line.isDraft ? 'italic' : confStyle.fontStyle,
-                opacity: line.isDraft ? 0.85 : confStyle.opacity
-              }}
-            >
-              {line.sourceText}
-            </div>
-            {line.translatedText && (
-              <div
-                style={{
-                  color: line.isInterim ? '#94a3b8' : line.isDraft ? '#b4b4bb' : config.translatedTextColor,
-                  fontSize: `${translatedFontSize}px`,
-                  fontWeight: 600,
-                  lineHeight: 1.4,
-                  marginTop: '0.125rem',
-                  textShadow: '0 1px 3px rgba(0,0,0,0.5)',
-                  fontStyle: line.isInterim || line.isDraft ? 'italic' : confStyle.fontStyle,
-                  opacity: line.isDraft ? 0.85 : confStyle.opacity
-                }}
-              >
-                {line.translatedText}
-              </div>
-            )}
+            {translatedText}
           </div>
-        )
-      })}
+        )}
+      </div>
     </div>
   )
 }

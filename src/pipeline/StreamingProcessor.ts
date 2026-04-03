@@ -15,6 +15,8 @@ const log = createLogger('pipeline:stream')
 
 const MAX_STREAMING_LOCK_RESOLVERS = 50
 const STREAMING_LOCK_TIMEOUT_MS = 10_000
+/** Debounce delay before translating interim text (ms) */
+const TRANSLATE_DEBOUNCE_MS = 1000
 
 export interface StreamingDeps {
   readonly emitter: EventEmitter
@@ -47,6 +49,10 @@ export class StreamingProcessor {
   lastTranslatedConfirmed = ''
   simulMtPreviousOutput = ''
 
+  /** Debounced translation: timer and last source text for change detection */
+  private translateDebounceTimer: ReturnType<typeof setTimeout> | null = null
+  private lastSourceTextForTranslate = ''
+
   private deps: StreamingDeps
 
   constructor(deps: StreamingDeps) {
@@ -64,6 +70,11 @@ export class StreamingProcessor {
     this.streamingLockResolvers = []
     this.lastTranslatedConfirmed = ''
     this.simulMtPreviousOutput = ''
+    if (this.translateDebounceTimer) {
+      clearTimeout(this.translateDebounceTimer)
+      this.translateDebounceTimer = null
+    }
+    this.lastSourceTextForTranslate = ''
   }
 
   async processStreaming(
@@ -101,49 +112,49 @@ export class StreamingProcessor {
       const agreement = this.deps.agreement.update(sttResult.text)
       const targetLang = this.deps.resolveTargetLanguage(sttResult.language)
 
-      const glossaryEntries = this.deps.getGlossary()
-      const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
-      const translator = this.deps.getTranslator()
+      const fullSourceText = agreement.confirmedText + agreement.interimText
 
-      let translatedText = ''
-      const simulMt = this.deps.getSimulMtConfig()
-
-      // SimulMT path: use incremental translation with Wait-k policy
-      if (
-        simulMt.enabled &&
-        translator?.translateIncremental &&
-        agreement.confirmedText.trim()
-      ) {
-        const wordCount = this.countWords(agreement.confirmedText, sttResult.language)
-        if (wordCount >= simulMt.waitK) {
-          translatedText = await translator.translateIncremental(
-            agreement.confirmedText,
-            this.simulMtPreviousOutput,
+      // Debounced translation: schedule translation when source text stabilizes for 1s.
+      // This avoids translating on every interim update while still translating
+      // during continuous speech (at natural pauses / breathing points).
+      if (fullSourceText !== this.lastSourceTextForTranslate) {
+        this.lastSourceTextForTranslate = fullSourceText
+        if (this.translateDebounceTimer) clearTimeout(this.translateDebounceTimer)
+        this.translateDebounceTimer = setTimeout(() => {
+          this.translateDebounceTimer = null
+          const translator = this.deps.getTranslator()
+          if (!translator || !fullSourceText.trim()) return
+          const glossaryEntries = this.deps.getGlossary()
+          const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
+          translator.translate(
+            fullSourceText,
             sttResult.language,
             targetLang,
             this.deps.contextBuffer.getContext(glossary)
-          )
-          this.simulMtPreviousOutput = translatedText
-          this.lastTranslatedConfirmed = translatedText
-        } else {
-          translatedText = this.simulMtPreviousOutput || this.lastTranslatedConfirmed
-        }
-      } else if (agreement.newConfirmed && translator) {
-        // Standard path: translate only when new confirmed text appears
-        translatedText = await translator.translate(
-          agreement.confirmedText,
-          sttResult.language,
-          targetLang,
-          this.deps.contextBuffer.getContext(glossary)
-        )
-        this.lastTranslatedConfirmed = translatedText
-      } else {
-        translatedText = this.lastTranslatedConfirmed
+          ).then((translated) => {
+            this.lastTranslatedConfirmed = translated
+            const debouncedResult: TranslationResult = {
+              sourceText: fullSourceText,
+              confirmedText: agreement.confirmedText,
+              interimText: agreement.interimText,
+              translatedText: translated,
+              sourceLanguage: sttResult.language,
+              targetLanguage: targetLang,
+              timestamp: Date.now(),
+              isInterim: true
+            }
+            this.deps.emitter.emit('interim-result', debouncedResult)
+          }).catch((err) => {
+            log.warn('Debounced translation failed:', err)
+          })
+        }, TRANSLATE_DEBOUNCE_MS)
       }
 
       const interimResult: TranslationResult = {
-        sourceText: agreement.confirmedText + agreement.interimText,
-        translatedText,
+        sourceText: fullSourceText,
+        confirmedText: agreement.confirmedText,
+        interimText: agreement.interimText,
+        translatedText: this.lastTranslatedConfirmed,
         sourceLanguage: sttResult.language,
         targetLanguage: targetLang,
         timestamp: Date.now(),
