@@ -11,6 +11,7 @@ import type {
 } from '../engines/types'
 import { LocalAgreement } from './LocalAgreement'
 import { ContextBuffer } from './ContextBuffer'
+import { TranslationCache } from './TranslationCache'
 import { EngineManager } from './EngineManager'
 import { StreamingProcessor } from './StreamingProcessor'
 import { GERProcessor } from './GERProcessor'
@@ -73,6 +74,7 @@ export class TranslationPipeline extends EventEmitter {
   private _state: PipelineState = PipelineState.IDLE
   private agreement = new LocalAgreement()
   private contextBuffer = new ContextBuffer()
+  private translationCache = new TranslationCache()
 
   // Language configuration
   private sourceLanguage: SourceLanguage = 'auto'
@@ -164,6 +166,11 @@ export class TranslationPipeline extends EventEmitter {
     return this.memoryMonitor.sessionStartTime
   }
 
+  /** Get translation cache hit/miss statistics */
+  get cacheStats() {
+    return this.translationCache.stats
+  }
+
   /** Check if a specific transition is allowed */
   private canTransitionTo(target: PipelineState): boolean {
     switch (target) {
@@ -187,8 +194,12 @@ export class TranslationPipeline extends EventEmitter {
 
   /** Configure source and target languages */
   setLanguageConfig(source: SourceLanguage, target: Language): void {
+    const changed = this.sourceLanguage !== source || this.targetLanguage !== target
     this.sourceLanguage = source
     this.targetLanguage = target
+    if (changed) {
+      this.translationCache.clear()
+    }
   }
 
   /** Configure simultaneous translation (Wait-k policy) */
@@ -244,6 +255,7 @@ export class TranslationPipeline extends EventEmitter {
 
     try {
       await this.waitForProcessing()
+      this.translationCache.clear()
       await this.engineManager.disposeEngines()
       await this.engineManager.initializeEngines(config, this)
 
@@ -292,6 +304,7 @@ export class TranslationPipeline extends EventEmitter {
     this.ger.reset()
     this.agreement.reset()
     this.contextBuffer.reset()
+    this.translationCache.clear()
     // Dispose engines to free memory (#211)
     await this.engineManager.disposeEngines()
   }
@@ -361,16 +374,25 @@ export class TranslationPipeline extends EventEmitter {
     }
 
     try {
-      const t1 = performance.now()
-      const glossary = this.glossary.length > 0 ? this.glossary : undefined
-      const translated = await this.engineManager.translator.translate(
-        sttResult.text,
-        sttResult.language,
-        targetLang,
-        this.contextBuffer.getContext(glossary)
-      )
-      const translateMs = (performance.now() - t1).toFixed(0)
-      log.info(`Translate: ${translateMs}ms → "${translated}"`)
+      // Check translation cache before calling engine
+      const cached = this.translationCache.get(sttResult.text, sttResult.language, targetLang)
+      let translated: string
+      if (cached !== undefined) {
+        translated = cached
+        log.info(`Translate: cache hit → "${translated}"`)
+      } else {
+        const t1 = performance.now()
+        const glossary = this.glossary.length > 0 ? this.glossary : undefined
+        translated = await this.engineManager.translator.translate(
+          sttResult.text,
+          sttResult.language,
+          targetLang,
+          this.contextBuffer.getContext(glossary)
+        )
+        const translateMs = (performance.now() - t1).toFixed(0)
+        log.info(`Translate: ${translateMs}ms → "${translated}"`)
+        this.translationCache.set(sttResult.text, sttResult.language, targetLang, translated)
+      }
 
       this.contextBuffer.add(sttResult.text, translated)
 
