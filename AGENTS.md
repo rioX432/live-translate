@@ -4,7 +4,7 @@ This file provides guidance to AI coding agents working with this repository.
 
 ## Project Overview
 
-Live Translate is a real-time speech translation overlay app for presentations and meetings. It captures microphone audio via Silero VAD (with optional DeepFilterNet3 noise suppression), performs speech-to-text with pluggable STT engines (Whisper Local, MLX Whisper), translates via pluggable translation engines (OPUS-MT, Hunyuan-MT 7B, Google, DeepL, Gemini), and displays subtitles on an external display. Features GPU-accelerated offline translation, hybrid two-stage translation, speaker diarization, meeting summaries, Chrome extension audio input, auto-updates, and a plugin system.
+Live Translate is a real-time speech translation overlay app for macOS and Windows. It captures microphone audio via Silero VAD (with optional DeepFilterNet3 noise suppression), performs speech-to-text with pluggable STT engines (Whisper Local, MLX Whisper), translates via pluggable translation engines (OPUS-MT, Hunyuan-MT 7B, Google, DeepL, Gemini), and displays subtitles on an external display. Features GPU-accelerated offline translation, hybrid two-stage translation, translation LRU cache, meeting summaries, Chrome extension audio input, global keyboard shortcuts, accessibility (high contrast, dyslexia font, WCAG compliance), enterprise features (MDM config, admin lock, usage analytics, telemetry consent), auto-updates, and a plugin system.
 
 ## Commands
 
@@ -13,7 +13,7 @@ Live Translate is a real-time speech translation overlay app for presentations a
 npm run dev          # Start Electron in dev mode (hot reload)
 npm run build        # Build for production
 npm run test         # Run unit tests (Vitest, 79 tests)
-npm run package      # Package as macOS .app
+npm run package      # Package as macOS .app / Windows .exe
 npm run package:dmg  # Build macOS DMG installer
 
 # After cloning
@@ -44,8 +44,17 @@ live-translate/
 │   │   ├── app-context.ts       # Shared mutable state interface (AppContext)
 │   │   ├── window-manager.ts    # Window creation, display handlers
 │   │   ├── ipc-handlers.ts      # IPC handlers (pipeline, settings, sessions, ws-audio)
+│   │   ├── ipc/                 # Modular IPC handlers
+│   │   │   ├── audio-ipc.ts, pipeline-ipc.ts, settings-ipc.ts, ...
+│   │   │   ├── enterprise-ipc.ts   # Enterprise features IPC
+│   │   │   ├── shortcut-ipc.ts     # Keyboard shortcut IPC
+│   │   │   └── tts-ipc.ts          # TTS IPC
 │   │   ├── ipc-validators.ts    # IPC input validation (path traversal, types)
 │   │   ├── audio-handlers.ts    # Audio processing IPC (process, streaming, finalize)
+│   │   ├── shortcut-manager.ts  # Global keyboard shortcuts (Ctrl+Shift based)
+│   │   ├── mdm-config.ts       # MDM/enterprise configuration reader
+│   │   ├── tts-manager.ts      # Text-to-speech manager
+│   │   ├── virtual-mic-manager.ts # Virtual microphone manager
 │   │   ├── error-utils.ts       # Error sanitization and hint mapping
 │   │   ├── logger.ts            # Structured logger (levels, module prefixes)
 │   │   ├── constants.ts         # Shared constants (WS port, sample rate)
@@ -58,7 +67,14 @@ live-translate/
 │   ├── renderer/
 │   │   ├── components/
 │   │   │   ├── SettingsPanel.tsx    # Control panel (5 primary engines, STT, subtitles)
-│   │   │   └── SubtitleOverlay.tsx  # Transparent subtitle window (speaker labels)
+│   │   │   ├── SubtitleOverlay.tsx  # Transparent subtitle window
+│   │   │   └── settings/           # Modular settings panels
+│   │   │       ├── AccessibilitySettings.tsx  # High contrast, dyslexia font, WCAG
+│   │   │       ├── KeyboardShortcuts.tsx      # Shortcut configuration UI
+│   │   │       ├── EnterpriseSettings.tsx     # MDM config, admin lock, telemetry
+│   │   │       ├── TTSSettings.tsx            # Text-to-speech settings
+│   │   │       ├── VirtualMicSettings.tsx     # Virtual microphone settings
+│   │   │       └── ...                        # Audio, Language, STT, Subtitle, etc.
 │   │   └── hooks/
 │   │       ├── useAudioCapture.ts      # Mic/virtual audio capture via Silero VAD
 │   │       ├── useNoiseSuppression.ts  # DeepFilterNet3 noise suppression
@@ -72,11 +88,16 @@ live-translate/
 │   │   ├── language-names.ts    # Language name mappings (EN, ZH)
 │   │   ├── constants.ts         # Shared engine timeout/limit constants
 │   │   ├── stt/
-│   │   │   ├── WhisperLocalEngine.ts    # whisper.cpp + hallucination filter (primary)
-│   │   │   ├── MlxWhisperEngine.ts      # mlx-whisper (Apple Silicon, primary)
-│   │   │   ├── SenseVoiceEngine.ts      # SenseVoice (experimental)
-│   │   │   ├── QwenASREngine.ts         # Qwen ASR (experimental)
-│   │   │   └── SherpaOnnxEngine.ts      # Sherpa-ONNX (experimental)
+│   │   │   ├── WhisperLocalEngine.ts            # whisper.cpp + hallucination filter (primary)
+│   │   │   ├── MlxWhisperEngine.ts              # mlx-whisper (Apple Silicon, primary)
+│   │   │   ├── AppleSpeechTranscriberEngine.ts  # macOS 26+ native STT (experimental)
+│   │   │   ├── MoonshineTinyJaEngine.ts         # Ultra-fast draft STT (experimental)
+│   │   │   ├── KotobaWhisperEngine.ts           # JA-optimized Whisper (experimental)
+│   │   │   ├── SpeechSwiftEngine.ts             # speech-swift CLI bridge (experimental)
+│   │   │   ├── SenseVoiceEngine.ts              # SenseVoice (experimental)
+│   │   │   ├── Qwen3ASREngine.ts                # Qwen3 ASR (experimental)
+│   │   │   ├── QwenASREngine.ts                 # Qwen ASR (experimental)
+│   │   │   └── SherpaOnnxEngine.ts              # Sherpa-ONNX (experimental)
 │   │   └── translator/
 │   │       ├── OpusMTTranslator.ts       # OPUS-MT (fast default, offline)
 │   │       ├── HunyuanMTTranslator.ts    # Hunyuan-MT 7B (quality, offline)
@@ -87,7 +108,12 @@ live-translate/
 │   │       ├── GeminiTranslator.ts
 │   │       ├── MicrosoftTranslator.ts
 │   │       ├── SLMTranslator.ts          # TranslateGemma (experimental)
+│   │       ├── LFM2Translator.ts        # LFM2 draft model for speculative decoding
+│   │       ├── LlamaWorkerTranslator.ts # Generic llama worker translator
+│   │       ├── PLaMoTranslator.ts       # PLaMo translation (experimental)
+│   │       ├── ANETranslator.ts         # Apple Neural Engine (experimental)
 │   │       ├── ApiRotationController.ts  # Multi-provider rotation
+│   │       ├── glossary-manager.ts      # Custom glossary management
 │   │       ├── api-utils.ts              # Shared API utilities
 │   │       └── hallucination-filter.ts   # Translation hallucination detection
 │   ├── pipeline/
@@ -97,7 +123,8 @@ live-translate/
 │   │   ├── MemoryMonitor.ts        # Process memory usage monitoring
 │   │   ├── LocalAgreement.ts       # LCP for streaming stability
 │   │   ├── ContextBuffer.ts        # Ring buffer for context-aware translation
-│   │   ├── SpeakerTracker.ts       # Silence-gap speaker detection
+│   │   ├── TranslationCache.ts     # LRU cache for repeated phrases
+│   │   ├── GERProcessor.ts         # GER processing
 │   │   └── whisper-filter.ts       # Hallucination detection
 │   └── logger/
 │       ├── TranscriptLogger.ts     # Plain text session logging
@@ -105,12 +132,12 @@ live-translate/
 ├── resources/
 │   ├── mlx-whisper-bridge.py       # Python bridge for mlx-whisper
 │   ├── sensevoice-bridge.py        # Python bridge for SenseVoice
-│   ├── ct2-opus-mt-bridge.py       # Python bridge for CT2 OPUS-MT
-│   ├── ct2-madlad400-bridge.py     # Python bridge for CT2 Madlad-400
+│   ├── moonshine-tiny-ja-bridge.py # Python bridge for Moonshine Tiny JA
 │   └── ane-translate-bridge.py     # Python bridge for ANE translation
 ├── scripts/
 │   ├── fix-whisper-addon.js        # postinstall: fix macOS dylib paths
-│   └── after-pack.js              # electron-builder: fix packaged paths
+│   ├── after-pack.js              # electron-builder: fix packaged paths
+│   └── apple-stt/                 # Apple SpeechTranscriber Swift bridge
 ├── benchmark/                     # Translation quality benchmark (standalone)
 └── models/                        # Auto-downloaded models (gitignored)
 ```

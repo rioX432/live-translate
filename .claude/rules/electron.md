@@ -21,3 +21,21 @@ globs: src/main/**/*.ts, src/preload/**/*.ts
 - whisper-node-addon runs in main process only (native code cannot run in renderer)
 - Model files stored in `app.getPath('userData')/models/`
 - Auto-download model on first use via `model-downloader.ts`
+
+## Global Keyboard Shortcuts
+- `shortcut-manager.ts` registers/unregisters global shortcuts via Electron's `globalShortcut` API
+- Default bindings use Ctrl+Shift modifier pattern
+- Shortcuts are configurable via `KeyboardShortcuts.tsx` settings panel
+- IPC: `shortcut-ipc.ts` handles shortcut registration/update from renderer
+
+## Cross-Platform (Windows)
+- Window management: platform-specific transparency handling (Windows requires different config)
+- Native addons: whisper-node-addon has separate Windows binaries
+- CUDA recommended for GPU acceleration on Windows (auto-detected via `gpu-detector.ts`)
+- CI builds for both macOS and Windows via GitHub Actions
+
+## Enterprise / MDM
+- `mdm-config.ts` reads MDM-managed configuration (e.g., macOS managed preferences, Windows registry)
+- Admin lock prevents users from changing certain settings
+- `enterprise-ipc.ts` exposes enterprise config to renderer
+- Usage analytics and telemetry consent tracked via electron-store

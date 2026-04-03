@@ -7,7 +7,7 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 
 ## Current Engine Landscape
 
-### STT Engines (2 primary + 4 experimental)
+### STT Engines (2 primary + 8 experimental)
 
 **Primary (shown in UI):**
 | Engine | File | Notes |
@@ -16,14 +16,17 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 | MLX Whisper | `MlxWhisperEngine.ts` | Apple Silicon, JA CER 8.1%, EN WER 3.8%, 2.9s |
 
 **Experimental (hidden from UI):**
-- SenseVoice, Qwen3-ASR, Sherpa-ONNX — under evaluation
 - Apple SpeechTranscriber (`AppleSpeechTranscriberEngine.ts`) — macOS 26+ only, zero model management
+- Moonshine Tiny JA (`MoonshineTinyJaEngine.ts`) — ultra-fast draft STT, JA CER 10.1%, 845ms latency
+- Kotoba-Whisper (`KotobaWhisperEngine.ts`) — JA-optimized Whisper variant
+- SpeechSwift (`SpeechSwiftEngine.ts`) — speech-swift CLI bridge
+- SenseVoice, Qwen3-ASR, Qwen ASR, Sherpa-ONNX — under evaluation
 
 **Removed (benchmark failures):**
 - Lightning Whisper MLX — JA CER 162%
-- Moonshine — JA CER 221%
+- Moonshine base — JA CER 221% (note: Moonshine Tiny JA is a different, improved variant)
 
-### Translation Engines (5 primary + 6 experimental)
+### Translation Engines (5 primary + 8 experimental)
 
 **Primary (shown in UI):**
 | Engine | File | JA→EN | EN→JA | Memory | Offline |
@@ -37,7 +40,10 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 **Experimental (hidden from UI):**
 - HybridTranslator (`HybridTranslator.ts`) — two-stage: OPUS-MT draft + LLM refinement
 - TranslateGemma (via `SLMTranslator.ts`) — 8s/sentence, too slow for real-time
-- HY-MT1.5 (`HunyuanMT15Translator.ts`), CT2 OPUS-MT, CT2 Madlad-400, ANE — under evaluation
+- HY-MT1.5 (`HunyuanMT15Translator.ts`) — supports speculative decoding with LFM2 draft model (`LFM2Translator.ts`)
+- PLaMo (`PLaMoTranslator.ts`) — under evaluation
+- LlamaWorker (`LlamaWorkerTranslator.ts`) — generic llama worker translator
+- ANE (`ANETranslator.ts`) — Apple Neural Engine backend, under evaluation
 
 **Removed (benchmark failures):**
 - ALMA-Ja, Gemma-2-JPN
@@ -66,6 +72,7 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 - Cascade mode: STTEngine → TranslatorEngine (all current modes)
 - Results emitted via EventEmitter `result` event
 - `ContextBuffer` provides previous segments for context-aware translation
+- `TranslationCache` provides LRU cache for repeated phrases to avoid redundant translation calls
 
 ## UtilityProcess (LLM Engines)
 - Shared `worker-pool.ts` manages a single `slm-worker.ts` UtilityProcess

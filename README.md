@@ -6,6 +6,7 @@ Bidirectional JA↔EN translation with transparent subtitles overlaid on any dis
 
 [![CI](https://github.com/rioX432/live-translate/actions/workflows/ci.yml/badge.svg)](https://github.com/rioX432/live-translate/actions/workflows/ci.yml)
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey)](https://github.com/rioX432/live-translate)
+[![Windows](https://img.shields.io/badge/platform-Windows-blue)](https://github.com/rioX432/live-translate)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
 
 <!-- TODO: Add demo GIF here -->
@@ -30,11 +31,15 @@ Bidirectional JA↔EN translation with transparent subtitles overlaid on any dis
 - **API rotation** — Combine free tiers of Google, DeepL, and Gemini (4M+ chars/month)
 - **Subtitle overlay** — Transparent, always-on-top subtitles on any display
 - **Customizable subtitles** — Font size, colors, opacity, position
-- **Speaker diarization** — Speaker change detection with labels
+- **Translation cache** — LRU cache for repeated phrases, instant re-translation
 - **Meeting summaries** — Generate summaries via local LLM after sessions
 - **Multiple STT engines** — Whisper Local (whisper.cpp), MLX Whisper (Apple Silicon optimized)
 - **Streaming display** — Local Agreement algorithm for flicker-free interim results
 - **GPU auto-detection** — Automatically selects best engine for your hardware
+- **Global keyboard shortcuts** — Ctrl+Shift based shortcuts for overlay control
+- **Accessibility** — High contrast mode, dyslexia-friendly font, letter/word spacing, WCAG compliance
+- **Enterprise features** — MDM configuration, admin lock, usage analytics, telemetry consent
+- **Cross-platform** — macOS and Windows support with CI
 - **Plugin system** — Extensible engine architecture with manifest-based plugins
 
 ## Quick Start
@@ -63,7 +68,7 @@ npm run test         # Run unit tests
 
 ## Requirements
 
-- macOS 13+ (Apple Silicon recommended)
+- macOS 13+ (Apple Silicon recommended) or Windows 10+ (CUDA recommended for GPU acceleration)
 - Node.js 20+
 - For online engines: API key(s) from Google / DeepL / Gemini
 
@@ -79,11 +84,15 @@ npm run test         # Run unit tests
 
 | Engine | Notes |
 |--------|-------|
+| Apple SpeechTranscriber | macOS 26+ native, zero model management |
+| Moonshine Tiny JA | Ultra-fast draft STT (JA CER 10.1%, 845ms) |
+| Kotoba-Whisper v2.0 | JA-optimized Whisper variant |
+| SpeechSwift | speech-swift CLI bridge |
 | SenseVoice | Under evaluation |
 | Qwen3-ASR | Under evaluation |
 | Sherpa-ONNX | Under evaluation |
 
-Removed: Lightning Whisper MLX (JA CER 162%), Moonshine (JA CER 221%)
+Removed: Lightning Whisper MLX (JA CER 162%), Moonshine base (JA CER 221%)
 </details>
 
 ## Translation Engines
@@ -102,7 +111,8 @@ Removed: Lightning Whisper MLX (JA CER 162%), Moonshine (JA CER 221%)
 | Engine | Notes |
 |--------|-------|
 | TranslateGemma | 8s/sentence — too slow for real-time |
-| HY-MT1.5 | Under evaluation |
+| HY-MT1.5 | Speculative decoding with LFM2 draft model |
+| PLaMo | Under evaluation |
 | CT2 OPUS-MT | CTranslate2 variant |
 | CT2 Madlad-400 | CTranslate2, 450+ languages |
 | ANE | Apple Neural Engine backend |
@@ -151,9 +161,9 @@ export class MyTranslator implements TranslatorEngine {
 
 - **Framework**: Electron + React + TypeScript
 - **Build**: electron-vite
-- **STT**: whisper.cpp (native), MLX Whisper (Apple Silicon)
+- **STT**: whisper.cpp (native), MLX Whisper (Apple Silicon), Apple SpeechTranscriber (macOS 26+)
 - **VAD**: Silero VAD (@ricky0123/vad-web)
-- **Translation**: OPUS-MT (fast), Hunyuan-MT 7B (quality), Google, DeepL, Gemini
+- **Translation**: OPUS-MT (fast), Hunyuan-MT 7B (quality), HY-MT1.5 (speculative decoding), Google, DeepL, Gemini
 - **LLM**: node-llama-cpp (meeting summaries, context-aware translation)
 - **Testing**: Vitest
 

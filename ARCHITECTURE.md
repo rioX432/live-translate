@@ -2,18 +2,19 @@
 
 ## Overview
 
-Real-time speech translation overlay app for macOS.
+Real-time speech translation overlay app for macOS and Windows.
 Bidirectional JA↔EN translation with transparent subtitles overlaid on any display.
-GPU-accelerated offline translation, pluggable engine system, meeting summaries.
+GPU-accelerated offline translation, pluggable engine system, meeting summaries,
+accessibility features (WCAG compliance), and global keyboard shortcuts.
 
 ## Tech Stack
 
 - **Framework**: Electron + React + TypeScript
 - **Build**: electron-vite
-- **STT**: whisper-node-addon (whisper.cpp), mlx-whisper (Python bridge), Moonshine AI (ONNX)
+- **STT**: whisper-node-addon (whisper.cpp), mlx-whisper (Python bridge), Apple SpeechTranscriber (macOS 26+), Moonshine Tiny JA (draft)
 - **VAD**: @ricky0123/vad-web (Silero VAD)
 - **Translation (online)**: Google Cloud Translation, DeepL, Azure Microsoft Translator, Gemini 2.5 Flash
-- **Translation (offline)**: OPUS-MT (Hugging Face), TranslateGemma 4B (node-llama-cpp, UtilityProcess)
+- **Translation (offline)**: OPUS-MT (Hugging Face), Hunyuan-MT 7B / HY-MT1.5 (node-llama-cpp, UtilityProcess)
 - **LLM**: node-llama-cpp (meeting summaries, context-aware translation)
 - **Streaming**: Local Agreement algorithm for low-latency display
 - **Testing**: Vitest
@@ -37,13 +38,13 @@ GPU-accelerated offline translation, pluggable engine system, meeting summaries.
 │  │  ┌─────────────┐   ┌──────────────────────────────────────────────┐ │   │
 │  │  │ STT Engine  │──→│ Translator Engine                            │ │   │
 │  │  │ Whisper /   │   │ Google / DeepL / Azure / Gemini /            │ │   │
-│  │  │ mlx-whisper/│   │ OPUS-MT / TranslateGemma / Rotation         │ │   │
-│  │  │ Moonshine   │   └──────────────────────────────────────────────┘ │   │
+│  │  │ mlx-whisper/│   │ OPUS-MT / Hunyuan-MT / Rotation             │ │   │
+│  │  │ Apple STT   │   └──────────────────────────────────────────────┘ │   │
 │  │  └─────────────┘                                                    │   │
 │  │                                                                      │   │
 │  │  ┌────────────────────────────┐  ┌───────────────────────────────┐  │   │
-│  │  │ SpeakerTracker             │  │ ContextBuffer (ring buffer)   │  │   │
-│  │  │ (silence-gap diarization)  │  │ (context-aware translation)   │  │   │
+│  │  │ TranslationCache (LRU)    │  │ ContextBuffer (ring buffer)   │  │   │
+│  │  │ (repeated phrase caching)  │  │ (context-aware translation)   │  │   │
 │  │  └────────────────────────────┘  └───────────────────────────────┘  │   │
 │  │                                                                      │   │
 │  │  Streaming: LocalAgreement                                           │   │
@@ -59,7 +60,7 @@ GPU-accelerated offline translation, pluggable engine system, meeting summaries.
 │  └──────────────┘  └──────────────────┘  └──────────────────────┘          │
 │                                                                             │
 │  ┌──────────────────────────────┐                                           │
-│  │ SLM Worker (UtilityProcess) │  ← TranslateGemma 4B + Meeting Summaries │
+│  │ SLM Worker (UtilityProcess) │  ← Hunyuan-MT / HY-MT1.5 + Summaries    │
 │  │ node-llama-cpp, GPU/Metal   │                                           │
 │  └──────────────────────────────┘                                           │
 └─────────────────────────────────────────────────────────────────────────────┘
@@ -71,16 +72,27 @@ GPU-accelerated offline translation, pluggable engine system, meeting summaries.
 live-translate/
 ├── src/
 │   ├── main/
-│   │   ├── index.ts                   # Entry point, IPC handlers, pipeline wiring
+│   │   ├── index.ts                   # Entry point, pipeline wiring
+│   │   ├── ipc-handlers.ts           # IPC handlers (pipeline, settings, sessions)
+│   │   ├── ipc/                       # Modular IPC handlers (audio, pipeline, settings, etc.)
+│   │   ├── shortcut-manager.ts        # Global keyboard shortcuts (Ctrl+Shift based)
+│   │   ├── mdm-config.ts             # MDM/enterprise configuration
+│   │   ├── tts-manager.ts            # Text-to-speech manager
+│   │   ├── virtual-mic-manager.ts     # Virtual microphone manager
 │   │   ├── store.ts                   # electron-store (encrypted settings, quota)
-│   │   └── slm-worker.ts             # UtilityProcess: TranslateGemma + summarization
+│   │   └── slm-worker.ts             # UtilityProcess: Hunyuan-MT + summarization
 │   ├── preload/
 │   │   ├── index.ts                   # Context bridge with unsubscribe support
 │   │   └── index.d.ts                # Type declarations for all IPC channels
 │   ├── renderer/
 │   │   ├── components/
-│   │   │   ├── SettingsPanel.tsx      # Control panel (auto/8 engines, STT selector, subtitles)
-│   │   │   └── SubtitleOverlay.tsx    # Transparent subtitle window (speaker labels, settings-driven)
+│   │   │   ├── SettingsPanel.tsx      # Control panel (engines, STT, subtitles)
+│   │   │   ├── SubtitleOverlay.tsx    # Transparent subtitle window
+│   │   │   └── settings/             # Modular settings panels
+│   │   │       ├── AccessibilitySettings.tsx  # High contrast, dyslexia font, WCAG
+│   │   │       ├── KeyboardShortcuts.tsx      # Shortcut configuration UI
+│   │   │       ├── EnterpriseSettings.tsx     # MDM config, admin lock, telemetry
+│   │   │       └── ...                        # Audio, Language, STT, Subtitle, etc.
 │   │   └── hooks/
 │   │       └── useAudioCapture.ts     # Mic/virtual audio capture via Silero VAD
 │   ├── engines/
@@ -89,33 +101,44 @@ live-translate/
 │   │   ├── gpu-detector.ts            # GPU detection via node-llama-cpp
 │   │   ├── plugin-loader.ts           # Plugin manifest validation and loading
 │   │   ├── stt/
-│   │   │   ├── WhisperLocalEngine.ts  # whisper.cpp + hallucination filter
-│   │   │   ├── MlxWhisperEngine.ts    # mlx-whisper via Python subprocess
-│   │   │   └── MoonshineEngine.ts     # Moonshine AI via ONNX
+│   │   │   ├── WhisperLocalEngine.ts          # whisper.cpp + hallucination filter
+│   │   │   ├── MlxWhisperEngine.ts            # mlx-whisper via Python subprocess
+│   │   │   ├── AppleSpeechTranscriberEngine.ts # macOS 26+ native STT (experimental)
+│   │   │   ├── MoonshineTinyJaEngine.ts       # Ultra-fast draft STT (experimental)
+│   │   │   ├── KotobaWhisperEngine.ts         # JA-optimized Whisper (experimental)
+│   │   │   └── SpeechSwiftEngine.ts           # speech-swift CLI bridge (experimental)
 │   │   └── translator/
 │   │       ├── GoogleTranslator.ts
 │   │       ├── DeepLTranslator.ts
 │   │       ├── GeminiTranslator.ts
 │   │       ├── MicrosoftTranslator.ts
 │   │       ├── OpusMTTranslator.ts
-│   │       ├── SLMTranslator.ts       # TranslateGemma 4B (UtilityProcess proxy)
+│   │       ├── SLMTranslator.ts       # TranslateGemma (UtilityProcess proxy)
+│   │       ├── LFM2Translator.ts      # LFM2 draft model for speculative decoding
+│   │       ├── PLaMoTranslator.ts     # PLaMo translation (experimental)
 │   │       └── ApiRotationController.ts
 │   ├── pipeline/
 │   │   ├── TranslationPipeline.ts     # Orchestration, streaming, auto-recovery
+│   │   ├── EngineManager.ts           # Engine registration, creation, init/dispose
+│   │   ├── StreamingProcessor.ts      # Streaming audio processing logic
+│   │   ├── MemoryMonitor.ts           # Process memory usage monitoring
 │   │   ├── LocalAgreement.ts          # LCP for streaming stability
 │   │   ├── ContextBuffer.ts           # Ring buffer for context-aware translation
-│   │   ├── SpeakerTracker.ts          # Silence-gap speaker change detection
-│   │   ├── PyannoteDiarizer.ts        # pyannote.audio via Python subprocess
+│   │   ├── TranslationCache.ts        # LRU cache for repeated phrases
+│   │   ├── GERProcessor.ts            # GER processing
 │   │   └── whisper-filter.ts          # Hallucination detection
 │   └── logger/
 │       ├── TranscriptLogger.ts        # Plain text session logging
 │       └── SessionManager.ts          # JSON sessions, search, export (text/SRT/MD)
 ├── resources/
 │   ├── mlx-whisper-bridge.py          # Python bridge for mlx-whisper
-│   └── pyannote-bridge.py             # Python bridge for pyannote diarization
+│   ├── sensevoice-bridge.py           # Python bridge for SenseVoice
+│   ├── moonshine-tiny-ja-bridge.py    # Python bridge for Moonshine Tiny JA
+│   └── ane-translate-bridge.py        # Python bridge for ANE translation
 ├── scripts/
 │   ├── fix-whisper-addon.js           # postinstall: fix macOS dylib paths
-│   └── after-pack.js                  # electron-builder: fix paths in packaged app
+│   ├── after-pack.js                  # electron-builder: fix paths in packaged app
+│   └── apple-stt/                     # Apple SpeechTranscriber Swift bridge
 ├── benchmark/                         # Standalone translation quality benchmark
 └── models/                            # Auto-downloaded models (gitignored)
 ```

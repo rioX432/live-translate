@@ -21,3 +21,18 @@ globs: src/renderer/**/*.tsx, src/renderer/**/*.ts
 - Disable controls while pipeline is running
 - Show status messages from main process via `onStatusUpdate` IPC
 - Persist settings with electron-store
+- Settings are split into modular components under `components/settings/`
+
+## Accessibility
+- `AccessibilitySettings.tsx` — high contrast mode, dyslexia-friendly font (OpenDyslexic), letter/word spacing
+- Accessibility state applies to both settings panel and subtitle overlay
+- WCAG compliance: sufficient contrast ratios, keyboard navigation support
+
+## Keyboard Shortcuts
+- `KeyboardShortcuts.tsx` — shortcut configuration UI
+- Shortcuts registered globally via `shortcut-manager.ts` in main process
+- Ctrl+Shift based default bindings for overlay control (toggle, position, etc.)
+
+## Enterprise Settings
+- `EnterpriseSettings.tsx` — MDM configuration display, admin lock, telemetry consent
+- Admin-locked settings are read-only in UI

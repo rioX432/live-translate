@@ -35,7 +35,7 @@ Before acting, always pause and reconsider. Re-read the requirements, re-check y
 - GGUF models (~2.6GB+) download with resume support and SHA256 verification
 - Google Cloud Translation API v2 free tier: 500K chars/month, 6000 req/min
 - node-llama-cpp runs in shared UtilityProcess pool (worker-pool.ts → slm-worker.ts), not main process
-- Lightning Whisper MLX and Moonshine removed — JA CER too high (162% and 221% respectively)
+- Lightning Whisper MLX and Moonshine base removed — JA CER too high (162% and 221% respectively). Moonshine Tiny JA is a separate experimental engine with improved JA CER (10.1%)
 - electron-store is encrypted — API keys are not stored in plaintext
 - IPC paths must be validated against directory traversal before file operations
 
