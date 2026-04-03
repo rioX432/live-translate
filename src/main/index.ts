@@ -27,6 +27,7 @@ import { registerIpcHandlers } from './ipc-handlers'
 import { createLogger } from './logger'
 import { initAutoUpdater, registerUpdateHandlers, disposeAutoUpdater } from './auto-updater'
 import { createAppContext } from './app-context'
+import { registerGlobalShortcuts, setLastSubtitleText } from './shortcut-manager'
 import { TTSManager } from './tts-manager'
 import { VirtualMicManager } from './virtual-mic-manager'
 import { loadMdmConfig } from './mdm-config'
@@ -177,6 +178,9 @@ async function initPipeline(): Promise<void> {
     ctx.subtitleWindow?.webContents.send('translation-result', result)
     ctx.mainWindow?.webContents.send('translation-result', result)
     ctx.logger?.log(result)
+    // Track last subtitle for clipboard copy shortcut (#551)
+    const subtitleParts = [result.sourceText, result.translatedText].filter(Boolean)
+    if (subtitleParts.length > 0) setLastSubtitleText(subtitleParts.join('\n'))
     // #519: Track translated character count for usage analytics
     if (result.translatedText) {
       trackTranslatedCharacters(result.translatedText.length)
@@ -266,10 +270,12 @@ app.whenReady().then(async () => {
   createMainWindow(ctx)
   createSubtitleWindow(ctx)
   cleanupDisplayHandlers = registerDisplayHandlers(ctx)
+  cleanupShortcuts = registerGlobalShortcuts(ctx)
   initAutoUpdater(ctx)
 })
 
 let cleanupDisplayHandlers: (() => void) | null = null
+let cleanupShortcuts: (() => void) | null = null
 let isQuitting = false
 app.on('before-quit', (event) => {
   if (isQuitting) return
@@ -281,6 +287,8 @@ app.on('before-quit', (event) => {
     try {
       cleanupDisplayHandlers?.()
       cleanupDisplayHandlers = null
+      cleanupShortcuts?.()
+      cleanupShortcuts = null
       disposeAutoUpdater()
       ctx.logger?.endSession()
       ctx.logger = null

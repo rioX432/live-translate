@@ -98,5 +98,17 @@ electron_1.contextBridge.exposeInMainWorld('api', {
         var handler = function (_event, status) { return callback(status); };
         electron_1.ipcRenderer.on('ws-audio-status', handler);
         return function () { return electron_1.ipcRenderer.off('ws-audio-status', handler); };
+    },
+    // Global keyboard shortcuts (#551)
+    getShortcutLabels: function () { return electron_1.ipcRenderer.invoke('get-shortcut-labels'); },
+    onShortcutAction: function (callback) {
+        var handler = function (_event, action) { return callback(action); };
+        electron_1.ipcRenderer.on('shortcut-action', handler);
+        return function () { return electron_1.ipcRenderer.off('shortcut-action', handler); };
+    },
+    onLanguageSwitched: function (callback) {
+        var handler = function (_event, data) { return callback(data); };
+        electron_1.ipcRenderer.on('language-switched', handler);
+        return function () { return electron_1.ipcRenderer.off('language-switched', handler); };
     }
 });

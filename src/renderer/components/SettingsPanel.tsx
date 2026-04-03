@@ -13,7 +13,8 @@ import {
   CrashRecoveryBanner,
   ConfigSummary,
   QuickStartPanel,
-  EnterpriseSettings
+  EnterpriseSettings,
+  KeyboardShortcuts
 } from './settings'
 
 function SettingsPanel(): React.JSX.Element {
@@ -32,6 +33,25 @@ function SettingsPanel(): React.JSX.Element {
       setQuickStartChecked(true)
     })
   }, [])
+
+  // Listen for global shortcut actions from main process (#551)
+  useEffect(() => {
+    const unsub = window.api.onShortcutAction?.((action: string) => {
+      if (action === 'toggle-capture-start' && !s.isRunning && !s.isStarting) {
+        s.handleStart()
+      } else if (action === 'toggle-capture-stop' && s.isRunning) {
+        s.handleStop()
+      }
+    })
+    const unsubLang = window.api.onLanguageSwitched?.((data: { sourceLanguage: string; targetLanguage: string }) => {
+      s.setSourceLanguage(data.sourceLanguage as never)
+      s.setTargetLanguage(data.targetLanguage as never)
+    })
+    return () => {
+      unsub?.()
+      unsubLang?.()
+    }
+  }, [s.isRunning, s.isStarting, s.handleStart, s.handleStop])
 
   // Show nothing until we know whether to show Quick Start
   if (!quickStartChecked) {
@@ -170,6 +190,8 @@ function SettingsPanel(): React.JSX.Element {
           <VirtualMicSettings disabled={disabled} />
 
           <EnterpriseSettings disabled={disabled} />
+
+          <KeyboardShortcuts />
 
           <UpdateStatus />
         </div>
