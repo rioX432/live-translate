@@ -2,6 +2,19 @@ import { useEffect, useState } from 'react'
 import { bool, num, rec, str } from './settingsCastUtils'
 import type { SubtitlePositionType } from '../components/settings/shared'
 
+export interface AccessibilityState {
+  highContrast: boolean
+  setHighContrast: (v: boolean) => void
+  dyslexiaFont: boolean
+  setDyslexiaFont: (v: boolean) => void
+  reducedMotion: boolean
+  setReducedMotion: (v: boolean) => void
+  letterSpacing: number
+  setLetterSpacing: (v: number) => void
+  wordSpacing: number
+  setWordSpacing: (v: number) => void
+}
+
 export interface SubtitleSettingsState {
   subtitleFontSize: number
   setSubtitleFontSize: (v: number) => void
@@ -15,6 +28,7 @@ export interface SubtitleSettingsState {
   setSubtitlePosition: (v: SubtitlePositionType) => void
   showConfidenceIndicator: boolean
   setShowConfidenceIndicator: (v: boolean) => void
+  accessibility: AccessibilityState
   pushSubtitleSettings: (overrides?: Record<string, unknown>) => void
 }
 
@@ -26,6 +40,13 @@ export function useSubtitleSettings(): SubtitleSettingsState {
   const [subtitlePosition, setSubtitlePosition] = useState<SubtitlePositionType>('bottom')
   const [showConfidenceIndicator, setShowConfidenceIndicator] = useState(true)
 
+  // Accessibility state
+  const [highContrast, setHighContrast] = useState(false)
+  const [dyslexiaFont, setDyslexiaFont] = useState(false)
+  const [reducedMotion, setReducedMotion] = useState(false)
+  const [letterSpacing, setLetterSpacing] = useState(0)
+  const [wordSpacing, setWordSpacing] = useState(0)
+
   // Load subtitle settings on mount
   useEffect(() => {
     window.api.getSettings().then((s) => {
@@ -36,6 +57,16 @@ export function useSubtitleSettings(): SubtitleSettingsState {
         if (sub.translatedTextColor) setSubtitleTranslatedColor(str(sub.translatedTextColor, '#7dd3fc'))
         if (sub.backgroundOpacity !== undefined) setSubtitleBgOpacity(num(sub.backgroundOpacity, 78))
         if (sub.position) setSubtitlePosition(str(sub.position, 'bottom') as SubtitlePositionType)
+
+        // Load accessibility settings
+        const a11y = rec(sub.accessibility)
+        if (a11y) {
+          setHighContrast(bool(a11y.highContrast, false))
+          setDyslexiaFont(bool(a11y.dyslexiaFont, false))
+          setReducedMotion(bool(a11y.reducedMotion, false))
+          setLetterSpacing(num(a11y.letterSpacing, 0))
+          setWordSpacing(num(a11y.wordSpacing, 0))
+        }
       }
       if (s.showConfidenceIndicator !== undefined) {
         setShowConfidenceIndicator(bool(s.showConfidenceIndicator, true))
@@ -50,6 +81,13 @@ export function useSubtitleSettings(): SubtitleSettingsState {
       translatedTextColor: subtitleTranslatedColor,
       backgroundOpacity: subtitleBgOpacity,
       position: subtitlePosition,
+      accessibility: {
+        highContrast,
+        dyslexiaFont,
+        reducedMotion,
+        letterSpacing,
+        wordSpacing
+      },
       ...overrides
     }
     window.api.saveSubtitleSettings(settings)
@@ -62,6 +100,13 @@ export function useSubtitleSettings(): SubtitleSettingsState {
     subtitleBgOpacity, setSubtitleBgOpacity,
     subtitlePosition, setSubtitlePosition,
     showConfidenceIndicator, setShowConfidenceIndicator,
+    accessibility: {
+      highContrast, setHighContrast,
+      dyslexiaFont, setDyslexiaFont,
+      reducedMotion, setReducedMotion,
+      letterSpacing, setLetterSpacing,
+      wordSpacing, setWordSpacing
+    },
     pushSubtitleSettings
   }
 }

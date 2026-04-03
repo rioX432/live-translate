@@ -4,6 +4,7 @@ import type { UseNoiseSuppressionReturn } from './useNoiseSuppression'
 import { useEngineSettings } from './useEngineSettings'
 import { useDisplaySettings } from './useDisplaySettings'
 import { useSubtitleSettings } from './useSubtitleSettings'
+import type { AccessibilityState } from './useSubtitleSettings'
 import { useLanguageSettings } from './useLanguageSettings'
 import { useSessionSettings } from './useSessionSettings'
 import {
@@ -81,6 +82,9 @@ export interface SettingsState {
   setSubtitlePosition: (v: SubtitlePositionType) => void
   showConfidenceIndicator: boolean
   setShowConfidenceIndicator: (v: boolean) => void
+
+  // Accessibility
+  accessibility: AccessibilityState
 
   // SLM options
   slmKvCacheQuant: boolean
@@ -287,6 +291,7 @@ export function useSettingsState(): SettingsState {
     subtitleBgOpacity: subtitle.subtitleBgOpacity, setSubtitleBgOpacity: subtitle.setSubtitleBgOpacity,
     subtitlePosition: subtitle.subtitlePosition, setSubtitlePosition: subtitle.setSubtitlePosition,
     showConfidenceIndicator: subtitle.showConfidenceIndicator, setShowConfidenceIndicator: subtitle.setShowConfidenceIndicator,
+    accessibility: subtitle.accessibility,
     pushSubtitleSettings: subtitle.pushSubtitleSettings,
 
     // Language

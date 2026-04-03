@@ -78,6 +78,17 @@ export function validateSubtitleSettings(data: unknown): string | null {
     return `position must be one of: ${VALID_SUBTITLE_POSITIONS.join(', ')}`
   }
 
+  // Accessibility settings are optional — validate only if present
+  if (obj.accessibility != null) {
+    if (typeof obj.accessibility !== 'object') return 'accessibility must be an object'
+    const a11y = obj.accessibility as Record<string, unknown>
+    if (a11y.highContrast !== undefined && typeof a11y.highContrast !== 'boolean') return 'highContrast must be a boolean'
+    if (a11y.dyslexiaFont !== undefined && typeof a11y.dyslexiaFont !== 'boolean') return 'dyslexiaFont must be a boolean'
+    if (a11y.reducedMotion !== undefined && typeof a11y.reducedMotion !== 'boolean') return 'reducedMotion must be a boolean'
+    if (a11y.letterSpacing !== undefined && (typeof a11y.letterSpacing !== 'number' || !Number.isFinite(a11y.letterSpacing))) return 'letterSpacing must be a finite number'
+    if (a11y.wordSpacing !== undefined && (typeof a11y.wordSpacing !== 'number' || !Number.isFinite(a11y.wordSpacing))) return 'wordSpacing must be a finite number'
+  }
+
   return null
 }
 

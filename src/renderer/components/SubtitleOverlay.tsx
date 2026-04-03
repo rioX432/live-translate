@@ -1,11 +1,28 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 
+interface AccessibilityConfig {
+  highContrast: boolean
+  dyslexiaFont: boolean
+  reducedMotion: boolean
+  letterSpacing: number
+  wordSpacing: number
+}
+
+const DEFAULT_ACCESSIBILITY: AccessibilityConfig = {
+  highContrast: false,
+  dyslexiaFont: false,
+  reducedMotion: false,
+  letterSpacing: 0,
+  wordSpacing: 0
+}
+
 interface SubtitleConfig {
   fontSize: number
   sourceTextColor: string
   translatedTextColor: string
   backgroundOpacity: number
   position: 'top' | 'bottom'
+  accessibility: AccessibilityConfig
 }
 
 const DEFAULT_CONFIG: SubtitleConfig = {
@@ -13,7 +30,8 @@ const DEFAULT_CONFIG: SubtitleConfig = {
   sourceTextColor: '#ffffff',
   translatedTextColor: '#7dd3fc',
   backgroundOpacity: 78,
-  position: 'bottom'
+  position: 'bottom',
+  accessibility: DEFAULT_ACCESSIBILITY
 }
 
 /** Silence timeout before subtitle fades out */
@@ -23,6 +41,14 @@ const FADE_OUT_MS = 800
 
 /** Dimmed color for interim (unconfirmed) text */
 const INTERIM_TEXT_COLOR = 'rgba(255, 255, 255, 0.5)'
+
+/** Font stack with Noto Sans CJK for broader coverage */
+const BASE_FONT_FAMILY =
+  '"Noto Sans", "Noto Sans CJK JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+
+/** Dyslexia-friendly font stack */
+const DYSLEXIA_FONT_FAMILY =
+  '"Atkinson Hyperlegible", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 
 interface ResultData {
   sourceText: string
@@ -41,6 +67,8 @@ function SubtitleOverlay(): React.JSX.Element {
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef({ screenX: 0, screenY: 0 })
+
+  const a11y = config.accessibility
 
   const resetSilenceTimer = useCallback(() => {
     if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
@@ -108,12 +136,27 @@ function SubtitleOverlay(): React.JSX.Element {
   useEffect(() => {
     window.api.getSettings().then((s) => {
       if (s.subtitleSettings) {
-        setConfig((prev) => ({ ...prev, ...s.subtitleSettings as Partial<SubtitleConfig> }))
+        setConfig((prev) => ({
+          ...prev,
+          ...s.subtitleSettings as Partial<SubtitleConfig>,
+          accessibility: {
+            ...DEFAULT_ACCESSIBILITY,
+            ...(s.subtitleSettings as Record<string, unknown>).accessibility as Partial<AccessibilityConfig>
+          }
+        }))
       }
     })
 
     const unsubscribe = window.api.onSubtitleSettingsChanged((settings) => {
-      setConfig((prev) => ({ ...prev, ...settings as Partial<SubtitleConfig> }))
+      const s = settings as Partial<SubtitleConfig>
+      setConfig((prev) => ({
+        ...prev,
+        ...s,
+        accessibility: {
+          ...prev.accessibility,
+          ...(s.accessibility ?? {})
+        }
+      }))
     })
 
     const unsubDrag = window.api.onDragModeChanged?.((enabled: boolean) => {
@@ -140,13 +183,30 @@ function SubtitleOverlay(): React.JSX.Element {
     }
   }, [handleResult])
 
-  const translatedFontSize = Math.max(config.fontSize - 2, 16)
+  // Resolve display values based on accessibility settings
+  const effectiveFontSize = a11y.highContrast ? Math.max(config.fontSize + 4, 34) : config.fontSize
+  const translatedFontSize = Math.max(effectiveFontSize - 2, 16)
   const hasContent = confirmedText || interimText
+
+  const effectiveSourceColor = a11y.highContrast ? '#ffffff' : config.sourceTextColor
+  const effectiveTranslatedColor = a11y.highContrast ? '#ffff00' : config.translatedTextColor
+  const effectiveBgOpacity = a11y.highContrast ? 100 : config.backgroundOpacity
+  const effectiveTextShadow = '0 2px 4px rgba(0,0,0,0.8)'
+  const effectiveFontFamily = a11y.dyslexiaFont ? DYSLEXIA_FONT_FAMILY : BASE_FONT_FAMILY
+
+  // Transition: instant for reduced motion, normal otherwise
+  const fadeOutTransition = a11y.reducedMotion ? 'none' : `opacity ${FADE_OUT_MS}ms ease-out`
+  const fadeInTransition = a11y.reducedMotion ? 'none' : 'opacity 0.15s ease-out'
+
+  // WCAG 1.4.12 spacing
+  const spacingStyle: React.CSSProperties = {
+    letterSpacing: a11y.letterSpacing ? `${a11y.letterSpacing}em` : undefined,
+    wordSpacing: a11y.wordSpacing ? `${a11y.wordSpacing}em` : undefined
+  }
 
   return (
     <div
       role="region"
-      aria-live="polite"
       aria-label="Subtitles"
       style={{
         width: '100%',
@@ -155,8 +215,7 @@ function SubtitleOverlay(): React.JSX.Element {
         flexDirection: 'column',
         justifyContent: config.position === 'top' ? 'flex-start' : 'flex-end',
         padding: '1rem clamp(1rem, 5%, 3rem)',
-        fontFamily:
-          '"Hiragino Sans", "Hiragino Kaku Gothic ProN", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+        fontFamily: effectiveFontFamily,
         userSelect: 'none'
       }}
     >
@@ -194,42 +253,46 @@ function SubtitleOverlay(): React.JSX.Element {
       {/* Single subtitle slot */}
       <div
         style={{
-          background: `rgba(0, 0, 0, ${config.backgroundOpacity / 100})`,
-          borderRadius: '0.625rem',
+          background: `rgba(0, 0, 0, ${effectiveBgOpacity / 100})`,
+          borderRadius: a11y.highContrast ? '0' : '0.625rem',
           padding: '0.625rem 1.25rem',
-          backdropFilter: 'blur(8px)',
-          WebkitBackdropFilter: 'blur(8px)',
+          backdropFilter: a11y.highContrast ? 'none' : 'blur(8px)',
+          WebkitBackdropFilter: a11y.highContrast ? 'none' : 'blur(8px)',
           opacity: visible && hasContent ? 1 : 0,
-          transition: `opacity ${visible ? '0.15s' : `${FADE_OUT_MS}ms`} ease-out`,
+          transition: visible ? fadeInTransition : fadeOutTransition,
           pointerEvents: visible ? 'auto' : 'none',
           textAlign: 'center'
         }}
       >
         {/* Source text: confirmed (stable) + interim (dimmed, still changing) */}
         <div
+          aria-live="polite"
           style={{
-            fontSize: `${config.fontSize}px`,
+            fontSize: `${effectiveFontSize}px`,
             fontWeight: 600,
-            lineHeight: 1.4,
-            textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+            lineHeight: 1.5,
+            textShadow: effectiveTextShadow,
+            ...spacingStyle
           }}
         >
-          <span style={{ color: config.sourceTextColor }}>{confirmedText}</span>
+          <span style={{ color: effectiveSourceColor }}>{confirmedText}</span>
           {interimText && (
-            <span style={{ color: INTERIM_TEXT_COLOR }}>{interimText}</span>
+            <span style={{ color: a11y.highContrast ? 'rgba(255,255,255,0.7)' : INTERIM_TEXT_COLOR }}>{interimText}</span>
           )}
         </div>
 
-        {/* Translation: only updates on finalized results */}
+        {/* Translation: only updates on finalized results — assertive for screen readers */}
         {translatedText && (
           <div
+            aria-live="assertive"
             style={{
-              color: config.translatedTextColor,
+              color: effectiveTranslatedColor,
               fontSize: `${translatedFontSize}px`,
               fontWeight: 600,
-              lineHeight: 1.4,
+              lineHeight: 1.5,
               marginTop: '0.25rem',
-              textShadow: '0 1px 3px rgba(0,0,0,0.5)'
+              textShadow: effectiveTextShadow,
+              ...spacingStyle
             }}
           >
             {translatedText}

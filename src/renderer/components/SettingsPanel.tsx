@@ -14,7 +14,8 @@ import {
   ConfigSummary,
   QuickStartPanel,
   EnterpriseSettings,
-  KeyboardShortcuts
+  KeyboardShortcuts,
+  AccessibilitySettings
 } from './settings'
 
 function SettingsPanel(): React.JSX.Element {
@@ -183,6 +184,19 @@ function SettingsPanel(): React.JSX.Element {
             displays={s.displays}
             selectedDisplay={s.selectedDisplay}
             onDisplayChange={s.handleDisplayChange}
+          />
+
+          <AccessibilitySettings
+            highContrast={s.accessibility.highContrast}
+            onHighContrastChange={(v) => { s.accessibility.setHighContrast(v); s.pushSubtitleSettings({ accessibility: { highContrast: v, dyslexiaFont: s.accessibility.dyslexiaFont, reducedMotion: s.accessibility.reducedMotion, letterSpacing: s.accessibility.letterSpacing, wordSpacing: s.accessibility.wordSpacing } }) }}
+            dyslexiaFont={s.accessibility.dyslexiaFont}
+            onDyslexiaFontChange={(v) => { s.accessibility.setDyslexiaFont(v); s.pushSubtitleSettings({ accessibility: { highContrast: s.accessibility.highContrast, dyslexiaFont: v, reducedMotion: s.accessibility.reducedMotion, letterSpacing: s.accessibility.letterSpacing, wordSpacing: s.accessibility.wordSpacing } }) }}
+            reducedMotion={s.accessibility.reducedMotion}
+            onReducedMotionChange={(v) => { s.accessibility.setReducedMotion(v); s.pushSubtitleSettings({ accessibility: { highContrast: s.accessibility.highContrast, dyslexiaFont: s.accessibility.dyslexiaFont, reducedMotion: v, letterSpacing: s.accessibility.letterSpacing, wordSpacing: s.accessibility.wordSpacing } }) }}
+            letterSpacing={s.accessibility.letterSpacing}
+            onLetterSpacingChange={(v) => { s.accessibility.setLetterSpacing(v); s.pushSubtitleSettings({ accessibility: { highContrast: s.accessibility.highContrast, dyslexiaFont: s.accessibility.dyslexiaFont, reducedMotion: s.accessibility.reducedMotion, letterSpacing: v, wordSpacing: s.accessibility.wordSpacing } }) }}
+            wordSpacing={s.accessibility.wordSpacing}
+            onWordSpacingChange={(v) => { s.accessibility.setWordSpacing(v); s.pushSubtitleSettings({ accessibility: { highContrast: s.accessibility.highContrast, dyslexiaFont: s.accessibility.dyslexiaFont, reducedMotion: s.accessibility.reducedMotion, letterSpacing: s.accessibility.letterSpacing, wordSpacing: v } }) }}
           />
 
           <TTSSettings disabled={disabled} />
