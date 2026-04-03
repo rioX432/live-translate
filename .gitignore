@@ -8,4 +8,8 @@ logs/
 src/renderer/public/vad/
 benchmark/results/
 benchmark/models/
+benchmark/mlx_models/
+benchmark/.bin/
+benchmark/testset/stt-audio/
+.claude/worktrees/
 *.tsbuildinfo

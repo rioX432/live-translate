@@ -1,0 +1,40 @@
+{"id":"ja-casual-01","audio_path":"stt-audio/ja-casual-01.wav","reference_text":"おはようございます","language":"ja","domain":"casual"}
+{"id":"ja-casual-02","audio_path":"stt-audio/ja-casual-02.wav","reference_text":"今日はいい天気ですね","language":"ja","domain":"casual"}
+{"id":"ja-casual-03","audio_path":"stt-audio/ja-casual-03.wav","reference_text":"ありがとうございます","language":"ja","domain":"casual"}
+{"id":"ja-casual-04","audio_path":"stt-audio/ja-casual-04.wav","reference_text":"昨日の映画はとても面白かったです","language":"ja","domain":"casual"}
+{"id":"ja-casual-05","audio_path":"stt-audio/ja-casual-05.wav","reference_text":"週末に友達と買い物に行きました","language":"ja","domain":"casual"}
+{"id":"ja-casual-06","audio_path":"stt-audio/ja-casual-06.wav","reference_text":"最近ジムに通い始めました","language":"ja","domain":"casual"}
+{"id":"ja-business-01","audio_path":"stt-audio/ja-business-01.wav","reference_text":"本日はお忙しいところありがとうございます","language":"ja","domain":"business"}
+{"id":"ja-business-02","audio_path":"stt-audio/ja-business-02.wav","reference_text":"来週の会議の件でご連絡いたしました","language":"ja","domain":"business"}
+{"id":"ja-business-03","audio_path":"stt-audio/ja-business-03.wav","reference_text":"プロジェクトの進捗について報告いたします","language":"ja","domain":"business"}
+{"id":"ja-business-04","audio_path":"stt-audio/ja-business-04.wav","reference_text":"ご検討のほどよろしくお願いいたします","language":"ja","domain":"business"}
+{"id":"ja-business-05","audio_path":"stt-audio/ja-business-05.wav","reference_text":"第三四半期の売上は前年比で二十パーセント増加しました","language":"ja","domain":"business"}
+{"id":"ja-business-06","audio_path":"stt-audio/ja-business-06.wav","reference_text":"新しいマーケティング戦略を提案させていただきます","language":"ja","domain":"business"}
+{"id":"ja-business-07","audio_path":"stt-audio/ja-business-07.wav","reference_text":"契約書の内容を確認させていただけますでしょうか","language":"ja","domain":"business"}
+{"id":"ja-technical-01","audio_path":"stt-audio/ja-technical-01.wav","reference_text":"このアプリケーションはリアルタイム音声認識を使用しています","language":"ja","domain":"technical"}
+{"id":"ja-technical-02","audio_path":"stt-audio/ja-technical-02.wav","reference_text":"ニューラルネットワークの学習率を調整する必要があります","language":"ja","domain":"technical"}
+{"id":"ja-technical-03","audio_path":"stt-audio/ja-technical-03.wav","reference_text":"データベースのインデックスを再構築してください","language":"ja","domain":"technical"}
+{"id":"ja-technical-04","audio_path":"stt-audio/ja-technical-04.wav","reference_text":"メモリリークの原因を調査しています","language":"ja","domain":"technical"}
+{"id":"ja-technical-05","audio_path":"stt-audio/ja-technical-05.wav","reference_text":"このライブラリはマルチスレッド処理に対応しています","language":"ja","domain":"technical"}
+{"id":"ja-technical-06","audio_path":"stt-audio/ja-technical-06.wav","reference_text":"音声データは十六キロヘルツのサンプリングレートで録音されます","language":"ja","domain":"technical"}
+{"id":"ja-technical-07","audio_path":"stt-audio/ja-technical-07.wav","reference_text":"トランスフォーマーモデルの推論速度を最適化しました","language":"ja","domain":"technical"}
+{"id":"en-casual-01","audio_path":"stt-audio/en-casual-01.wav","reference_text":"Good morning, how are you?","language":"en","domain":"casual"}
+{"id":"en-casual-02","audio_path":"stt-audio/en-casual-02.wav","reference_text":"The weather is really nice today","language":"en","domain":"casual"}
+{"id":"en-casual-03","audio_path":"stt-audio/en-casual-03.wav","reference_text":"Thank you so much for your help","language":"en","domain":"casual"}
+{"id":"en-casual-04","audio_path":"stt-audio/en-casual-04.wav","reference_text":"I watched a great movie last night","language":"en","domain":"casual"}
+{"id":"en-casual-05","audio_path":"stt-audio/en-casual-05.wav","reference_text":"Let's grab some coffee this weekend","language":"en","domain":"casual"}
+{"id":"en-casual-06","audio_path":"stt-audio/en-casual-06.wav","reference_text":"I just started learning Japanese","language":"en","domain":"casual"}
+{"id":"en-business-01","audio_path":"stt-audio/en-business-01.wav","reference_text":"Thank you for taking the time to meet with us today","language":"en","domain":"business"}
+{"id":"en-business-02","audio_path":"stt-audio/en-business-02.wav","reference_text":"I would like to discuss the quarterly results","language":"en","domain":"business"}
+{"id":"en-business-03","audio_path":"stt-audio/en-business-03.wav","reference_text":"We need to finalize the project timeline by Friday","language":"en","domain":"business"}
+{"id":"en-business-04","audio_path":"stt-audio/en-business-04.wav","reference_text":"Our revenue increased by twenty percent year over year","language":"en","domain":"business"}
+{"id":"en-business-05","audio_path":"stt-audio/en-business-05.wav","reference_text":"Please review the contract and provide your feedback","language":"en","domain":"business"}
+{"id":"en-business-06","audio_path":"stt-audio/en-business-06.wav","reference_text":"The marketing team has proposed a new campaign strategy","language":"en","domain":"business"}
+{"id":"en-business-07","audio_path":"stt-audio/en-business-07.wav","reference_text":"We should schedule a follow up meeting next week","language":"en","domain":"business"}
+{"id":"en-technical-01","audio_path":"stt-audio/en-technical-01.wav","reference_text":"This application uses real-time speech recognition","language":"en","domain":"technical"}
+{"id":"en-technical-02","audio_path":"stt-audio/en-technical-02.wav","reference_text":"We need to adjust the learning rate of the neural network","language":"en","domain":"technical"}
+{"id":"en-technical-03","audio_path":"stt-audio/en-technical-03.wav","reference_text":"Please rebuild the database indexes for better performance","language":"en","domain":"technical"}
+{"id":"en-technical-04","audio_path":"stt-audio/en-technical-04.wav","reference_text":"We are investigating a memory leak in the main process","language":"en","domain":"technical"}
+{"id":"en-technical-05","audio_path":"stt-audio/en-technical-05.wav","reference_text":"This library supports multi-threaded processing","language":"en","domain":"technical"}
+{"id":"en-technical-06","audio_path":"stt-audio/en-technical-06.wav","reference_text":"Audio data is recorded at a sixteen kilohertz sample rate","language":"en","domain":"technical"}
+{"id":"en-technical-07","audio_path":"stt-audio/en-technical-07.wav","reference_text":"We optimized the transformer model inference speed","language":"en","domain":"technical"}
