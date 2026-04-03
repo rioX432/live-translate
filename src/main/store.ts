@@ -13,12 +13,21 @@ export interface ActiveSession {
   startedAt: number
 }
 
+export interface AccessibilitySettings {
+  highContrast: boolean
+  dyslexiaFont: boolean
+  reducedMotion: boolean
+  letterSpacing: number
+  wordSpacing: number
+}
+
 export interface SubtitleSettings {
   fontSize: number
   sourceTextColor: string
   translatedTextColor: string
   backgroundOpacity: number
   position: 'top' | 'bottom'
+  accessibility: AccessibilitySettings
 }
 
 export interface SessionLog {
@@ -119,7 +128,14 @@ export const store = new Store<AppSettings>({
       sourceTextColor: '#f0f0f0',
       translatedTextColor: '#93c5fd',
       backgroundOpacity: 78,
-      position: 'bottom'
+      position: 'bottom',
+      accessibility: {
+        highContrast: false,
+        dyslexiaFont: false,
+        reducedMotion: false,
+        letterSpacing: 0,
+        wordSpacing: 0
+      }
     },
     sessionLogs: [],
     slmKvCacheQuant: true,

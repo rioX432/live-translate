@@ -16,7 +16,7 @@ vi.mock('./store', () => ({
   store: {
     get: vi.fn((key: string) => {
       const defaults: Record<string, unknown> = {
-        subtitleSettings: { fontSize: 30, sourceTextColor: '#fff', translatedTextColor: '#7dd3fc', backgroundOpacity: 78, position: 'bottom' },
+        subtitleSettings: { fontSize: 30, sourceTextColor: '#fff', translatedTextColor: '#7dd3fc', backgroundOpacity: 78, position: 'bottom', accessibility: { highContrast: false, dyslexiaFont: false, reducedMotion: false, letterSpacing: 0, wordSpacing: 0 } },
         sourceLanguage: 'ja',
         targetLanguage: 'en'
       }
