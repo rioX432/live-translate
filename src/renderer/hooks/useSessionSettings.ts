@@ -108,16 +108,50 @@ export function useSessionSettings(): SessionSettingsState {
     window.api.listSessions().then(setSessions).catch((e) => console.warn('[settings] Failed to load sessions:', e))
   }, [isRunning])
 
+  // Audio MessagePort for zero-copy transfer (#553)
+  const audioPortRef = useRef<MessagePort | null>(null)
+
+  useEffect(() => {
+    const unsub = window.api.onAudioPort((port) => {
+      audioPortRef.current = port
+      console.log('[session] Audio MessagePort received — using zero-copy transfer')
+    })
+    return () => {
+      unsub()
+      audioPortRef.current = null
+    }
+  }, [])
+
+  // Send audio via MessagePort (zero-copy) or fall back to IPC (JSON-serialized)
+  const sendAudio = useCallback((type: string, data: Float32Array) => {
+    const port = audioPortRef.current
+    if (port) {
+      // Zero-copy: transfer the underlying ArrayBuffer
+      const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
+      port.postMessage({ type, audio: buffer }, [buffer])
+    } else {
+      // Fallback: JSON-serialized IPC
+      const arr = Array.from(data)
+      if (type === 'process-audio') {
+        window.api.processAudio(arr)
+      } else if (type === 'process-audio-streaming') {
+        window.api.processAudioStreaming(arr)
+      } else if (type === 'finalize-streaming') {
+        window.api.finalizeStreaming(arr)
+      }
+    }
+  }, [])
+
   // Handle audio: streaming chunks during speech, final segment on speech end
   useEffect(() => {
     const unsub1 = audio.onAudioChunk((chunk) => {
-      window.api.processAudio(Array.from(chunk))
+      sendAudio('process-audio', chunk)
     })
     const unsub2 = audio.onStreamingChunk((buffer) => {
-      window.api.processAudioStreaming(Array.from(buffer))
+      sendAudio('process-audio-streaming', buffer)
     })
     const unsub3 = audio.onSpeechSegmentEnd((finalBuffer) => {
-      window.api.finalizeStreaming(Array.from(finalBuffer))
+      sendAudio('finalize-streaming', finalBuffer)
     })
 
     return () => {
@@ -125,7 +159,7 @@ export function useSessionSettings(): SessionSettingsState {
       unsub2()
       unsub3()
     }
-  }, [])
+  }, [sendAudio])
 
   // Listen for status updates from main process
   useEffect(() => {

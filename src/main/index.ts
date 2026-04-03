@@ -23,6 +23,7 @@ import { store } from './store'
 import { sanitizeErrorMessage, getErrorHint } from './error-utils'
 import { createMainWindow, createSubtitleWindow, registerDisplayHandlers } from './window-manager'
 import { registerAudioHandlers } from './audio-handlers'
+import { setupAudioPort } from './audio-port'
 import { registerIpcHandlers } from './ipc-handlers'
 import { createLogger } from './logger'
 import { initAutoUpdater, registerUpdateHandlers, disposeAutoUpdater } from './auto-updater'
@@ -269,6 +270,14 @@ app.whenReady().then(async () => {
 
   createMainWindow(ctx)
   createSubtitleWindow(ctx)
+
+  // Set up MessagePort for zero-copy audio transfer after renderer loads (#553)
+  if (ctx.mainWindow) {
+    ctx.mainWindow.webContents.on('did-finish-load', () => {
+      setupAudioPort(ctx)
+    })
+  }
+
   cleanupDisplayHandlers = registerDisplayHandlers(ctx)
   cleanupShortcuts = registerGlobalShortcuts(ctx)
   initAutoUpdater(ctx)
