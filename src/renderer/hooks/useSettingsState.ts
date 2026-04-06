@@ -100,6 +100,16 @@ export interface SettingsState {
   orgGlossaryTerms: Array<{ source: string; target: string }>
   setOrgGlossaryTerms: (v: Array<{ source: string; target: string }>) => void
 
+  // Adaptive routing (#547)
+  adaptiveRoutingEnabled: boolean
+  setAdaptiveRoutingEnabled: (v: boolean) => void
+  adaptiveRoutingShortThreshold: number
+  setAdaptiveRoutingShortThreshold: (v: number) => void
+  adaptiveRoutingLongThreshold: number
+  setAdaptiveRoutingLongThreshold: (v: number) => void
+  adaptiveRoutingQualityEngine: string
+  setAdaptiveRoutingQualityEngine: (v: string) => void
+
   // Platform
   platform: string
 
@@ -176,7 +186,11 @@ export function useSettingsState(): SettingsState {
         targetLanguage: language.targetLanguage,
         noiseSuppressionEnabled: session.noiseSuppression.enabled,
         audioSource: session.audio.audioSource,
-        draftSttEnabled: language.draftSttEnabled
+        draftSttEnabled: language.draftSttEnabled,
+        adaptiveRoutingEnabled: engine.adaptiveRoutingEnabled,
+        adaptiveRoutingShortThreshold: engine.adaptiveRoutingShortThreshold,
+        adaptiveRoutingLongThreshold: engine.adaptiveRoutingLongThreshold,
+        adaptiveRoutingQualityEngine: engine.adaptiveRoutingQualityEngine
       }), 10_000, 'saveSettings')
 
       const resolvedMode = resolveEngineMode(engine.engineMode, apiKeys, engine.gpuInfo)
@@ -279,6 +293,10 @@ export function useSettingsState(): SettingsState {
     simulMtWaitK: engine.simulMtWaitK, setSimulMtWaitK: engine.setSimulMtWaitK,
     glossaryTerms: engine.glossaryTerms, setGlossaryTerms: engine.setGlossaryTerms,
     orgGlossaryTerms: engine.orgGlossaryTerms, setOrgGlossaryTerms: engine.setOrgGlossaryTerms,
+    adaptiveRoutingEnabled: engine.adaptiveRoutingEnabled, setAdaptiveRoutingEnabled: engine.setAdaptiveRoutingEnabled,
+    adaptiveRoutingShortThreshold: engine.adaptiveRoutingShortThreshold, setAdaptiveRoutingShortThreshold: engine.setAdaptiveRoutingShortThreshold,
+    adaptiveRoutingLongThreshold: engine.adaptiveRoutingLongThreshold, setAdaptiveRoutingLongThreshold: engine.setAdaptiveRoutingLongThreshold,
+    adaptiveRoutingQualityEngine: engine.adaptiveRoutingQualityEngine, setAdaptiveRoutingQualityEngine: engine.setAdaptiveRoutingQualityEngine,
 
     // Display
     displays: display.displays, selectedDisplay: display.selectedDisplay,

@@ -106,6 +106,14 @@ export interface AppSettings {
   telemetryConsent: boolean
   /** Whether the telemetry consent dialog has been shown */
   telemetryConsentShown: boolean
+  /** Enable adaptive quality routing between fast and quality translation engines (#547) */
+  adaptiveRoutingEnabled: boolean
+  /** Adaptive routing: token count below this → fast engine only (default 10) */
+  adaptiveRoutingShortThreshold: number
+  /** Adaptive routing: token count above this → quality engine (default 50) */
+  adaptiveRoutingLongThreshold: number
+  /** Adaptive routing: quality engine ID (default 'hunyuan-mt') */
+  adaptiveRoutingQualityEngine: string
 }
 
 export const store = new Store<AppSettings>({
@@ -163,6 +171,10 @@ export const store = new Store<AppSettings>({
     virtualMicDeviceId: -1,
     draftSttEnabled: false,
     telemetryConsent: false,
-    telemetryConsentShown: false
+    telemetryConsentShown: false,
+    adaptiveRoutingEnabled: false,
+    adaptiveRoutingShortThreshold: 10,
+    adaptiveRoutingLongThreshold: 50,
+    adaptiveRoutingQualityEngine: 'hunyuan-mt'
   }
 })

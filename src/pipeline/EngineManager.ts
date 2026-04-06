@@ -25,6 +25,8 @@ export class EngineManager {
   translator: TranslatorEngine | null = null
   e2eEngine: E2ETranslationEngine | null = null
   draftSttEngine: STTEngine | null = null
+  /** Secondary quality translator for adaptive routing (#547) */
+  qualityTranslator: TranslatorEngine | null = null
   config: EngineConfig | null = null
 
   registerSTT(id: string, factory: () => STTEngine): void {
@@ -91,6 +93,20 @@ export class EngineManager {
   }
 
   /**
+   * Initialize a secondary quality translator for adaptive routing (#547).
+   * Called separately from initializeEngines since it's optional.
+   */
+  async initQualityTranslator(engineId: string, emitter: EventEmitter): Promise<void> {
+    const factory = this.translatorFactories.get(engineId)
+    if (!factory) throw new Error(`Quality translator engine not found: ${engineId}`)
+
+    emitter.emit('engine-loading', 'Loading quality translation model for adaptive routing...')
+    this.qualityTranslator = await Promise.resolve(factory())
+    await this.withTimeout(this.qualityTranslator.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Quality translator initialization')
+    log.info(`Quality translator initialized: ${engineId}`)
+  }
+
+  /**
    * Initialize the draft STT engine for fast interim results (#536).
    * Called separately from initializeEngines since draft STT is optional.
    */
@@ -105,11 +121,12 @@ export class EngineManager {
 
   /** Dispose all active engines and clear references */
   async disposeEngines(): Promise<void> {
-    const engines = [this.sttEngine, this.translator, this.e2eEngine, this.draftSttEngine]
+    const engines = [this.sttEngine, this.translator, this.e2eEngine, this.draftSttEngine, this.qualityTranslator]
     this.sttEngine = null
     this.translator = null
     this.e2eEngine = null
     this.draftSttEngine = null
+    this.qualityTranslator = null
 
     for (const engine of engines) {
       if (engine) {

@@ -146,6 +146,14 @@ function SettingsPanel(): React.JSX.Element {
             onSimulMtEnabledChange={s.setSimulMtEnabled}
             simulMtWaitK={s.simulMtWaitK}
             onSimulMtWaitKChange={s.setSimulMtWaitK}
+            adaptiveRoutingEnabled={s.adaptiveRoutingEnabled}
+            onAdaptiveRoutingEnabledChange={s.setAdaptiveRoutingEnabled}
+            adaptiveRoutingShortThreshold={s.adaptiveRoutingShortThreshold}
+            onAdaptiveRoutingShortThresholdChange={s.setAdaptiveRoutingShortThreshold}
+            adaptiveRoutingLongThreshold={s.adaptiveRoutingLongThreshold}
+            onAdaptiveRoutingLongThresholdChange={s.setAdaptiveRoutingLongThreshold}
+            adaptiveRoutingQualityEngine={s.adaptiveRoutingQualityEngine}
+            onAdaptiveRoutingQualityEngineChange={s.setAdaptiveRoutingQualityEngine}
             apiKey={s.apiKey}
             onApiKeyChange={s.setApiKey}
             deeplApiKey={s.deeplApiKey}

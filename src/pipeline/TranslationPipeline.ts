@@ -16,6 +16,8 @@ import { EngineManager } from './EngineManager'
 import { StreamingProcessor } from './StreamingProcessor'
 import { GERProcessor } from './GERProcessor'
 import { MemoryMonitor } from './MemoryMonitor'
+import { AdaptiveRouter } from './AdaptiveRouter'
+import type { AdaptiveRoutingConfig } from './AdaptiveRouter'
 import { createLogger } from '../main/logger'
 
 const log = createLogger('pipeline')
@@ -99,6 +101,10 @@ export class TranslationPipeline extends EventEmitter {
 
   // Glossary terms for context-aware translation
   private glossary: GlossaryEntry[] = []
+
+  // Adaptive quality routing (#547)
+  private adaptiveRouter = new AdaptiveRouter()
+  private adaptiveRoutingQualityEngineId: string | null = null
 
   // Delegates
   private engineManager = new EngineManager()
@@ -190,6 +196,7 @@ export class TranslationPipeline extends EventEmitter {
   /** Set glossary terms for context-aware translation */
   setGlossary(glossary: GlossaryEntry[]): void {
     this.glossary = glossary
+    this.adaptiveRouter.setGlossary(glossary)
   }
 
   /** Configure source and target languages */
@@ -216,6 +223,19 @@ export class TranslationPipeline extends EventEmitter {
   /** Enable or disable draft STT for fast interim results (#536) */
   setDraftSttEnabled(enabled: boolean): void {
     this.draftSttEnabled = enabled
+  }
+
+  /** Configure adaptive quality routing (#547) */
+  setAdaptiveRouting(config: Partial<AdaptiveRoutingConfig>, qualityEngineId?: string): void {
+    this.adaptiveRouter.setConfig(config)
+    if (qualityEngineId !== undefined) {
+      this.adaptiveRoutingQualityEngineId = qualityEngineId
+    }
+  }
+
+  /** Get adaptive routing telemetry summary (#547) */
+  getRoutingTelemetry() {
+    return this.adaptiveRouter.getTelemetrySummary()
   }
 
   // --- Engine registration (delegated to EngineManager) ---
@@ -267,6 +287,32 @@ export class TranslationPipeline extends EventEmitter {
           log.warn('Draft STT initialization failed (non-fatal):', err)
           this.emit('engine-loading', 'Draft STT not available — continuing without fast interim results')
         }
+      }
+
+      // Initialize adaptive routing quality engine if enabled (#547)
+      if (this.adaptiveRouter.getConfig().enabled && config.mode === 'cascade') {
+        try {
+          const qualityEngineId = this.adaptiveRoutingQualityEngineId
+          // Only init quality engine if it's different from the primary translator
+          if (qualityEngineId && qualityEngineId !== config.translatorEngineId) {
+            await this.engineManager.initQualityTranslator(qualityEngineId, this)
+            this.adaptiveRouter.setFastEngine(this.engineManager.translator)
+            this.adaptiveRouter.setQualityEngine(this.engineManager.qualityTranslator)
+            log.info(`Adaptive routing: fast=${config.translatorEngineId}, quality=${qualityEngineId}`)
+          } else {
+            log.info('Adaptive routing: quality engine same as primary — routing disabled')
+            this.adaptiveRouter.setFastEngine(null)
+            this.adaptiveRouter.setQualityEngine(null)
+          }
+        } catch (err) {
+          log.warn('Quality translator initialization failed (non-fatal):', err)
+          this.emit('engine-loading', 'Quality engine not available — using single engine mode')
+          this.adaptiveRouter.setFastEngine(null)
+          this.adaptiveRouter.setQualityEngine(null)
+        }
+      } else {
+        this.adaptiveRouter.setFastEngine(null)
+        this.adaptiveRouter.setQualityEngine(null)
       }
 
       // If was RUNNING (hot-swap), go back to RUNNING; otherwise stay IDLE until start()
@@ -380,6 +426,17 @@ export class TranslationPipeline extends EventEmitter {
       if (cached !== undefined) {
         translated = cached
         log.info(`Translate: cache hit → "${translated}"`)
+      } else if (this.adaptiveRouter.getConfig().enabled && this.adaptiveRouter.isReady) {
+        // Adaptive routing: score complexity and route to appropriate engine (#547)
+        const glossary = this.glossary.length > 0 ? this.glossary : undefined
+        const routeResult = await this.adaptiveRouter.translate(
+          sttResult.text,
+          sttResult.language,
+          targetLang,
+          this.contextBuffer.getContext(glossary)
+        )
+        translated = routeResult.translated
+        this.translationCache.set(sttResult.text, sttResult.language, targetLang, translated)
       } else {
         const t1 = performance.now()
         const glossary = this.glossary.length > 0 ? this.glossary : undefined
@@ -492,6 +549,7 @@ export class TranslationPipeline extends EventEmitter {
 
   async dispose(): Promise<void> {
     await this.stop()
+    await this.adaptiveRouter.dispose()
     this.removeAllListeners()
   }
 }

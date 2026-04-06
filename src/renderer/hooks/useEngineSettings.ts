@@ -30,6 +30,16 @@ export interface EngineSettingsState {
   setGlossaryTerms: (v: Array<{ source: string; target: string }>) => void
   orgGlossaryTerms: Array<{ source: string; target: string }>
   setOrgGlossaryTerms: (v: Array<{ source: string; target: string }>) => void
+
+  // Adaptive routing (#547)
+  adaptiveRoutingEnabled: boolean
+  setAdaptiveRoutingEnabled: (v: boolean) => void
+  adaptiveRoutingShortThreshold: number
+  setAdaptiveRoutingShortThreshold: (v: number) => void
+  adaptiveRoutingLongThreshold: number
+  setAdaptiveRoutingLongThreshold: (v: number) => void
+  adaptiveRoutingQualityEngine: string
+  setAdaptiveRoutingQualityEngine: (v: string) => void
 }
 
 export interface EngineSettingsInit {
@@ -50,6 +60,10 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
   const [simulMtWaitK, setSimulMtWaitK] = useState(3)
   const [glossaryTerms, setGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
   const [orgGlossaryTerms, setOrgGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
+  const [adaptiveRoutingEnabled, setAdaptiveRoutingEnabled] = useState(false)
+  const [adaptiveRoutingShortThreshold, setAdaptiveRoutingShortThreshold] = useState(10)
+  const [adaptiveRoutingLongThreshold, setAdaptiveRoutingLongThreshold] = useState(50)
+  const [adaptiveRoutingQualityEngine, setAdaptiveRoutingQualityEngine] = useState('hunyuan-mt')
 
   // Load engine-related settings on mount
   useEffect(() => {
@@ -65,6 +79,10 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
       if (s.orgGlossaryTerms) setOrgGlossaryTerms(arr<{ source: string; target: string }>(s.orgGlossaryTerms, []))
       if (s.simulMtEnabled !== undefined) setSimulMtEnabled(bool(s.simulMtEnabled, false))
       if (s.simulMtWaitK !== undefined) setSimulMtWaitK(num(s.simulMtWaitK, 3))
+      if (s.adaptiveRoutingEnabled !== undefined) setAdaptiveRoutingEnabled(bool(s.adaptiveRoutingEnabled, false))
+      if (s.adaptiveRoutingShortThreshold !== undefined) setAdaptiveRoutingShortThreshold(num(s.adaptiveRoutingShortThreshold, 10))
+      if (s.adaptiveRoutingLongThreshold !== undefined) setAdaptiveRoutingLongThreshold(num(s.adaptiveRoutingLongThreshold, 50))
+      if (s.adaptiveRoutingQualityEngine) setAdaptiveRoutingQualityEngine(str(s.adaptiveRoutingQualityEngine, 'hunyuan-mt'))
 
       // Auto-expand API section if an API engine is saved
       const engine = str(s.translationEngine, '')
@@ -101,6 +119,10 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
     simulMtEnabled, setSimulMtEnabled,
     simulMtWaitK, setSimulMtWaitK,
     glossaryTerms, setGlossaryTerms,
-    orgGlossaryTerms, setOrgGlossaryTerms
+    orgGlossaryTerms, setOrgGlossaryTerms,
+    adaptiveRoutingEnabled, setAdaptiveRoutingEnabled,
+    adaptiveRoutingShortThreshold, setAdaptiveRoutingShortThreshold,
+    adaptiveRoutingLongThreshold, setAdaptiveRoutingLongThreshold,
+    adaptiveRoutingQualityEngine, setAdaptiveRoutingQualityEngine
   }
 }

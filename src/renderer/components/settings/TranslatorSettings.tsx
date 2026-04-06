@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Section } from './Section'
-import { API_ENGINE_MODES, LLM_ENGINE_MODES, inputStyle, radioLabelStyle } from './shared'
+import { API_ENGINE_MODES, LLM_ENGINE_MODES, inputStyle, radioLabelStyle, selectStyle } from './shared'
 import type { EngineMode } from './shared'
 
 interface TranslatorSettingsProps {
@@ -17,6 +17,15 @@ interface TranslatorSettingsProps {
   onSimulMtEnabledChange: (v: boolean) => void
   simulMtWaitK: number
   onSimulMtWaitKChange: (v: number) => void
+  // Adaptive routing (#547)
+  adaptiveRoutingEnabled: boolean
+  onAdaptiveRoutingEnabledChange: (v: boolean) => void
+  adaptiveRoutingShortThreshold: number
+  onAdaptiveRoutingShortThresholdChange: (v: number) => void
+  adaptiveRoutingLongThreshold: number
+  onAdaptiveRoutingLongThresholdChange: (v: number) => void
+  adaptiveRoutingQualityEngine: string
+  onAdaptiveRoutingQualityEngineChange: (v: string) => void
   // API keys
   apiKey: string
   onApiKeyChange: (v: string) => void
@@ -63,6 +72,14 @@ export function TranslatorSettings({
   onSimulMtEnabledChange,
   simulMtWaitK,
   onSimulMtWaitKChange,
+  adaptiveRoutingEnabled,
+  onAdaptiveRoutingEnabledChange,
+  adaptiveRoutingShortThreshold,
+  onAdaptiveRoutingShortThresholdChange,
+  adaptiveRoutingLongThreshold,
+  onAdaptiveRoutingLongThresholdChange,
+  adaptiveRoutingQualityEngine,
+  onAdaptiveRoutingQualityEngineChange,
   apiKey,
   onApiKeyChange,
   deeplApiKey,
@@ -283,6 +300,74 @@ export function TranslatorSettings({
               </div>
             )}
           </>
+        )}
+
+        {/* Adaptive Quality Routing (#547) — only for offline LLM engines */}
+        {showLlmOptions && (
+          <div style={{ marginTop: '8px', paddingLeft: '24px' }}>
+            <label style={radioLabelStyle}>
+              <input
+                type="checkbox"
+                checked={adaptiveRoutingEnabled}
+                onChange={(e) => onAdaptiveRoutingEnabledChange(e.target.checked)}
+                disabled={disabled}
+              />
+              <div>
+                <div style={{ fontWeight: 500, fontSize: '12px' }}>Adaptive quality routing</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                  Auto-route: short sentences use fast engine, complex ones use quality engine
+                </div>
+              </div>
+            </label>
+            {adaptiveRoutingEnabled && (
+              <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '2px' }}>
+                    Quality engine
+                  </div>
+                  <select
+                    value={adaptiveRoutingQualityEngine}
+                    onChange={(e) => onAdaptiveRoutingQualityEngineChange(e.target.value)}
+                    disabled={disabled}
+                    style={{ ...selectStyle, fontSize: '12px', padding: '6px 8px' }}
+                  >
+                    <option value="hunyuan-mt">Hunyuan-MT 7B (~4GB)</option>
+                    <option value="plamo">PLaMo-2 10B (~5.5GB)</option>
+                  </select>
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '2px' }}>
+                    Fast-only threshold: &lt;{adaptiveRoutingShortThreshold} tokens
+                  </div>
+                  <input
+                    type="range"
+                    aria-label="Short threshold"
+                    min={3}
+                    max={30}
+                    value={adaptiveRoutingShortThreshold}
+                    onChange={(e) => onAdaptiveRoutingShortThresholdChange(Number(e.target.value))}
+                    disabled={disabled}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+                <div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '2px' }}>
+                    Quality threshold: &gt;{adaptiveRoutingLongThreshold} tokens
+                  </div>
+                  <input
+                    type="range"
+                    aria-label="Long threshold"
+                    min={20}
+                    max={100}
+                    value={adaptiveRoutingLongThreshold}
+                    onChange={(e) => onAdaptiveRoutingLongThresholdChange(Number(e.target.value))}
+                    disabled={disabled}
+                    style={{ width: '100%' }}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
         )}
 
         {/* API Translation — collapsed by default */}
