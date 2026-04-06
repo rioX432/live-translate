@@ -13,3 +13,4 @@ benchmark/.bin/
 benchmark/testset/stt-audio/
 .claude/worktrees/
 *.tsbuildinfo
+scripts/*/.build/
