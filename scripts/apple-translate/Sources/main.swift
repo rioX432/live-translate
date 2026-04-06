@@ -1,4 +1,4 @@
-/// apple-translate: CLI bridge for Apple Translation framework (macOS 15+)
+/// apple-translate: CLI bridge for Apple Translation framework (macOS 26+)
 ///
 /// Modes:
 ///   apple-translate daemon    — JSON-over-stdio daemon (one JSON per line)
@@ -17,7 +17,7 @@
 ///   Request:  {"action":"dispose"}
 ///   (process exits gracefully)
 ///
-/// Requires macOS 15 (Sequoia) or later.
+/// Requires macOS 26 (Tahoe) or later.
 
 import Foundation
 import Translation
@@ -102,7 +102,7 @@ func parseArguments() -> Command {
 
 // MARK: - Translation
 
-@available(macOS 15.0, *)
+@available(macOS 26.0, *)
 func translateText(_ text: String, from fromCode: String, to toCode: String) async throws -> String {
     guard let fromLang = languageMap[fromCode] else {
         throw TranslateError.unsupportedLanguage(fromCode)
@@ -111,16 +111,13 @@ func translateText(_ text: String, from fromCode: String, to toCode: String) asy
         throw TranslateError.unsupportedLanguage(toCode)
     }
 
-    let config = TranslationSession.Configuration(
-        source: fromLang,
-        target: toLang
-    )
-    let session = TranslationSession(configuration: config)
+    let session = TranslationSession(installedSource: fromLang, target: toLang)
+    try await session.prepareTranslation()
     let response = try await session.translate(text)
     return response.targetText
 }
 
-@available(macOS 15.0, *)
+@available(macOS 26.0, *)
 func getSupportedLanguages() async -> [String] {
     let supported = await LanguageAvailability().supportedLanguages
     var codes: [String] = []
@@ -156,7 +153,7 @@ enum TranslateError: LocalizedError {
 
 // MARK: - Daemon Mode
 
-@available(macOS 15.0, *)
+@available(macOS 26.0, *)
 func runDaemon() async {
     // Signal readiness
     let ready: [String: Any] = ["status": "ready"]
@@ -229,7 +226,7 @@ func writeJSON(_ obj: [String: Any]) {
 
 // MARK: - One-shot Commands
 
-@available(macOS 15.0, *)
+@available(macOS 26.0, *)
 func runTranslate(text: String, from: String, to: String, json: Bool) async {
     do {
         let translated = try await translateText(text, from: from, to: to)
@@ -252,7 +249,7 @@ func runTranslate(text: String, from: String, to: String, json: Bool) async {
     }
 }
 
-@available(macOS 15.0, *)
+@available(macOS 26.0, *)
 func runListLanguages() async {
     let langs = await getSupportedLanguages()
     for lang in langs {
@@ -264,7 +261,7 @@ func runListLanguages() async {
 
 func printHelp() {
     let help = """
-    apple-translate: CLI bridge for Apple Translation framework (macOS 15+)
+    apple-translate: CLI bridge for Apple Translation framework (macOS 26+)
 
     Usage:
       apple-translate daemon
@@ -284,14 +281,14 @@ func printHelp() {
       --json         Output JSON instead of plain text
 
     Requirements:
-      macOS 15 (Sequoia) or later
+      macOS 26 (Tahoe) or later
     """
     print(help)
 }
 
 // MARK: - Entry Point
 
-if #available(macOS 15.0, *) {
+if #available(macOS 26.0, *) {
     let command = parseArguments()
 
     switch command {
@@ -308,6 +305,6 @@ if #available(macOS 15.0, *) {
         printHelp()
     }
 } else {
-    fputs("Error: apple-translate requires macOS 15 (Sequoia) or later\n", stderr)
+    fputs("Error: apple-translate requires macOS 26 (Tahoe) or later\n", stderr)
     Darwin.exit(EXIT_FAILURE)
 }

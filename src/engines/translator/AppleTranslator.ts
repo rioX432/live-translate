@@ -25,7 +25,7 @@ const SUPPORTED_LANGUAGES: Set<Language> = new Set([
 ])
 
 /**
- * Apple Translation engine (macOS 15+ / Sequoia).
+ * Apple Translation engine (macOS 26+ / Tahoe).
  *
  * Uses Apple's on-device Translation framework via a Swift CLI daemon
  * (scripts/apple-translate). The daemon communicates via JSON-over-stdio,
@@ -37,7 +37,7 @@ const SUPPORTED_LANGUAGES: Set<Language> = new Set([
  * - Free, on-device, no API keys required
  * - Good JA<->EN quality for casual / real-time use
  *
- * Requires macOS 15 (Sequoia) or later.
+ * Requires macOS 26 (Tahoe) or later.
  *
  * Build the CLI:
  *   cd scripts/apple-translate && swift build -c release
