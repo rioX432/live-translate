@@ -64,6 +64,7 @@ const glossaryButtonStyle: React.CSSProperties = {
 export function TranslatorSettings({
   engineMode,
   onEngineModeChange,
+  platform,
   disabled,
   gpuInfo,
   slmKvCacheQuant,
@@ -223,6 +224,21 @@ export function TranslatorSettings({
             <div style={{ fontSize: '12px', color: '#94a3b8' }}>WMT25 winner, 33 languages, ~4GB — slower but higher quality</div>
           </div>
         </label>
+        {platform === 'darwin' && (
+          <label style={radioLabelStyle}>
+            <input
+              type="radio"
+              name="engine"
+              checked={engineMode === 'offline-apple'}
+              onChange={() => onEngineModeChange('offline-apple')}
+              disabled={disabled}
+            />
+            <div>
+              <div style={{ fontWeight: 500 }}>Apple Translate (Built-in)</div>
+              <div style={{ fontSize: '12px', color: '#94a3b8' }}>macOS 15+, zero config, on-device, ANE-optimized — no model download</div>
+            </div>
+          </label>
+        )}
         <label style={radioLabelStyle}>
           <input
             type="radio"

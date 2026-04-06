@@ -17,6 +17,7 @@ import { HunyuanMT15Translator } from '../engines/translator/HunyuanMT15Translat
 import { LFM2Translator } from '../engines/translator/LFM2Translator'
 import { PLaMoTranslator } from '../engines/translator/PLaMoTranslator'
 import { ANETranslator } from '../engines/translator/ANETranslator'
+import { AppleTranslator } from '../engines/translator/AppleTranslator'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { store } from './store'
@@ -135,6 +136,12 @@ async function initPipeline(): Promise<void> {
   // ANEMLL Apple Neural Engine translator — macOS Apple Silicon only (#241) — experimental
   if (process.platform === 'darwin') {
     ctx.pipeline.registerTranslator('ane-translate', () => new ANETranslator({
+      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+    }))
+  }
+  // Apple Translation framework — macOS 15+ (Sequoia), zero-config, on-device (#557)
+  if (process.platform === 'darwin') {
+    ctx.pipeline.registerTranslator('apple-translate', () => new AppleTranslator({
       onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
     }))
   }

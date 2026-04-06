@@ -106,6 +106,16 @@ export const ANE_TRANSLATE_TIMEOUT_MS = 30_000
 export const ANE_INIT_TIMEOUT_MS = 600_000
 
 // ---------------------------------------------------------------------------
+// Apple Translate (macOS 15+ Translation framework)
+// ---------------------------------------------------------------------------
+
+/** Command timeout for Apple Translate translation (ms) */
+export const APPLE_TRANSLATE_COMMAND_TIMEOUT_MS = 15_000
+
+/** Init timeout for Apple Translate bridge — first run may trigger model download (ms) */
+export const APPLE_TRANSLATE_INIT_TIMEOUT_MS = 120_000
+
+// ---------------------------------------------------------------------------
 // GER (Generative Error Correction) — async STT post-processing (#409)
 // ---------------------------------------------------------------------------
 

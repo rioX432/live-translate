@@ -25,7 +25,7 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
 
 export const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
 
-export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-hybrid' | 'offline-lfm2' | 'offline-plamo'
+export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-hybrid' | 'offline-lfm2' | 'offline-plamo' | 'offline-apple'
 
 export type SttEngineType = 'whisper-local' | 'mlx-whisper' | 'kotoba-whisper' | 'qwen3-asr'
 export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo' | 'distil-large-v3' | 'base' | 'small'
@@ -110,6 +110,7 @@ export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hymt15', 'offline-hunyua
 /** Display name for each engine mode */
 export function getEngineDisplayName(mode: EngineMode): string {
   switch (mode) {
+    case 'offline-apple': return 'Apple Translate (Built-in)'
     case 'offline-opus': return 'OPUS-MT (Legacy Fallback)'
     case 'offline-hymt15': return 'HY-MT 1.5 (Recommended)'
     case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B (High Quality)'
@@ -192,6 +193,8 @@ export function buildEngineConfig(
       return { ...base, translatorEngineId: 'hunyuan-mt' }
     case 'offline-hybrid':
       return { ...base, translatorEngineId: 'hybrid' }
+    case 'offline-apple':
+      return { ...base, translatorEngineId: 'apple-translate' }
     case 'offline-opus':
     default:
       return { ...base, translatorEngineId: 'opus-mt' }
