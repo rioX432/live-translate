@@ -162,6 +162,16 @@ export function registerPipelineIpc(ctx: AppContext): void {
       // Configure SimulMT (#239)
       ctx.pipeline!.setSimulMt(store.get('simulMtEnabled'), store.get('simulMtWaitK'))
 
+      // Configure adaptive quality routing (#547)
+      ctx.pipeline!.setAdaptiveRouting(
+        {
+          enabled: store.get('adaptiveRoutingEnabled'),
+          shortThreshold: store.get('adaptiveRoutingShortThreshold'),
+          longThreshold: store.get('adaptiveRoutingLongThreshold')
+        },
+        store.get('adaptiveRoutingQualityEngine')
+      )
+
       // Configure draft STT (#536)
       ctx.pipeline!.setDraftSttEnabled(store.get('draftSttEnabled'))
 
