@@ -101,7 +101,7 @@ async function initPipeline(): Promise<void> {
   }))
 
   // Register translator engines
-  // ONNX-based OPUS-MT — fast default offline translator
+  // ONNX-based OPUS-MT — legacy fallback for low-memory systems and while downloading LLM models
   ctx.pipeline.registerTranslator('opus-mt', () => new OpusMTTranslator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))
@@ -126,7 +126,7 @@ async function initPipeline(): Promise<void> {
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     kvCacheQuant: store.get('slmKvCacheQuant')
   }))
-  // Experimental: untested smaller Hunyuan variant — not shown in default UI
+  // HY-MT1.5-1.8B — fast default offline translator (#544), replaces OPUS-MT
   ctx.pipeline.registerTranslator('hunyuan-mt-15', () => new HunyuanMT15Translator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     kvCacheQuant: store.get('slmKvCacheQuant'),

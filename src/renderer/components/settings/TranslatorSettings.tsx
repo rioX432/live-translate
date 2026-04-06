@@ -184,19 +184,6 @@ export function TranslatorSettings({
           <input
             type="radio"
             name="engine"
-            checked={engineMode === 'offline-opus'}
-            onChange={() => onEngineModeChange('offline-opus')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>OPUS-MT (Lightweight)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>~200ms latency, ONNX accelerated — minimal resource usage</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
             checked={engineMode === 'offline-plamo'}
             onChange={() => onEngineModeChange('offline-plamo')}
             disabled={disabled}
@@ -230,6 +217,19 @@ export function TranslatorSettings({
           <div>
             <div style={{ fontWeight: 500 }}>Hybrid (OPUS-MT + TranslateGemma)</div>
             <div style={{ fontSize: '12px', color: '#94a3b8' }}>Instant draft + LLM refinement — best offline quality</div>
+          </div>
+        </label>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'offline-opus'}
+            onChange={() => onEngineModeChange('offline-opus')}
+            disabled={disabled}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>OPUS-MT (Legacy Fallback)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>~200ms latency, ONNX accelerated — used as fallback while LLM models download</div>
           </div>
         </label>
 

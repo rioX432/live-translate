@@ -30,7 +30,9 @@ Before acting, always pause and reconsider. Re-read the requirements, re-check y
 - VAD uses `AudioWorkletNode` via `processorType: 'AudioWorklet'` — do not revert to deprecated `ScriptProcessorNode`
 - electron-vite 2.x requires `build.lib.entry` for main/preload configs
 - Whisper model (~540MB) downloads on first launch — handle offline gracefully
-- TranslateGemma is experimental only (8s/sentence too slow for real-time) — OPUS-MT is the fast default (279ms)
+- TranslateGemma is experimental only (8s/sentence too slow for real-time)
+- HY-MT1.5-1.8B is the fast default translator (~180ms, ~1GB) — replaced OPUS-MT as default (#544)
+- OPUS-MT is legacy fallback only — used on low-memory systems and while LLM models download
 - Hunyuan-MT 7B is quality mode only (3.7s JA→EN) — not suitable for real-time streaming
 - GGUF models (~2.6GB+) download with resume support and SHA256 verification
 - Google Cloud Translation API v2 free tier: 500K chars/month, 6000 req/min

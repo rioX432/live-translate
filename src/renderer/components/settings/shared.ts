@@ -110,7 +110,7 @@ export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hymt15', 'offline-hunyua
 /** Display name for each engine mode */
 export function getEngineDisplayName(mode: EngineMode): string {
   switch (mode) {
-    case 'offline-opus': return 'OPUS-MT (Lightweight)'
+    case 'offline-opus': return 'OPUS-MT (Legacy Fallback)'
     case 'offline-hymt15': return 'HY-MT 1.5 (Recommended)'
     case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B (High Quality)'
     case 'offline-lfm2': return 'LFM2 (Ultra-fast)'

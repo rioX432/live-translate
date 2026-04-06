@@ -26,22 +26,27 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 - Lightning Whisper MLX — JA CER 162%
 - Moonshine base — JA CER 221% (note: Moonshine Tiny JA is a different, improved variant)
 
-### Translation Engines (5 primary + 8 experimental)
+### Translation Engines (7 primary + 5 experimental)
 
 **Primary (shown in UI):**
 | Engine | File | JA→EN | EN→JA | Memory | Offline |
 |--------|------|-------|-------|--------|---------|
-| OPUS-MT (fast default) | `OpusMTTranslator.ts` | 279ms | 462ms | 0.98GB | Yes |
+| HY-MT1.5-1.8B (fast default) | `HunyuanMT15Translator.ts` | ~180ms | ~180ms | ~1GB | Yes |
+| LFM2 (ultra-fast) | `LFM2Translator.ts` | Fast | Fast | ~230MB | Yes |
+| PLaMo-2 10B (quality) | `PLaMoTranslator.ts` | — | — | ~5.5GB | Yes |
 | Hunyuan-MT 7B (quality) | `HunyuanMTTranslator.ts` | 3.7s | 6.3s | 4GB | Yes |
 | Google Translate | `GoogleTranslator.ts` | Fast | Fast | — | No |
 | DeepL | `DeepLTranslator.ts` | Fast | Fast | — | No |
 | Gemini | `GeminiTranslator.ts` | Fast | Fast | — | No |
 
+**Legacy (shown in UI as fallback):**
+| Engine | File | Notes |
+|--------|------|-------|
+| OPUS-MT | `OpusMTTranslator.ts` | Legacy fallback for low-memory systems and while LLM models download |
+
 **Experimental (hidden from UI):**
 - HybridTranslator (`HybridTranslator.ts`) — two-stage: OPUS-MT draft + LLM refinement
 - TranslateGemma (via `SLMTranslator.ts`) — 8s/sentence, too slow for real-time
-- HY-MT1.5 (`HunyuanMT15Translator.ts`) — supports speculative decoding with LFM2 draft model (`LFM2Translator.ts`)
-- PLaMo (`PLaMoTranslator.ts`) — under evaluation
 - LlamaWorker (`LlamaWorkerTranslator.ts`) — generic llama worker translator
 - ANE (`ANETranslator.ts`) — Apple Neural Engine backend, under evaluation
 
