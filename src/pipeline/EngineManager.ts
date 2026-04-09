@@ -2,7 +2,8 @@ import type {
   EngineConfig,
   STTEngine,
   TranslatorEngine,
-  E2ETranslationEngine
+  E2ETranslationEngine,
+  SpeakerDiarizer
 } from '../engines/types'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import type { EventEmitter } from 'events'
@@ -20,6 +21,7 @@ export class EngineManager {
   private sttFactories = new Map<string, () => STTEngine>()
   private translatorFactories = new Map<string, () => TranslatorEngine>()
   private e2eFactories = new Map<string, () => E2ETranslationEngine>()
+  private diarizerFactories = new Map<string, () => SpeakerDiarizer>()
 
   sttEngine: STTEngine | null = null
   translator: TranslatorEngine | null = null
@@ -27,6 +29,8 @@ export class EngineManager {
   draftSttEngine: STTEngine | null = null
   /** Secondary quality translator for adaptive routing (#547) */
   qualityTranslator: TranslatorEngine | null = null
+  /** Speaker diarizer for multi-speaker identification (#549) */
+  diarizer: SpeakerDiarizer | null = null
   config: EngineConfig | null = null
 
   registerSTT(id: string, factory: () => STTEngine): void {
@@ -39,6 +43,10 @@ export class EngineManager {
 
   registerE2E(id: string, factory: () => E2ETranslationEngine): void {
     this.e2eFactories.set(id, factory)
+  }
+
+  registerDiarizer(id: string, factory: () => SpeakerDiarizer): void {
+    this.diarizerFactories.set(id, factory)
   }
 
   /**
@@ -119,14 +127,32 @@ export class EngineManager {
     await this.withTimeout(this.draftSttEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Draft STT initialization')
   }
 
+  /**
+   * Initialize the speaker diarizer for multi-speaker identification (#549).
+   * Called separately from initializeEngines since diarization is optional.
+   */
+  async initDiarizer(engineId: string, emitter: EventEmitter): Promise<void> {
+    const factory = this.diarizerFactories.get(engineId)
+    if (!factory) throw new Error(`Diarizer engine not found: ${engineId}`)
+
+    emitter.emit('engine-loading', 'Loading speaker diarization model...')
+    this.diarizer = await Promise.resolve(factory())
+    await this.withTimeout(this.diarizer.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Diarizer initialization')
+    log.info(`Speaker diarizer initialized: ${engineId}`)
+  }
+
   /** Dispose all active engines and clear references */
   async disposeEngines(): Promise<void> {
-    const engines = [this.sttEngine, this.translator, this.e2eEngine, this.draftSttEngine, this.qualityTranslator]
+    const engines: Array<{ dispose(): Promise<void> } | null> = [
+      this.sttEngine, this.translator, this.e2eEngine,
+      this.draftSttEngine, this.qualityTranslator, this.diarizer
+    ]
     this.sttEngine = null
     this.translator = null
     this.e2eEngine = null
     this.draftSttEngine = null
     this.qualityTranslator = null
+    this.diarizer = null
 
     for (const engine of engines) {
       if (engine) {

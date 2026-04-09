@@ -48,6 +48,7 @@ export function registerSettingsIpc(ctx: AppContext): void {
       ttsVolume: store.get('ttsVolume'),
       hasCompletedSetup: store.get('hasCompletedSetup'),
       draftSttEnabled: store.get('draftSttEnabled'),
+      speakerDiarizationEnabled: store.get('speakerDiarizationEnabled'),
       telemetryConsent: store.get('telemetryConsent'),
       telemetryConsentShown: store.get('telemetryConsentShown')
     }

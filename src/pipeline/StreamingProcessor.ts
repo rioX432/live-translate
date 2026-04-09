@@ -3,7 +3,9 @@ import type {
   TranslationResult,
   Language,
   GlossaryEntry,
-  TranslatorEngine
+  TranslatorEngine,
+  SpeakerDiarizer,
+  DiarizationResult
 } from '../engines/types'
 import type { STTEngine } from '../engines/types'
 import type { LocalAgreement } from './LocalAgreement'
@@ -34,6 +36,8 @@ export interface StreamingDeps {
   getGER?(): GERProcessor | null
   /** Draft STT engine for fast interim results (#536) */
   getDraftSTTEngine?(): STTEngine | null
+  /** Speaker diarizer for multi-speaker identification (#549) */
+  getDiarizer?(): SpeakerDiarizer | null
 }
 
 /**
@@ -52,6 +56,9 @@ export class StreamingProcessor {
   /** Debounced translation: timer and last source text for change detection */
   private translateDebounceTimer: ReturnType<typeof setTimeout> | null = null
   private lastSourceTextForTranslate = ''
+
+  /** Last diarization result for merging with STT output (#549) */
+  private lastDiarizationResult: DiarizationResult | null = null
 
   private deps: StreamingDeps
 
@@ -94,6 +101,12 @@ export class StreamingProcessor {
       const draftSttEngine = this.deps.getDraftSTTEngine?.()
       if (draftSttEngine) {
         this.runDraftStt(draftSttEngine, audioBuffer, sampleRate)
+      }
+
+      // Fire diarization in parallel with STT (#549)
+      const diarizer = this.deps.getDiarizer?.()
+      if (diarizer) {
+        this.runDiarization(diarizer, audioBuffer, sampleRate)
       }
 
       const t0 = performance.now()
@@ -158,7 +171,11 @@ export class StreamingProcessor {
         sourceLanguage: sttResult.language,
         targetLanguage: targetLang,
         timestamp: Date.now(),
-        isInterim: true
+        isInterim: true,
+        ...(this.lastDiarizationResult && {
+          speakerLabel: this.lastDiarizationResult.speakerLabel,
+          speakerIndex: this.lastDiarizationResult.speakerIndex
+        })
       }
 
       this.deps.emitter.emit('interim-result', interimResult)
@@ -223,7 +240,11 @@ export class StreamingProcessor {
         targetLanguage: targetLang,
         timestamp: Date.now(),
         isInterim: false,
-        confidence: sttResult.confidence
+        confidence: sttResult.confidence,
+        ...(this.lastDiarizationResult && {
+          speakerLabel: this.lastDiarizationResult.speakerLabel,
+          speakerIndex: this.lastDiarizationResult.speakerIndex
+        })
       }
 
       this.deps.emitter.emit('result', result)
@@ -285,6 +306,28 @@ export class StreamingProcessor {
       })
       .catch((err) => {
         log.warn('Draft STT error (non-fatal):', err instanceof Error ? err.message : err)
+      })
+  }
+
+  /**
+   * Run speaker diarization in parallel with primary STT (#549).
+   * Fire-and-forget — errors are logged but do not affect primary pipeline.
+   * Updates lastDiarizationResult for the next emit cycle.
+   */
+  private runDiarization(diarizer: SpeakerDiarizer, audioBuffer: Float32Array, sampleRate: number): void {
+    const t0 = performance.now()
+    diarizer.processAudio(audioBuffer, sampleRate)
+      .then((result) => {
+        const diarizeMs = (performance.now() - t0).toFixed(0)
+        if (!result) {
+          log.info(`Diarization: ${diarizeMs}ms → (no speaker)`)
+          return
+        }
+        log.info(`Diarization: ${diarizeMs}ms → ${result.speakerLabel} (confidence: ${result.confidence.toFixed(2)})`)
+        this.lastDiarizationResult = result
+      })
+      .catch((err) => {
+        log.warn('Diarization error (non-fatal):', err instanceof Error ? err.message : err)
       })
   }
 

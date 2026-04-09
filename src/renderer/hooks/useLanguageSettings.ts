@@ -16,6 +16,8 @@ export interface LanguageSettingsState {
   isMacOS26: boolean
   draftSttEnabled: boolean
   setDraftSttEnabled: (v: boolean) => void
+  speakerDiarizationEnabled: boolean
+  setSpeakerDiarizationEnabled: (v: boolean) => void
 }
 
 export function useLanguageSettings(): LanguageSettingsState {
@@ -26,6 +28,7 @@ export function useLanguageSettings(): LanguageSettingsState {
   const [platform, setPlatform] = useState<string>('darwin')
   const [isMacOS26, setIsMacOS26] = useState(false)
   const [draftSttEnabled, setDraftSttEnabled] = useState(false)
+  const [speakerDiarizationEnabled, setSpeakerDiarizationEnabled] = useState(false)
 
   // Load language/STT settings on mount
   useEffect(() => {
@@ -35,6 +38,7 @@ export function useLanguageSettings(): LanguageSettingsState {
       if (s.sourceLanguage) setSourceLanguage(str(s.sourceLanguage, 'auto') as SourceLanguage)
       if (s.targetLanguage) setTargetLanguage(str(s.targetLanguage, 'en') as Language)
       if (s.draftSttEnabled !== undefined) setDraftSttEnabled(!!s.draftSttEnabled)
+      if (s.speakerDiarizationEnabled !== undefined) setSpeakerDiarizationEnabled(!!s.speakerDiarizationEnabled)
     })
 
     // Set platform-aware STT default and detect macOS version
@@ -80,6 +84,7 @@ export function useLanguageSettings(): LanguageSettingsState {
     whisperVariant, setWhisperVariant,
     platform,
     isMacOS26,
-    draftSttEnabled, setDraftSttEnabled
+    draftSttEnabled, setDraftSttEnabled,
+    speakerDiarizationEnabled, setSpeakerDiarizationEnabled
   }
 }
