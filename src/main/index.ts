@@ -6,6 +6,7 @@ import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
 import { KotobaWhisperEngine } from '../engines/stt/KotobaWhisperEngine'
 import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
 import { SherpaOnnxEngine } from '../engines/stt/SherpaOnnxEngine'
+import { SenseVoiceSherpaEngine } from '../engines/stt/SenseVoiceSherpaEngine'
 import { SpeechSwiftEngine } from '../engines/stt/SpeechSwiftEngine'
 import { AppleSpeechTranscriberEngine } from '../engines/stt/AppleSpeechTranscriberEngine'
 import { Qwen3ASREngine } from '../engines/stt/Qwen3ASREngine'
@@ -78,6 +79,10 @@ async function initPipeline(): Promise<void> {
   ctx.pipeline.registerSTT('sherpa-onnx', () => new SherpaOnnxEngine({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     modelKey: (store.get('sherpaOnnxModel') as string) || undefined
+  }))
+  // Experimental: SenseVoice Small via sherpa-onnx — ultra-fast CJK STT, no Python (#554)
+  ctx.pipeline.registerSTT('sensevoice-sherpa', () => new SenseVoiceSherpaEngine({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))
   // Qwen3-ASR 0.6B via speech-swift — Apple Silicon only, primary engine
   if (process.platform === 'darwin') {

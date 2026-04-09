@@ -34,7 +34,7 @@ interface SherpaOnnxConfig {
   featConfig: { sampleRate: number; featureDim: number }
   modelConfig: {
     whisper?: { encoder: string; decoder: string }
-    senseVoice?: { model: string }
+    senseVoice?: { model: string; language?: string; useItn?: number }
     paraformer?: { model: string }
     tokens: string
     numThreads: number
@@ -204,7 +204,9 @@ export class SherpaOnnxEngine implements STTEngine {
         break
       case 'sensevoice':
         base.modelConfig.senseVoice = {
-          model: join(modelDir, 'model.onnx')
+          model: join(modelDir, 'model.int8.onnx'),
+          language: 'auto',
+          useItn: 1
         }
         break
       case 'paraformer':
