@@ -16,7 +16,8 @@ import {
   EnterpriseSettings,
   KeyboardShortcuts,
   AccessibilitySettings,
-  SpeakerSettings
+  SpeakerSettings,
+  CorrectionHistory
 } from './settings'
 
 function SettingsPanel(): React.JSX.Element {
@@ -173,6 +174,8 @@ function SettingsPanel(): React.JSX.Element {
             orgGlossaryTerms={s.orgGlossaryTerms}
             onOrgGlossaryTermsChange={s.setOrgGlossaryTerms}
           />
+
+          <CorrectionHistory />
 
           <SubtitleSettings
             fontSize={s.subtitleFontSize}

@@ -138,6 +138,22 @@ export interface ElectronAPI {
   }>
   enterpriseSetTelemetryConsent: (consent: boolean) => Promise<{ success: boolean; reason?: string }>
 
+  // Subtitle edit mode (#590)
+  toggleSubtitleEditMode: (enabled: boolean) => Promise<void>
+  onEditModeChanged: (callback: (enabled: boolean) => void) => (() => void)
+  saveCorrection: (correction: {
+    sourceText: string
+    originalTranslation: string
+    correctedTranslation: string
+  }) => Promise<{ success?: boolean; error?: string; glossaryCount?: number }>
+  getCorrectionHistory: () => Promise<Array<{
+    sourceText: string
+    originalTranslation: string
+    correctedTranslation: string
+    timestamp: number
+  }>>
+  clearCorrectionHistory: () => Promise<{ success: boolean }>
+
   // Audio MessagePort for zero-copy transfer (#553)
   onAudioPort: (callback: (port: MessagePort) => void) => (() => void)
 

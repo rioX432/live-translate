@@ -81,6 +81,11 @@ function SubtitleOverlay(): React.JSX.Element {
   const [speakerIndex, setSpeakerIndex] = useState<number>(0)
   const [config, setConfig] = useState<SubtitleConfig>(DEFAULT_CONFIG)
   const [isDragMode, setIsDragMode] = useState(false)
+  const [isEditMode, setIsEditMode] = useState(false)
+  const [isEditing, setIsEditing] = useState(false)
+  const [editValue, setEditValue] = useState('')
+  const [editSaving, setEditSaving] = useState(false)
+  const editInputRef = useRef<HTMLInputElement>(null)
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDraggingRef = useRef(false)
   const dragStartRef = useRef({ screenX: 0, screenY: 0 })
@@ -186,9 +191,18 @@ function SubtitleOverlay(): React.JSX.Element {
       setIsDragMode(enabled)
     })
 
+    const unsubEdit = window.api.onEditModeChanged?.((enabled: boolean) => {
+      setIsEditMode(enabled)
+      if (!enabled) {
+        setIsEditing(false)
+        setEditValue('')
+      }
+    })
+
     return () => {
       unsubscribe?.()
       unsubDrag?.()
+      unsubEdit?.()
     }
   }, [])
 
@@ -205,6 +219,50 @@ function SubtitleOverlay(): React.JSX.Element {
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
     }
   }, [handleResult])
+
+  // Edit mode: click translated text to start editing (#590)
+  const handleTranslationClick = useCallback(() => {
+    if (!isEditMode || isEditing || !translatedText) return
+    setEditValue(translatedText)
+    setIsEditing(true)
+    // Focus the input on next render
+    setTimeout(() => editInputRef.current?.focus(), 0)
+  }, [isEditMode, isEditing, translatedText])
+
+  // Save the corrected translation as a glossary entry (#590)
+  const handleEditSave = useCallback(async () => {
+    const trimmed = editValue.trim()
+    if (!trimmed || trimmed === translatedText || editSaving) return
+
+    setEditSaving(true)
+    try {
+      await window.api.saveCorrection?.({
+        sourceText: confirmedText,
+        originalTranslation: translatedText,
+        correctedTranslation: trimmed
+      })
+      setTranslatedText(trimmed)
+    } finally {
+      setEditSaving(false)
+      setIsEditing(false)
+      setEditValue('')
+    }
+  }, [editValue, translatedText, confirmedText, editSaving])
+
+  const handleEditCancel = useCallback(() => {
+    setIsEditing(false)
+    setEditValue('')
+  }, [])
+
+  const handleEditKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleEditSave()
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      handleEditCancel()
+    }
+  }, [handleEditSave, handleEditCancel])
 
   // Resolve display values based on accessibility settings
   const effectiveFontSize = a11y.highContrast ? Math.max(config.fontSize + 4, 34) : config.fontSize
@@ -239,9 +297,31 @@ function SubtitleOverlay(): React.JSX.Element {
         justifyContent: config.position === 'top' ? 'flex-start' : 'flex-end',
         padding: '1rem clamp(1rem, 5%, 3rem)',
         fontFamily: effectiveFontFamily,
-        userSelect: 'none'
+        userSelect: isEditMode ? 'auto' : 'none'
       }}
     >
+      {/* Edit mode indicator (#590) */}
+      {isEditMode && !isDragMode && (
+        <div style={{
+          position: 'fixed',
+          top: '4px',
+          right: '8px',
+          zIndex: 9999,
+          pointerEvents: 'none'
+        }}>
+          <span style={{
+            color: '#fbbf24',
+            fontSize: '11px',
+            fontWeight: 600,
+            background: 'rgba(0,0,0,0.6)',
+            padding: '3px 8px',
+            borderRadius: '4px'
+          }}>
+            Edit Mode
+          </span>
+        </div>
+      )}
+
       {/* Drag handle overlay */}
       {isDragMode && (
         <div
@@ -321,9 +401,10 @@ function SubtitleOverlay(): React.JSX.Element {
         </div>
 
         {/* Translation: only updates on finalized results — assertive for screen readers */}
-        {translatedText && (
+        {translatedText && !isEditing && (
           <div
             aria-live="assertive"
+            onClick={handleTranslationClick}
             style={{
               color: effectiveTranslatedColor,
               fontSize: `${translatedFontSize}px`,
@@ -331,10 +412,74 @@ function SubtitleOverlay(): React.JSX.Element {
               lineHeight: 1.5,
               marginTop: '0.25rem',
               textShadow: effectiveTextShadow,
+              cursor: isEditMode ? 'text' : 'default',
+              borderBottom: isEditMode ? '1px dashed rgba(255,255,255,0.3)' : 'none',
+              paddingBottom: isEditMode ? '2px' : 0,
               ...spacingStyle
             }}
           >
             {translatedText}
+          </div>
+        )}
+
+        {/* Inline edit input (#590) */}
+        {isEditing && (
+          <div style={{ marginTop: '0.25rem', display: 'flex', gap: '4px', alignItems: 'center' }}>
+            <input
+              ref={editInputRef}
+              type="text"
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              onKeyDown={handleEditKeyDown}
+              aria-label="Correct translation"
+              style={{
+                flex: 1,
+                background: 'rgba(0,0,0,0.6)',
+                color: effectiveTranslatedColor,
+                fontSize: `${translatedFontSize}px`,
+                fontWeight: 600,
+                fontFamily: effectiveFontFamily,
+                border: `1px solid ${effectiveTranslatedColor}`,
+                borderRadius: '4px',
+                padding: '2px 6px',
+                outline: 'none',
+                textShadow: effectiveTextShadow
+              }}
+            />
+            <button
+              onClick={handleEditSave}
+              disabled={editSaving || !editValue.trim() || editValue.trim() === translatedText}
+              aria-label="Save correction"
+              style={{
+                background: '#22c55e',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '4px 8px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer',
+                opacity: editSaving ? 0.5 : 1
+              }}
+            >
+              {editSaving ? '...' : 'Save'}
+            </button>
+            <button
+              onClick={handleEditCancel}
+              aria-label="Cancel editing"
+              style={{
+                background: '#64748b',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '4px 8px',
+                fontSize: '12px',
+                fontWeight: 700,
+                cursor: 'pointer'
+              }}
+            >
+              Esc
+            </button>
           </div>
         )}
       </div>

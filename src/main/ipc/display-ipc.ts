@@ -82,6 +82,19 @@ export function registerDisplayIpc(ctx: AppContext): void {
     log.info(`Reset subtitle position for display ${display.id}`)
   })
 
+  // Toggle subtitle edit mode (#590): disable click-through so user can edit translations
+  ipcMain.handle('toggle-subtitle-edit-mode', (_event, enabled: boolean) => {
+    if (!ctx.subtitleWindow) return
+    if (enabled) {
+      ctx.subtitleWindow.setIgnoreMouseEvents(false)
+    } else {
+      ctx.subtitleWindow.setIgnoreMouseEvents(true, { forward: true })
+    }
+    ctx.subtitleWindow.webContents.send('edit-mode-changed', enabled)
+    ctx.mainWindow?.webContents.send('edit-mode-changed', enabled)
+    log.info(`Subtitle edit mode ${enabled ? 'enabled' : 'disabled'}`)
+  })
+
   // Forward translation result to subtitle window (from renderer)
   ipcMain.on('translation-result', (_event, data) => {
     ctx.subtitleWindow?.webContents.send('translation-result', data)
