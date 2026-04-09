@@ -157,7 +157,7 @@ export function resolveEngineMode(
   const hasKeys = !!(apiKeys.apiKey || apiKeys.deeplApiKey || apiKeys.geminiApiKey || (apiKeys.microsoftApiKey && apiKeys.microsoftRegion))
   if (hasKeys) return 'rotation'
   if (gpuInfo?.hasGpu) return 'offline-hunyuan-mt'
-  return 'offline-hymt15' // HY-MT1.5-1.8B — fast + high quality, ~1GB
+  return 'offline-hymt15'
 }
 
 /** Build pipeline config from resolved engine mode and settings */

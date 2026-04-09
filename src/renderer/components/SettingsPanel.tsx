@@ -17,7 +17,8 @@ import {
   KeyboardShortcuts,
   AccessibilitySettings,
   SpeakerSettings,
-  CorrectionHistory
+  CorrectionHistory,
+  ModelDownloadProgress
 } from './settings'
 
 function SettingsPanel(): React.JSX.Element {
@@ -100,6 +101,18 @@ function SettingsPanel(): React.JSX.Element {
         sourceLanguage={s.sourceLanguage}
         targetLanguage={s.targetLanguage}
         gpuInfo={s.gpuInfo}
+      />
+
+      {/* Onboarding: model download progress (#575) */}
+      <ModelDownloadProgress
+        onSwitchToLocal={(engine) => {
+          s.setEngineMode(engine as never)
+          window.api.saveSettings({ translationEngine: engine })
+        }}
+        onDismiss={() => {
+          // No-op: banner hides itself
+        }}
+        disabled={disabled}
       />
 
       {/* Advanced Settings toggle */}

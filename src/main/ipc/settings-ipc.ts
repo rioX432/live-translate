@@ -51,7 +51,11 @@ export function registerSettingsIpc(ctx: AppContext): void {
       speakerDiarizationEnabled: store.get('speakerDiarizationEnabled'),
       telemetryConsent: store.get('telemetryConsent'),
       telemetryConsentShown: store.get('telemetryConsentShown'),
-      showConfidenceIndicator: store.get('showConfidenceIndicator')
+      showConfidenceIndicator: store.get('showConfidenceIndicator'),
+      isFirstRun: store.get('isFirstRun'),
+      onboardingModelStatus: store.get('onboardingModelStatus'),
+      onboardingDownloadProgress: store.get('onboardingDownloadProgress'),
+      preferredLocalEngine: store.get('preferredLocalEngine')
     }
   })
 

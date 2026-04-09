@@ -195,6 +195,19 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('audio-port', handler)
   },
 
+  // Onboarding: cloud-first progressive download (#575)
+  onboardingGetStatus: () => ipcRenderer.invoke('onboarding-get-status'),
+  onboardingStartDownload: () => ipcRenderer.invoke('onboarding-start-download'),
+  onboardingSwitchToLocal: () => ipcRenderer.invoke('onboarding-switch-to-local'),
+  onboardingDismiss: () => ipcRenderer.invoke('onboarding-dismiss'),
+  onboardingSetPreferredEngine: (engine: string) => ipcRenderer.invoke('onboarding-set-preferred-engine', engine),
+  onboardingIsFirstRun: () => ipcRenderer.invoke('onboarding-is-first-run'),
+  onOnboardingDownloadProgress: (callback: (data: { status: string; progress: number; message?: string; error?: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { status: string; progress: number; message?: string; error?: string }): void => callback(data)
+    ipcRenderer.on('onboarding-download-progress', handler)
+    return () => ipcRenderer.off('onboarding-download-progress', handler)
+  },
+
   // Auto-update (#314)
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateDownload: () => ipcRenderer.invoke('update-download'),

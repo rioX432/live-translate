@@ -10,6 +10,7 @@ import { registerVirtualMicIpc } from './ipc/virtual-mic-ipc'
 import { registerQuickStartIpc } from './ipc/quickstart-ipc'
 import { registerEnterpriseIpc } from './ipc/enterprise-ipc'
 import { registerShortcutIpc } from './ipc/shortcut-ipc'
+import { registerOnboardingIpc } from './ipc/onboarding-ipc'
 
 /** Register all IPC handlers (pipeline, settings, session, display, model, ws-audio, tts) */
 export function registerIpcHandlers(ctx: AppContext): void {
@@ -24,4 +25,5 @@ export function registerIpcHandlers(ctx: AppContext): void {
   registerQuickStartIpc(ctx)
   registerEnterpriseIpc(ctx)
   registerShortcutIpc()
+  registerOnboardingIpc(ctx)
 }

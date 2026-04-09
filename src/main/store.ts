@@ -130,13 +130,21 @@ export interface AppSettings {
   adaptiveRoutingQualityEngine: string
   /** History of user corrections for mistranslations (#590) */
   correctionHistory: CorrectionEntry[]
+  /** Whether this is a fresh install (never completed first pipeline start) (#575) */
+  isFirstRun: boolean
+  /** Background model download status for onboarding (#575) */
+  onboardingModelStatus: 'idle' | 'downloading' | 'completed' | 'failed'
+  /** Download progress percentage (0-100) for onboarding model (#575) */
+  onboardingDownloadProgress: number
+  /** Preferred local translation engine to switch to after download (#575) */
+  preferredLocalEngine: string
 }
 
 export const store = new Store<AppSettings>({
   encryptionKey: 'live-translate-v1',
   defaults: {
     hasCompletedSetup: false,
-    translationEngine: 'offline-hymt15',
+    translationEngine: 'online',
     googleApiKey: '',
     microsoftApiKey: '',
     microsoftRegion: '',
@@ -193,6 +201,10 @@ export const store = new Store<AppSettings>({
     adaptiveRoutingShortThreshold: 10,
     adaptiveRoutingLongThreshold: 50,
     adaptiveRoutingQualityEngine: 'hunyuan-mt',
-    correctionHistory: []
+    correctionHistory: [],
+    isFirstRun: true,
+    onboardingModelStatus: 'idle',
+    onboardingDownloadProgress: 0,
+    preferredLocalEngine: 'offline-hymt15'
   }
 })

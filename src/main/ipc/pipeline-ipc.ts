@@ -147,7 +147,26 @@ export function registerPipelineIpc(ctx: AppContext): void {
             p.engine.dispose().catch((e) => log.warn('Failed to dispose rotation provider:', e))
           }
         }
-        throw err
+
+        // #575: Auto-fallback to cloud engine if local engine fails on fresh install
+        const isLocalEngine = config.translatorEngineId && !['google-translate', 'deepl-translate', 'gemini-translate', 'microsoft-translate', 'rotation-controller'].includes(config.translatorEngineId)
+        if (isLocalEngine && config.apiKey) {
+          log.warn(`Local engine ${config.translatorEngineId} failed, falling back to Google Translate`)
+          ctx.mainWindow?.webContents.send('status-update', `Local engine failed — falling back to cloud translation`)
+
+          // Re-register and switch to Google Translate as fallback
+          ctx.pipeline.registerTranslator('google-translate', () => new GoogleTranslator(config.apiKey!))
+          const fallbackConfig = { ...config, translatorEngineId: 'google-translate' }
+          try {
+            await ctx.pipeline.switchEngine(fallbackConfig)
+            config = fallbackConfig
+          } catch (fallbackErr) {
+            log.error('Fallback to cloud also failed:', fallbackErr)
+            throw err // Throw original error
+          }
+        } else {
+          throw err
+        }
       }
 
       // Load merged glossary (personal + org) from store (#517)
