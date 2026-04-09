@@ -38,6 +38,18 @@ export interface SessionLog {
   errorCount: number
 }
 
+/** A user correction of a mistranslation, stored as glossary + audit trail */
+export interface CorrectionEntry {
+  /** Original source text that was translated */
+  sourceText: string
+  /** The incorrect translation produced by the engine */
+  originalTranslation: string
+  /** The corrected translation provided by the user */
+  correctedTranslation: string
+  /** Unix timestamp in ms when the correction was made */
+  timestamp: number
+}
+
 export interface AppSettings {
   translationEngine: string
   googleApiKey: string
@@ -116,6 +128,8 @@ export interface AppSettings {
   adaptiveRoutingLongThreshold: number
   /** Adaptive routing: quality engine ID (default 'hunyuan-mt') */
   adaptiveRoutingQualityEngine: string
+  /** History of user corrections for mistranslations (#590) */
+  correctionHistory: CorrectionEntry[]
 }
 
 export const store = new Store<AppSettings>({
@@ -178,6 +192,7 @@ export const store = new Store<AppSettings>({
     adaptiveRoutingEnabled: false,
     adaptiveRoutingShortThreshold: 10,
     adaptiveRoutingLongThreshold: 50,
-    adaptiveRoutingQualityEngine: 'hunyuan-mt'
+    adaptiveRoutingQualityEngine: 'hunyuan-mt',
+    correctionHistory: []
   }
 })

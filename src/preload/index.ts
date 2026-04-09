@@ -128,6 +128,19 @@ contextBridge.exposeInMainWorld('api', {
   // Subtitle drag mode (#509)
   toggleSubtitleDragMode: (enabled: boolean) =>
     ipcRenderer.invoke('toggle-subtitle-drag-mode', enabled),
+  // Subtitle edit mode (#590)
+  toggleSubtitleEditMode: (enabled: boolean) =>
+    ipcRenderer.invoke('toggle-subtitle-edit-mode', enabled),
+  onEditModeChanged: (callback: (enabled: boolean) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, enabled: boolean): void => callback(enabled)
+    ipcRenderer.on('edit-mode-changed', handler)
+    return () => ipcRenderer.off('edit-mode-changed', handler)
+  },
+  // Translation corrections (#590)
+  saveCorrection: (correction: { sourceText: string; originalTranslation: string; correctedTranslation: string }) =>
+    ipcRenderer.invoke('save-correction', correction),
+  getCorrectionHistory: () => ipcRenderer.invoke('get-correction-history'),
+  clearCorrectionHistory: () => ipcRenderer.invoke('clear-correction-history'),
   moveSubtitleByDelta: (dx: number, dy: number) =>
     ipcRenderer.send('move-subtitle-by-delta', dx, dy),
   saveSubtitlePosition: () => ipcRenderer.invoke('save-subtitle-position'),

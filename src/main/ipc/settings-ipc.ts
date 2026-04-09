@@ -1,7 +1,7 @@
 import { ipcMain, dialog } from 'electron'
 import { readFile, writeFile } from 'fs/promises'
 import { store } from '../store'
-import type { AppSettings, SubtitleSettings } from '../store'
+import type { AppSettings, SubtitleSettings, CorrectionEntry } from '../store'
 import { validateSubtitleSettings } from '../ipc-validators'
 import type { AppContext } from '../app-context'
 import { createLogger } from '../logger'
@@ -190,6 +190,56 @@ export function registerSettingsIpc(ctx: AppContext): void {
         orgTarget: e.target
       }))
     return { merged, conflicts, personalCount: personal.length, orgCount: org.length }
+  })
+
+  // Save a user correction as a glossary entry and record in correction history (#590)
+  ipcMain.handle('save-correction', (_event, correction: {
+    sourceText: string
+    originalTranslation: string
+    correctedTranslation: string
+  }) => {
+    const { sourceText, originalTranslation, correctedTranslation } = correction
+    if (!sourceText?.trim() || !correctedTranslation?.trim()) {
+      return { error: 'Source text and corrected translation are required' }
+    }
+
+    // Add to personal glossary (deduplicates by source term)
+    const glossary = store.get('glossaryTerms') || []
+    const existingIdx = glossary.findIndex((e) => e.source === sourceText)
+    if (existingIdx >= 0) {
+      glossary[existingIdx] = { source: sourceText, target: correctedTranslation }
+    } else {
+      glossary.push({ source: sourceText, target: correctedTranslation })
+    }
+    store.set('glossaryTerms', glossary)
+    syncMergedGlossary()
+
+    // Record in correction history
+    const history = store.get('correctionHistory') || []
+    const entry: CorrectionEntry = {
+      sourceText,
+      originalTranslation: originalTranslation || '',
+      correctedTranslation,
+      timestamp: Date.now()
+    }
+    // Keep last 500 entries to avoid unbounded growth
+    history.push(entry)
+    if (history.length > 500) history.splice(0, history.length - 500)
+    store.set('correctionHistory', history)
+
+    _log.info(`Correction saved: "${sourceText}" -> "${correctedTranslation}" (was: "${originalTranslation}")`)
+    return { success: true, glossaryCount: glossary.length }
+  })
+
+  // Get correction history (#590)
+  ipcMain.handle('get-correction-history', () => {
+    return store.get('correctionHistory') || []
+  })
+
+  // Clear correction history (#590)
+  ipcMain.handle('clear-correction-history', () => {
+    store.set('correctionHistory', [])
+    return { success: true }
   })
 
   // #54: crash recovery — check if previous session ended uncleanly

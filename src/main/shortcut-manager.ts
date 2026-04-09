@@ -14,6 +14,7 @@ export type ShortcutAction =
   | 'decrease-font'
   | 'copy-last-subtitle'
   | 'switch-languages'
+  | 'toggle-edit-mode'
 
 /** Default shortcut accelerators (platform-aware via CommandOrControl) */
 const DEFAULT_SHORTCUTS: Record<ShortcutAction, string> = {
@@ -22,7 +23,8 @@ const DEFAULT_SHORTCUTS: Record<ShortcutAction, string> = {
   'increase-font': 'CommandOrControl+Shift+=',
   'decrease-font': 'CommandOrControl+Shift+-',
   'copy-last-subtitle': 'CommandOrControl+Shift+C',
-  'switch-languages': 'CommandOrControl+Shift+L'
+  'switch-languages': 'CommandOrControl+Shift+L',
+  'toggle-edit-mode': 'CommandOrControl+Shift+E'
 }
 
 /** Common language pairs for cycling */
@@ -157,6 +159,25 @@ export function registerGlobalShortcuts(ctx: AppContext): () => void {
     log.info(`Switched languages to ${next.source} -> ${next.target}`)
   })
 
+  // Toggle edit mode on subtitle overlay (#590)
+  let editModeEnabled = false
+  tryRegister('toggle-edit-mode', shortcuts['toggle-edit-mode'], () => {
+    const win = ctx.subtitleWindow
+    if (!win) return
+
+    editModeEnabled = !editModeEnabled
+    if (editModeEnabled) {
+      win.setIgnoreMouseEvents(false)
+    } else {
+      win.setIgnoreMouseEvents(true, { forward: true })
+    }
+    win.webContents.send('edit-mode-changed', editModeEnabled)
+    ctx.mainWindow?.webContents.send('edit-mode-changed', editModeEnabled)
+    ctx.mainWindow?.webContents.send('status-update',
+      editModeEnabled ? 'Edit mode enabled — click translations to correct' : 'Edit mode disabled')
+    log.info(`Edit mode ${editModeEnabled ? 'enabled' : 'disabled'} via shortcut`)
+  })
+
   return () => {
     for (const accelerator of registered) {
       globalShortcut.unregister(accelerator)
@@ -179,6 +200,7 @@ export function getShortcutLabels(): Record<ShortcutAction, { action: string; sh
     'increase-font': { action: 'Increase font', shortcut: `${mod}+Shift+=` },
     'decrease-font': { action: 'Decrease font', shortcut: `${mod}+Shift+-` },
     'copy-last-subtitle': { action: 'Copy last subtitle', shortcut: `${mod}+Shift+C` },
-    'switch-languages': { action: 'Switch languages', shortcut: `${mod}+Shift+L` }
+    'switch-languages': { action: 'Switch languages', shortcut: `${mod}+Shift+L` },
+    'toggle-edit-mode': { action: 'Toggle edit mode', shortcut: `${mod}+Shift+E` }
   }
 }
