@@ -69,6 +69,10 @@ export interface SettingsState {
   draftSttEnabled: boolean
   setDraftSttEnabled: (v: boolean) => void
 
+  // Speaker diarization (#549)
+  speakerDiarizationEnabled: boolean
+  setSpeakerDiarizationEnabled: (v: boolean) => void
+
   // Subtitle
   subtitleFontSize: number
   setSubtitleFontSize: (v: number) => void
@@ -189,6 +193,7 @@ export function useSettingsState(): SettingsState {
         noiseSuppressionEnabled: session.noiseSuppression.enabled,
         audioSource: session.audio.audioSource,
         draftSttEnabled: language.draftSttEnabled,
+        speakerDiarizationEnabled: language.speakerDiarizationEnabled,
         adaptiveRoutingEnabled: engine.adaptiveRoutingEnabled,
         adaptiveRoutingShortThreshold: engine.adaptiveRoutingShortThreshold,
         adaptiveRoutingLongThreshold: engine.adaptiveRoutingLongThreshold,
@@ -322,6 +327,7 @@ export function useSettingsState(): SettingsState {
     platform: language.platform,
     isMacOS26: language.isMacOS26,
     draftSttEnabled: language.draftSttEnabled, setDraftSttEnabled: language.setDraftSttEnabled,
+    speakerDiarizationEnabled: language.speakerDiarizationEnabled, setSpeakerDiarizationEnabled: language.setSpeakerDiarizationEnabled,
 
     // Session
     status: session.status, setStatus: session.setStatus,

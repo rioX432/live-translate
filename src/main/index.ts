@@ -20,6 +20,7 @@ import { PLaMoTranslator } from '../engines/translator/PLaMoTranslator'
 import { ANETranslator } from '../engines/translator/ANETranslator'
 import { AppleTranslator } from '../engines/translator/AppleTranslator'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
+import { FluidAudioDiarizer } from '../engines/diarization/FluidAudioDiarizer'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { store } from './store'
 import { sanitizeErrorMessage, getErrorHint } from './error-utils'
@@ -169,6 +170,16 @@ async function initPipeline(): Promise<void> {
     kvCacheQuant: store.get('slmKvCacheQuant'),
     speculativeDecoding: true
   }))
+  // Register speaker diarizer — experimental, macOS only, requires FluidAudio (#549)
+  if (process.platform === 'darwin') {
+    ctx.pipeline.registerDiarizer('fluid-audio', () => new FluidAudioDiarizer({
+      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+    }))
+  }
+
+  // Apply diarization setting from store
+  ctx.pipeline.setDiarizationEnabled(!!store.get('speakerDiarizationEnabled'))
+
   // Auto-register discovered plugins (#145)
   for (const plugin of discoverPlugins()) {
     const { manifest } = plugin

@@ -15,7 +15,8 @@ import {
   QuickStartPanel,
   EnterpriseSettings,
   KeyboardShortcuts,
-  AccessibilitySettings
+  AccessibilitySettings,
+  SpeakerSettings
 } from './settings'
 
 function SettingsPanel(): React.JSX.Element {
@@ -206,6 +207,13 @@ function SettingsPanel(): React.JSX.Element {
             onLetterSpacingChange={(v) => { s.accessibility.setLetterSpacing(v); s.pushSubtitleSettings({ accessibility: { highContrast: s.accessibility.highContrast, dyslexiaFont: s.accessibility.dyslexiaFont, reducedMotion: s.accessibility.reducedMotion, letterSpacing: v, wordSpacing: s.accessibility.wordSpacing } }) }}
             wordSpacing={s.accessibility.wordSpacing}
             onWordSpacingChange={(v) => { s.accessibility.setWordSpacing(v); s.pushSubtitleSettings({ accessibility: { highContrast: s.accessibility.highContrast, dyslexiaFont: s.accessibility.dyslexiaFont, reducedMotion: s.accessibility.reducedMotion, letterSpacing: s.accessibility.letterSpacing, wordSpacing: v } }) }}
+          />
+
+          <SpeakerSettings
+            speakerDiarizationEnabled={s.speakerDiarizationEnabled}
+            onSpeakerDiarizationEnabledChange={s.setSpeakerDiarizationEnabled}
+            platform={s.platform}
+            disabled={disabled}
           />
 
           <TTSSettings disabled={disabled} />

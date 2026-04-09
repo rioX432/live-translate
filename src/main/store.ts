@@ -106,6 +106,8 @@ export interface AppSettings {
   telemetryConsent: boolean
   /** Whether the telemetry consent dialog has been shown */
   telemetryConsentShown: boolean
+  /** Enable speaker diarization via FluidAudio for multi-speaker identification (#549) */
+  speakerDiarizationEnabled: boolean
   /** Enable adaptive quality routing between fast and quality translation engines (#547) */
   adaptiveRoutingEnabled: boolean
   /** Adaptive routing: token count below this → fast engine only (default 10) */
@@ -172,6 +174,7 @@ export const store = new Store<AppSettings>({
     draftSttEnabled: false,
     telemetryConsent: false,
     telemetryConsentShown: false,
+    speakerDiarizationEnabled: false,
     adaptiveRoutingEnabled: false,
     adaptiveRoutingShortThreshold: 10,
     adaptiveRoutingLongThreshold: 50,

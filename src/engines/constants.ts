@@ -116,6 +116,16 @@ export const APPLE_TRANSLATE_COMMAND_TIMEOUT_MS = 15_000
 export const APPLE_TRANSLATE_INIT_TIMEOUT_MS = 120_000
 
 // ---------------------------------------------------------------------------
+// FluidAudio speaker diarization (#549)
+// ---------------------------------------------------------------------------
+
+/** Command timeout for FluidAudio diarization per chunk (ms) */
+export const FLUID_AUDIO_DIARIZE_TIMEOUT_MS = 10_000
+
+/** Init timeout for FluidAudio — first run downloads ~32MB of CoreML models (ms) */
+export const FLUID_AUDIO_INIT_TIMEOUT_MS = 300_000
+
+// ---------------------------------------------------------------------------
 // GER (Generative Error Correction) — async STT post-processing (#409)
 // ---------------------------------------------------------------------------
 

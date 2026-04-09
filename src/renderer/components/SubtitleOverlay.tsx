@@ -42,6 +42,19 @@ const FADE_OUT_MS = 800
 /** Dimmed color for interim (unconfirmed) text */
 const INTERIM_TEXT_COLOR = 'rgba(255, 255, 255, 0.5)'
 
+/**
+ * Speaker color palette for diarization (#549).
+ * Max 6 distinct colors — high contrast on dark background.
+ */
+const SPEAKER_COLORS = [
+  '#60a5fa', // blue
+  '#34d399', // green
+  '#fbbf24', // amber
+  '#f87171', // red
+  '#a78bfa', // purple
+  '#fb923c'  // orange
+]
+
 /** Font stack with Noto Sans CJK for broader coverage */
 const BASE_FONT_FAMILY =
   '"Noto Sans", "Noto Sans CJK JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
@@ -55,6 +68,8 @@ interface ResultData {
   translatedText: string
   confirmedText?: string
   interimText?: string
+  speakerLabel?: string
+  speakerIndex?: number
 }
 
 function SubtitleOverlay(): React.JSX.Element {
@@ -62,6 +77,8 @@ function SubtitleOverlay(): React.JSX.Element {
   const [interimText, setInterimText] = useState('')
   const [translatedText, setTranslatedText] = useState('')
   const [visible, setVisible] = useState(false)
+  const [speakerLabel, setSpeakerLabel] = useState<string | null>(null)
+  const [speakerIndex, setSpeakerIndex] = useState<number>(0)
   const [config, setConfig] = useState<SubtitleConfig>(DEFAULT_CONFIG)
   const [isDragMode, setIsDragMode] = useState(false)
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -93,6 +110,12 @@ function SubtitleOverlay(): React.JSX.Element {
 
     if (result.translatedText) {
       setTranslatedText(result.translatedText)
+    }
+
+    // Update speaker label from diarization (#549)
+    if (result.speakerLabel !== undefined) {
+      setSpeakerLabel(result.speakerLabel)
+      setSpeakerIndex(result.speakerIndex ?? 0)
     }
 
     setVisible(true)
@@ -264,6 +287,22 @@ function SubtitleOverlay(): React.JSX.Element {
           textAlign: 'center'
         }}
       >
+        {/* Speaker label from diarization (#549) */}
+        {speakerLabel && (
+          <div
+            style={{
+              fontSize: `${Math.max(effectiveFontSize - 8, 12)}px`,
+              fontWeight: 700,
+              color: SPEAKER_COLORS[speakerIndex % SPEAKER_COLORS.length],
+              textShadow: effectiveTextShadow,
+              marginBottom: '2px',
+              textAlign: 'left'
+            }}
+          >
+            {speakerLabel}
+          </div>
+        )}
+
         {/* Source text: confirmed (stable) + interim (dimmed, still changing) */}
         <div
           aria-live="polite"
@@ -275,7 +314,7 @@ function SubtitleOverlay(): React.JSX.Element {
             ...spacingStyle
           }}
         >
-          <span style={{ color: effectiveSourceColor }}>{confirmedText}</span>
+          <span style={{ color: speakerLabel ? SPEAKER_COLORS[speakerIndex % SPEAKER_COLORS.length] : effectiveSourceColor }}>{confirmedText}</span>
           {interimText && (
             <span style={{ color: a11y.highContrast ? 'rgba(255,255,255,0.7)' : INTERIM_TEXT_COLOR }}>{interimText}</span>
           )}

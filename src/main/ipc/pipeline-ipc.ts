@@ -175,6 +175,9 @@ export function registerPipelineIpc(ctx: AppContext): void {
       // Configure draft STT (#536)
       ctx.pipeline!.setDraftSttEnabled(store.get('draftSttEnabled'))
 
+      // Configure speaker diarization (#549)
+      ctx.pipeline!.setDiarizationEnabled(store.get('speakerDiarizationEnabled'))
+
       // Start logger
       ctx.logger = new TranscriptLogger((msg) => ctx.mainWindow?.webContents.send('status-update', msg))
       const sessionLabel = config.mode === 'e2e'

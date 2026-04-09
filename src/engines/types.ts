@@ -63,6 +63,10 @@ export interface TranslationResult {
   translationStage?: 'draft' | 'refined' | 'ger-corrected'
   /** STT confidence score (0.0–1.0), forwarded from STTResult for UI styling */
   confidence?: number
+  /** Speaker label from diarization (e.g. 'Speaker 1', 'Speaker 2') */
+  speakerLabel?: string
+  /** Speaker index (0-based) for color assignment in SubtitleOverlay */
+  speakerIndex?: number
 }
 
 /**
@@ -183,6 +187,39 @@ export interface TTSResult {
   audio: Float32Array
   /** Sample rate in Hz (e.g. 24000) */
   sampleRate: number
+}
+
+/** Speaker diarization result for an audio chunk */
+export interface DiarizationResult {
+  /** Identified speaker label (e.g. 'Speaker 1') */
+  speakerLabel: string
+  /** Speaker index (0-based, for color assignment) */
+  speakerIndex: number
+  /** Confidence score (0.0–1.0) */
+  confidence: number
+}
+
+/**
+ * Speaker diarization engine interface.
+ * Runs in parallel with STT on the same audio buffer to identify speakers.
+ * Implementations: FluidAudioDiarizer
+ */
+export interface SpeakerDiarizer {
+  readonly id: string
+  readonly name: string
+
+  /** Load models and prepare for inference */
+  initialize(): Promise<void>
+
+  /**
+   * Process an audio chunk and return the dominant speaker.
+   * Returns null if no speaker detected (silence/noise).
+   * Must be non-blocking and fast enough for real-time use (~40μs target).
+   */
+  processAudio(audioChunk: Float32Array, sampleRate: number): Promise<DiarizationResult | null>
+
+  /** Release resources */
+  dispose(): Promise<void>
 }
 
 /** Pipeline mode */

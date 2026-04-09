@@ -4,6 +4,7 @@ import type {
   STTEngine,
   TranslatorEngine,
   E2ETranslationEngine,
+  SpeakerDiarizer,
   TranslationResult,
   Language,
   SourceLanguage,
@@ -89,6 +90,9 @@ export class TranslationPipeline extends EventEmitter {
   // Draft STT state (#536)
   private draftSttEnabled = false
 
+  // Speaker diarization state (#549)
+  private diarizationEnabled = false
+
   // Batch processing mutex — STT engines assume sequential access (#217)
   private batchLock = false
 
@@ -132,7 +136,8 @@ export class TranslationPipeline extends EventEmitter {
         }
       },
       getGER: () => this.ger,
-      getDraftSTTEngine: () => this.draftSttEnabled ? this.engineManager.draftSttEngine : null
+      getDraftSTTEngine: () => this.draftSttEnabled ? this.engineManager.draftSttEngine : null,
+      getDiarizer: () => this.diarizationEnabled ? this.engineManager.diarizer : null
     })
     this.ger = new GERProcessor({
       emitter: this,
@@ -225,6 +230,11 @@ export class TranslationPipeline extends EventEmitter {
     this.draftSttEnabled = enabled
   }
 
+  /** Enable or disable speaker diarization (#549) */
+  setDiarizationEnabled(enabled: boolean): void {
+    this.diarizationEnabled = enabled
+  }
+
   /** Configure adaptive quality routing (#547) */
   setAdaptiveRouting(config: Partial<AdaptiveRoutingConfig>, qualityEngineId?: string): void {
     this.adaptiveRouter.setConfig(config)
@@ -250,6 +260,10 @@ export class TranslationPipeline extends EventEmitter {
 
   registerE2E(id: string, factory: () => E2ETranslationEngine): void {
     this.engineManager.registerE2E(id, factory)
+  }
+
+  registerDiarizer(id: string, factory: () => SpeakerDiarizer): void {
+    this.engineManager.registerDiarizer(id, factory)
   }
 
   // --- Processing lock ---
@@ -286,6 +300,16 @@ export class TranslationPipeline extends EventEmitter {
         } catch (err) {
           log.warn('Draft STT initialization failed (non-fatal):', err)
           this.emit('engine-loading', 'Draft STT not available — continuing without fast interim results')
+        }
+      }
+
+      // Initialize speaker diarizer if enabled (#549)
+      if (this.diarizationEnabled && process.platform === 'darwin') {
+        try {
+          await this.engineManager.initDiarizer('fluid-audio', this)
+        } catch (err) {
+          log.warn('Speaker diarization initialization failed (non-fatal):', err)
+          this.emit('engine-loading', 'Speaker diarization not available — continuing without speaker labels')
         }
       }
 
