@@ -84,6 +84,8 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     getMoonshineVariants: function () { return electron_1.ipcRenderer.invoke('get-moonshine-variants'); },
     // #243: Platform detection for hiding platform-specific options
     getPlatform: function () { return electron_1.ipcRenderer.invoke('get-platform'); },
+    // #548: macOS version detection for Apple SpeechTranscriber (macOS 26+)
+    getMacOSVersion: function () { return electron_1.ipcRenderer.invoke('get-macos-version'); },
     // Display change notifications (#192)
     onDisplaysChanged: function (callback) {
         var handler = function () { return callback(); };

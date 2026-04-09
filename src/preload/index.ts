@@ -101,6 +101,9 @@ contextBridge.exposeInMainWorld('api', {
   // #243: Platform detection for hiding platform-specific options
   getPlatform: () => ipcRenderer.invoke('get-platform'),
 
+  // #548: macOS version detection for Apple SpeechTranscriber (macOS 26+)
+  getMacOSVersion: () => ipcRenderer.invoke('get-macos-version') as Promise<string | null>,
+
   // Display change notifications (#192)
   onDisplaysChanged: (callback: () => void) => {
     const handler = (): void => callback()

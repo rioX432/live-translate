@@ -62,4 +62,11 @@ export function registerModelIpc(): void {
   ipcMain.handle('list-plugins', () => listPlugins())
   ipcMain.handle('detect-gpu', async () => detectGpu())
   ipcMain.handle('get-platform', () => process.platform)
+
+  // macOS version detection for feature gating (e.g., Apple SpeechTranscriber requires macOS 26+)
+  ipcMain.handle('get-macos-version', () => {
+    if (process.platform !== 'darwin') return null
+    // process.getSystemVersion() returns e.g. "26.0.0" for macOS 26 (Tahoe)
+    return process.getSystemVersion?.() ?? null
+  })
 }

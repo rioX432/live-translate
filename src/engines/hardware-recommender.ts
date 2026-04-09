@@ -10,7 +10,7 @@ import type { WhisperVariant } from './model-downloader'
 
 /** Engine recommendation produced by hardware analysis */
 export interface EngineRecommendation {
-  sttEngine: 'whisper-local' | 'mlx-whisper' | 'kotoba-whisper'
+  sttEngine: 'whisper-local' | 'mlx-whisper' | 'kotoba-whisper' | 'apple-speech-transcriber'
   translationEngine: string
   whisperVariant: WhisperVariant
   /** Models that need downloading before offline engines can run */
@@ -49,10 +49,25 @@ function hasNvidiaCuda(platform: string, gpuInfo: GpuInfo): boolean {
   return gpuInfo.gpuNames.some((name) => /nvidia|geforce|rtx|gtx/i.test(name))
 }
 
+/** Detect if macOS 26+ (Tahoe) is running for Apple SpeechTranscriber support */
+function isMacOS26Plus(): boolean {
+  if (process.platform !== 'darwin') return false
+  try {
+    // process.getSystemVersion() returns e.g. "26.0.0" for macOS 26
+    const version = process.getSystemVersion?.()
+    if (!version) return false
+    const major = parseInt(version.split('.')[0], 10)
+    return major >= 26
+  } catch {
+    return false
+  }
+}
+
 /**
  * Recommend optimal engines based on hardware capabilities.
  *
  * Priority:
+ * 0. macOS 26+ (any Apple Silicon): Apple SpeechTranscriber — zero setup, ANE-native (#548)
  * 1. Apple Silicon M1+ with >=16GB: MLX Whisper (or Kotoba-Whisper for JA) + HY-MT1.5-1.8B
  * 2. Apple Silicon M1+ with >=8GB: MLX Whisper (or Kotoba-Whisper for JA) + LFM2 (lighter)
  * 3. Apple Silicon M1+ with <8GB: MLX Whisper (or Kotoba-Whisper for JA) + API fallback
@@ -68,9 +83,61 @@ export function recommendEngines(
   sourceLanguage?: string
 ): EngineRecommendation {
   const appleSilicon = isAppleSilicon(platform, gpuInfo)
+  const macOS26 = isMacOS26Plus()
   const downloads: DownloadItem[] = []
-  // Prefer Kotoba-Whisper for JA-only setups on Apple Silicon
-  const preferKotoba = appleSilicon && sourceLanguage === 'ja'
+  // Prefer Kotoba-Whisper for JA-only setups on Apple Silicon (unless macOS 26+ available)
+  const preferKotoba = appleSilicon && sourceLanguage === 'ja' && !macOS26
+
+  // macOS 26+ with Apple Silicon: prefer Apple SpeechTranscriber (zero setup, ANE-optimized)
+  if (macOS26 && appleSilicon) {
+    const sttEngine = 'apple-speech-transcriber' as const
+    // Choose translator based on memory (same logic as other Apple Silicon tiers)
+    if (totalMemoryMB >= 16384) {
+      const whisperVariant: WhisperVariant = 'kotoba-v2.0'
+      const gguf = HUNYUAN_MT_15_VARIANTS['Q4_K_M']
+      if (!isGGUFDownloaded(gguf.filename)) {
+        downloads.push({ type: 'gguf', key: gguf.filename, filename: gguf.filename, url: gguf.url, sizeMB: gguf.sizeMB, label: gguf.label })
+      }
+      return {
+        sttEngine,
+        translationEngine: 'offline-hymt15',
+        whisperVariant,
+        downloads,
+        totalDownloadMB: downloads.reduce((sum, d) => sum + d.sizeMB, 0),
+        needsDownload: downloads.length > 0,
+        fallbackEngine: downloads.length > 0 ? 'offline-opus' : null,
+        reason: 'macOS 26+ — using Apple SpeechTranscriber (zero setup, ANE) + HY-MT 1.5 for best offline quality'
+      }
+    }
+    if (totalMemoryMB >= 8192) {
+      const whisperVariant: WhisperVariant = 'kotoba-v2.0'
+      const gguf = LFM2_VARIANTS['Q4_K_M']
+      if (!isGGUFDownloaded(gguf.filename)) {
+        downloads.push({ type: 'gguf', key: gguf.filename, filename: gguf.filename, url: gguf.url, sizeMB: gguf.sizeMB, label: gguf.label })
+      }
+      return {
+        sttEngine,
+        translationEngine: 'offline-lfm2',
+        whisperVariant,
+        downloads,
+        totalDownloadMB: downloads.reduce((sum, d) => sum + d.sizeMB, 0),
+        needsDownload: downloads.length > 0,
+        fallbackEngine: downloads.length > 0 ? 'offline-opus' : null,
+        reason: 'macOS 26+ — using Apple SpeechTranscriber (zero setup, ANE) + LFM2 for lightweight offline translation'
+      }
+    }
+    // Low memory macOS 26+
+    return {
+      sttEngine,
+      translationEngine: 'offline-opus',
+      whisperVariant: 'base',
+      downloads: [],
+      totalDownloadMB: 0,
+      needsDownload: false,
+      fallbackEngine: null,
+      reason: 'macOS 26+ — using Apple SpeechTranscriber (zero setup, ANE) + OPUS-MT for lightweight operation'
+    }
+  }
 
   if (appleSilicon && totalMemoryMB >= 16384) {
     // Best experience: MLX Whisper (or Kotoba-Whisper for JA) + HY-MT1.5

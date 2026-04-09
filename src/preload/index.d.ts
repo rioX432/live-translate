@@ -35,6 +35,7 @@ export interface ElectronAPI {
   onDisplaysChanged: (callback: () => void) => (() => void)
   getWhisperVariants: () => Promise<Array<{ key: string; label: string; description: string; filename: string; sizeMB: number; downloaded: boolean }>>
   getPlatform: () => Promise<string>
+  getMacOSVersion: () => Promise<string | null>
   saveGlossary: (terms: Array<{ source: string; target: string }>) => Promise<void>
   saveOrgGlossary: (terms: Array<{ source: string; target: string }>) => Promise<void>
   importGlossary: (target: 'personal' | 'org') => Promise<{

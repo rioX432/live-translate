@@ -9,6 +9,7 @@ interface STTSettingsProps {
   whisperVariant: WhisperVariantType
   onWhisperVariantChange: (v: WhisperVariantType) => void
   platform: string
+  isMacOS26: boolean
   disabled: boolean
   sourceLanguage: SourceLanguage
   draftSttEnabled: boolean
@@ -21,6 +22,7 @@ export function STTSettings({
   whisperVariant,
   onWhisperVariantChange,
   platform,
+  isMacOS26,
   disabled,
   sourceLanguage,
   draftSttEnabled,
@@ -38,6 +40,9 @@ export function STTSettings({
         disabled={disabled}
         aria-label="STT engine"
       >
+        {isMacOS26 && (
+          <option value="apple-speech-transcriber">Apple Speech (Zero Setup, macOS 26+)</option>
+        )}
         {showKotobaWhisper && (
           <option value="kotoba-whisper">Kotoba-Whisper v2.0 (JA-optimized, Apple Silicon)</option>
         )}
@@ -112,6 +117,18 @@ export function STTSettings({
           <div style={{ marginTop: '2px', color: '#f59e0b' }}>
             Latency: ~2.2s per chunk (65% slower than MLX Whisper ~1.3s). Best for accuracy over speed.
           </div>
+        </div>
+      )}
+      {sttEngine === 'apple-speech-transcriber' && (
+        <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+          Apple SpeechTranscriber: zero model management, ANE-optimized, 2.2x faster than Whisper Turbo.
+          40+ languages. Requires{' '}
+          <span style={{ fontFamily: 'monospace', fontSize: '10px' }}>apple-stt</span>
+          {' '}CLI (
+          <span style={{ fontFamily: 'monospace', fontSize: '10px' }}>
+            cd scripts/apple-stt &amp;&amp; swift build -c release &amp;&amp; cp .build/release/apple-stt /opt/homebrew/bin/
+          </span>
+          ).
         </div>
       )}
       {sttEngine === 'mlx-whisper' && (

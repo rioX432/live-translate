@@ -45,6 +45,7 @@ const LANGUAGE_TO_LOCALE: Partial<Record<Language, string>> = {
 /**
  * Apple SpeechTranscriber STT engine (macOS 26+ / Tahoe).
  *
+ * Primary STT engine on macOS 26+ — zero model downloads, ANE-native.
  * Uses Apple's on-device SpeechTranscriber API via a Swift CLI bridge
  * (scripts/apple-stt). The bridge reads a WAV file and outputs
  * transcribed text to stdout.
@@ -52,14 +53,25 @@ const LANGUAGE_TO_LOCALE: Partial<Record<Language, string>> = {
  * Key advantages:
  * - Zero model downloads (system-managed via AssetInventory)
  * - Uses Apple Neural Engine natively
- * - 55% faster than MacWhisper Large V3 Turbo (per Apple)
- * - Built-in Japanese support
+ * - 2.2x faster than Whisper large-v3-turbo (MacStories benchmark)
+ * - 40+ languages including JA, EN, ZH, KO
+ *
+ * Graceful fallback:
+ * - On macOS < 26: not shown in UI, user selects other STT engine
+ * - Binary not found: initialize() throws with build instructions
+ * - Unsupported locale: falls back to 'en-US' language detection
  *
  * Requires macOS 26 (Tahoe) or later.
  *
  * Build the CLI:
  *   cd scripts/apple-stt && swift build -c release
  *   cp .build/release/apple-stt /opt/homebrew/bin/
+ *
+ * TODO: Benchmark plan (#548)
+ * - JA CER comparison vs MLX Whisper (8.1%) on standard test set
+ * - EN WER comparison vs MLX Whisper (3.8%) on standard test set
+ * - Latency measurement: end-to-end processing time per 3s chunk
+ * - Memory footprint: system memory impact during continuous transcription
  */
 export class AppleSpeechTranscriberEngine implements STTEngine {
   readonly id = 'apple-speech-transcriber'
@@ -143,6 +155,16 @@ export class AppleSpeechTranscriberEngine implements STTEngine {
     } finally {
       try { unlinkSync(tempPath) } catch { /* ignore */ }
     }
+  }
+
+  /** Check if a language is supported by the engine's locale map */
+  isLanguageSupported(lang: Language): boolean {
+    return lang in LANGUAGE_TO_LOCALE
+  }
+
+  /** Set the source locale for transcription */
+  setLocale(locale: string): void {
+    this.sourceLocale = locale
   }
 
   async dispose(): Promise<void> {
