@@ -20,6 +20,7 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 - Moonshine Tiny JA (`MoonshineTinyJaEngine.ts`) — ultra-fast draft STT, JA CER 10.1%, 845ms latency
 - Kotoba-Whisper (`KotobaWhisperEngine.ts`) — JA-optimized Whisper variant
 - SpeechSwift (`SpeechSwiftEngine.ts`) — speech-swift CLI bridge
+- Qwen3-ASR Native (`QwenAsrNativeEngine.ts`) — antirez/qwen-asr pure C, cross-platform, under evaluation
 - SenseVoice, Qwen3-ASR, Qwen ASR, Sherpa-ONNX — under evaluation
 
 **Removed (benchmark failures):**
