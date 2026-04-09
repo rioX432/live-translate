@@ -23,6 +23,7 @@ interface SubtitleConfig {
   backgroundOpacity: number
   position: 'top' | 'bottom'
   accessibility: AccessibilityConfig
+  showConfidenceIndicator: boolean
 }
 
 const DEFAULT_CONFIG: SubtitleConfig = {
@@ -31,7 +32,8 @@ const DEFAULT_CONFIG: SubtitleConfig = {
   translatedTextColor: '#7dd3fc',
   backgroundOpacity: 78,
   position: 'bottom',
-  accessibility: DEFAULT_ACCESSIBILITY
+  accessibility: DEFAULT_ACCESSIBILITY,
+  showConfidenceIndicator: true
 }
 
 /** Silence timeout before subtitle fades out */
@@ -63,6 +65,126 @@ const BASE_FONT_FAMILY =
 const DYSLEXIA_FONT_FAMILY =
   '"Atkinson Hyperlegible", "Noto Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 
+/**
+ * Map a confidence score (0–1) to an opacity value for text rendering.
+ * High confidence = full opacity, low confidence = reduced opacity.
+ * Minimum opacity is 0.4 to keep text readable.
+ */
+function confidenceToOpacity(score: number): number {
+  return 0.4 + 0.6 * Math.max(0, Math.min(1, score))
+}
+
+/**
+ * Map a confidence score (0–1) to an underline thickness for high-contrast mode.
+ * Low confidence = thick underline as a visual warning, high confidence = no underline.
+ */
+function confidenceToUnderline(score: number): string {
+  if (score >= 0.8) return 'none'
+  if (score >= 0.6) return 'underline 1px'
+  if (score >= 0.4) return 'underline 2px'
+  return 'underline 3px wavy'
+}
+
+/**
+ * Render translated text with per-token confidence visualization.
+ * If tokenConfidences is provided, each whitespace-delimited token gets individual styling.
+ * Otherwise, uses the sentence-level confidence for uniform styling.
+ */
+function ConfidenceText({
+  text,
+  confidence,
+  tokenConfidences,
+  color,
+  highContrast,
+  style
+}: {
+  text: string
+  confidence?: number
+  tokenConfidences?: number[]
+  color: string
+  highContrast: boolean
+  style?: React.CSSProperties
+}): React.JSX.Element {
+  // If no confidence data, render plain text
+  if (confidence === undefined && !tokenConfidences?.length) {
+    return <span style={{ color, ...style }}>{text}</span>
+  }
+
+  // If per-token confidences available, render each token individually
+  if (tokenConfidences && tokenConfidences.length > 0) {
+    const tokens = text.split(/(\s+)/)
+    let tokenIdx = 0
+
+    return (
+      <span style={style}>
+        {tokens.map((token, i) => {
+          // Whitespace tokens: render as-is
+          if (/^\s+$/.test(token)) {
+            return <span key={i}>{token}</span>
+          }
+
+          const score = tokenIdx < tokenConfidences.length
+            ? tokenConfidences[tokenIdx]
+            : 1.0
+          tokenIdx++
+
+          if (highContrast) {
+            return (
+              <span
+                key={i}
+                style={{
+                  color,
+                  textDecoration: confidenceToUnderline(score)
+                }}
+                title={`Confidence: ${Math.round(score * 100)}%`}
+              >
+                {token}
+              </span>
+            )
+          }
+
+          return (
+            <span
+              key={i}
+              style={{
+                color,
+                opacity: confidenceToOpacity(score)
+              }}
+              title={`Confidence: ${Math.round(score * 100)}%`}
+            >
+              {token}
+            </span>
+          )
+        })}
+      </span>
+    )
+  }
+
+  // Sentence-level confidence: apply uniform styling to entire text
+  const score = confidence ?? 1.0
+  if (highContrast) {
+    return (
+      <span style={{
+        color,
+        textDecoration: confidenceToUnderline(score),
+        ...style
+      }}>
+        {text}
+      </span>
+    )
+  }
+
+  return (
+    <span style={{
+      color,
+      opacity: confidenceToOpacity(score),
+      ...style
+    }}>
+      {text}
+    </span>
+  )
+}
+
 interface ResultData {
   sourceText: string
   translatedText: string
@@ -70,6 +192,10 @@ interface ResultData {
   interimText?: string
   speakerLabel?: string
   speakerIndex?: number
+  /** Sentence-level confidence from STT (0.0–1.0) */
+  confidence?: number
+  /** Per-token confidence scores for translated text (0.0–1.0 each) */
+  tokenConfidences?: number[]
 }
 
 function SubtitleOverlay(): React.JSX.Element {
@@ -77,6 +203,8 @@ function SubtitleOverlay(): React.JSX.Element {
   const [interimText, setInterimText] = useState('')
   const [translatedText, setTranslatedText] = useState('')
   const [visible, setVisible] = useState(false)
+  const [confidence, setConfidence] = useState<number | undefined>(undefined)
+  const [tokenConfidences, setTokenConfidences] = useState<number[] | undefined>(undefined)
   const [speakerLabel, setSpeakerLabel] = useState<string | null>(null)
   const [speakerIndex, setSpeakerIndex] = useState<number>(0)
   const [config, setConfig] = useState<SubtitleConfig>(DEFAULT_CONFIG)
@@ -116,6 +244,10 @@ function SubtitleOverlay(): React.JSX.Element {
     if (result.translatedText) {
       setTranslatedText(result.translatedText)
     }
+
+    // Update confidence data for visualization (#581)
+    setConfidence(result.confidence)
+    setTokenConfidences(result.tokenConfidences)
 
     // Update speaker label from diarization (#549)
     if (result.speakerLabel !== undefined) {
@@ -172,6 +304,10 @@ function SubtitleOverlay(): React.JSX.Element {
             ...(s.subtitleSettings as Record<string, unknown>).accessibility as Partial<AccessibilityConfig>
           }
         }))
+      }
+      // showConfidenceIndicator may come as top-level or inside subtitleSettings
+      if (s.showConfidenceIndicator !== undefined) {
+        setConfig((prev) => ({ ...prev, showConfidenceIndicator: s.showConfidenceIndicator as boolean }))
       }
     })
 
@@ -418,7 +554,17 @@ function SubtitleOverlay(): React.JSX.Element {
               ...spacingStyle
             }}
           >
-            {translatedText}
+            {config.showConfidenceIndicator ? (
+              <ConfidenceText
+                text={translatedText}
+                confidence={confidence}
+                tokenConfidences={tokenConfidences}
+                color={effectiveTranslatedColor}
+                highContrast={a11y.highContrast}
+              />
+            ) : (
+              translatedText
+            )}
           </div>
         )}
 
