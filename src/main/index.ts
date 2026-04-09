@@ -40,6 +40,7 @@ import { TTSManager } from './tts-manager'
 import { VirtualMicManager } from './virtual-mic-manager'
 import { loadMdmConfig } from './mdm-config'
 import { trackTranslatedCharacters } from './ipc/pipeline-ipc'
+import { startOnboardingDownload, isOnboardingModelReady } from './onboarding-downloader'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
 import type { WhisperVariant } from '../engines/model-downloader'
 
@@ -283,6 +284,14 @@ app.whenReady().then(async () => {
   // #519: Load MDM managed preferences early (before pipeline init)
   loadMdmConfig()
 
+  // #575: Migration for existing users — if setup was already completed,
+  // mark as not first run to avoid showing onboarding download banner
+  if (store.get('hasCompletedSetup') && store.get('isFirstRun')) {
+    store.set('isFirstRun', false)
+    // Existing users keep their current engine (don't override to 'online')
+    log.info('Existing user detected — skipping cloud-first onboarding')
+  }
+
   await initPipeline()
 
   // Initialize TTS manager (#508)
@@ -324,6 +333,24 @@ app.whenReady().then(async () => {
   cleanupDisplayHandlers = registerDisplayHandlers(ctx)
   cleanupShortcuts = registerGlobalShortcuts(ctx)
   initAutoUpdater(ctx)
+
+  // #575: Start background model download for cloud-first onboarding
+  if (store.get('isFirstRun') && !isOnboardingModelReady()) {
+    // Delay to avoid competing with app startup I/O
+    setTimeout(() => {
+      startOnboardingDownload(ctx.mainWindow).then((engineMode) => {
+        if (engineMode) {
+          log.info(`Onboarding model ready: ${engineMode}`)
+          ctx.mainWindow?.webContents.send('onboarding-download-progress', {
+            status: 'completed',
+            progress: 100
+          })
+        }
+      }).catch((err) => {
+        log.error('Onboarding background download failed:', err)
+      })
+    }, 5000)
+  }
 })
 
 let cleanupDisplayHandlers: (() => void) | null = null

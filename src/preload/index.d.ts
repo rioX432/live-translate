@@ -154,6 +154,27 @@ export interface ElectronAPI {
   }>>
   clearCorrectionHistory: () => Promise<{ success: boolean }>
 
+  // Onboarding: cloud-first progressive download (#575)
+  onboardingGetStatus: () => Promise<{
+    status: string
+    progress: number
+    preferredEngine: string
+    modelReady: boolean
+    targetLabel: string
+    targetSizeMB: number
+  }>
+  onboardingStartDownload: () => Promise<{ success: boolean; engineMode?: string }>
+  onboardingSwitchToLocal: () => Promise<{ success?: boolean; engine?: string; error?: string }>
+  onboardingDismiss: () => Promise<{ success: boolean }>
+  onboardingSetPreferredEngine: (engine: string) => Promise<{ success?: boolean; error?: string }>
+  onboardingIsFirstRun: () => Promise<boolean>
+  onOnboardingDownloadProgress: (callback: (data: {
+    status: string
+    progress: number
+    message?: string
+    error?: string
+  }) => void) => (() => void)
+
   // Audio MessagePort for zero-copy transfer (#553)
   onAudioPort: (callback: (port: MessagePort) => void) => (() => void)
 

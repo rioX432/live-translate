@@ -48,7 +48,7 @@ export interface EngineSettingsInit {
 }
 
 export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState {
-  const [engineMode, setEngineMode] = useState<EngineMode>('offline-hymt15')
+  const [engineMode, setEngineMode] = useState<EngineMode>('online')
   const [gpuInfo, setGpuInfo] = useState<{ hasGpu: boolean; gpuNames: string[] } | null>(null)
   const [apiKey, setApiKey] = useState('')
   const [deeplApiKey, setDeeplApiKey] = useState('')
