@@ -10,6 +10,7 @@ import { SpeechSwiftEngine } from '../engines/stt/SpeechSwiftEngine'
 import { AppleSpeechTranscriberEngine } from '../engines/stt/AppleSpeechTranscriberEngine'
 import { Qwen3ASREngine } from '../engines/stt/Qwen3ASREngine'
 import { MoonshineTinyJaEngine } from '../engines/stt/MoonshineTinyJaEngine'
+import { QwenAsrNativeEngine } from '../engines/stt/QwenAsrNativeEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
@@ -98,6 +99,10 @@ async function initPipeline(): Promise<void> {
   // Moonshine Tiny JA: ultra-fast draft STT for Japanese interim results (#536)
   // Not a primary engine — used as draft STT alongside the primary STT
   ctx.pipeline.registerSTT('moonshine-tiny-ja', () => new MoonshineTinyJaEngine({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+  }))
+  // Experimental: Qwen3-ASR via antirez/qwen-asr pure C — cross-platform, no Python/Swift (#545)
+  ctx.pipeline.registerSTT('qwen-asr-native', () => new QwenAsrNativeEngine({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))
 
