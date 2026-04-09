@@ -13,6 +13,7 @@ import { Qwen3ASREngine } from '../engines/stt/Qwen3ASREngine'
 import { MoonshineTinyJaEngine } from '../engines/stt/MoonshineTinyJaEngine'
 import { QwenAsrNativeEngine } from '../engines/stt/QwenAsrNativeEngine'
 import { CarelessWhisperEngine } from '../engines/stt/CarelessWhisperEngine'
+import { OnnxWebSTTEngine } from '../engines/stt/OnnxWebSTTEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
@@ -21,6 +22,7 @@ import { LFM2Translator } from '../engines/translator/LFM2Translator'
 import { PLaMoTranslator } from '../engines/translator/PLaMoTranslator'
 import { ANETranslator } from '../engines/translator/ANETranslator'
 import { AppleTranslator } from '../engines/translator/AppleTranslator'
+import { OnnxWebTranslator } from '../engines/translator/OnnxWebTranslator'
 import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { FluidAudioDiarizer } from '../engines/diarization/FluidAudioDiarizer'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
@@ -118,6 +120,8 @@ async function initPipeline(): Promise<void> {
     modelSize: (store.get('carelessWhisperModel') as string) || undefined,
     chunkSizeMs: (store.get('carelessWhisperChunkMs') as number) || undefined
   }))
+  // Experimental: Whisper ONNX Web — WebGPU/WASM fallback STT (stub, #556)
+  ctx.pipeline.registerSTT('onnx-web-stt', () => new OnnxWebSTTEngine())
 
   // Register translator engines
   // ONNX-based OPUS-MT — legacy fallback for low-memory systems and while downloading LLM models
@@ -163,6 +167,10 @@ async function initPipeline(): Promise<void> {
       onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
     }))
   }
+  // Experimental: NLLB-200 600M via ONNX Runtime Web — WebGPU/WASM fallback translator (#556)
+  ctx.pipeline.registerTranslator('onnx-web', () => new OnnxWebTranslator({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+  }))
   // Hybrid translator: OPUS-MT instant draft + TranslateGemma refinement (#235)
   ctx.pipeline.registerTranslator('hybrid', () => new HybridTranslator(
     new OpusMTTranslator({
