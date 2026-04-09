@@ -43,11 +43,12 @@ export interface WorkerInitOptions {
 }
 
 /** Timeout value by request type */
-export type RequestType = 'translate' | 'translate-incremental' | 'summarize' | 'ger-correct'
+export type RequestType = 'translate' | 'translate-incremental' | 'translate-simulmt' | 'summarize' | 'ger-correct'
 
 const TIMEOUT_BY_TYPE: Record<RequestType, number> = {
   'translate': WORKER_TRANSLATE_TIMEOUT_MS,
   'translate-incremental': WORKER_TRANSLATE_TIMEOUT_MS,
+  'translate-simulmt': WORKER_TRANSLATE_TIMEOUT_MS,
   'summarize': WORKER_SUMMARIZE_TIMEOUT_MS,
   'ger-correct': WORKER_TRANSLATE_TIMEOUT_MS
 }
@@ -137,6 +138,15 @@ class WorkerPool {
       })
       this.worker!.postMessage({ ...message, id })
     })
+  }
+
+  /**
+   * Send a fire-and-forget message to the worker (no response expected).
+   * Used for commands like 'simulmt-reset' that don't return a result.
+   */
+  sendFireAndForget(message: Record<string, unknown>): void {
+    if (!this.worker) return
+    this.worker.postMessage(message)
   }
 
   /** Check if the worker is alive and initialized */

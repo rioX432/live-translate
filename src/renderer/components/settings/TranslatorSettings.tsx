@@ -294,14 +294,14 @@ export function TranslatorSettings({
                 disabled={disabled}
               />
               <div>
-                <div style={{ fontWeight: 500, fontSize: '12px' }}>Simultaneous translation (SimulMT)</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>Start translating before speaker finishes</div>
+                <div style={{ fontWeight: 500, fontSize: '12px' }}>Conversational SimulMT</div>
+                <div style={{ fontSize: '11px', color: '#94a3b8' }}>Translate at clause boundaries with KV cache reuse — lower latency than debounced mode</div>
               </div>
             </label>
             {simulMtEnabled && (
               <div style={{ paddingLeft: '48px', marginTop: '-4px', marginBottom: '4px' }}>
                 <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
-                  Wait-k: start after {simulMtWaitK} confirmed words
+                  Wait-k: start after {simulMtWaitK} words/chars
                 </div>
                 <input
                   type="range"

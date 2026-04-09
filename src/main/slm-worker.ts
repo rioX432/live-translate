@@ -7,6 +7,8 @@
  *   Main → Worker: { type: 'init', modelPath: string, kvCacheQuant?: boolean, modelType?: ModelType, draftModelPath?: string }
  *   Main → Worker: { type: 'translate', id: string, text: string, from: string, to: string }
  *   Main → Worker: { type: 'translate-incremental', id: string, text: string, previousOutput: string, from: string, to: string }
+ *   Main → Worker: { type: 'translate-simulmt', id: string, text: string, previousOutput: string, from: string, to: string, isRevision: boolean }
+ *   Main → Worker: { type: 'simulmt-reset' }
  *   Main → Worker: { type: 'summarize', id: string, transcript: string }
  *   Main → Worker: { type: 'dispose' }
  *   Worker → Main: { type: 'ready' }
@@ -28,6 +30,8 @@ type WorkerInboundMessage =
   | { type: 'init'; modelPath: string; kvCacheQuant?: boolean; modelType?: ModelType; draftModelPath?: string }
   | { type: 'translate'; id: string; text: string; from: string; to: string; context?: TranslateContextPayload }
   | { type: 'translate-incremental'; id: string; text: string; previousOutput: string; from: string; to: string; context?: TranslateContextPayload }
+  | { type: 'translate-simulmt'; id: string; text: string; previousOutput: string; from: string; to: string; isRevision: boolean; context?: TranslateContextPayload }
+  | { type: 'simulmt-reset' }
   | { type: 'summarize'; id: string; transcript: string }
   | { type: 'ger-correct'; id: string; text: string; language: string; glossary?: Array<{ source: string; target: string }> }
   | { type: 'dispose' }
@@ -364,6 +368,165 @@ async function handleTranslateIncremental(
   }
 }
 
+/**
+ * Persistent SimulMT session state.
+ * Unlike regular translate which creates a new session per request,
+ * SimulMT keeps a single LlamaChatSession alive across multiple turns.
+ * This enables KV cache reuse for the shared system prompt + context prefix,
+ * significantly reducing latency for incremental translation.
+ */
+let simulMtSession: import('node-llama-cpp').LlamaChatSession | null = null
+let simulMtSequence: LlamaContextSequence | null = null
+let simulMtLanguagePair: string = ''
+
+/**
+ * Build the SimulMT multi-turn prompt.
+ * Uses a conversational format where source chunks and target translations
+ * alternate as user/assistant turns, enabling KV cache prefix reuse.
+ */
+function buildSimulMtPrompt(
+  text: string,
+  from: string,
+  to: string,
+  isRevision: boolean
+): string {
+  const fromLang = LANG_NAMES_EN[from] ?? from
+  const toLang = LANG_NAMES_EN[to] ?? to
+
+  if (isRevision) {
+    // Revision: full clause has arrived, retranslate for accuracy
+    if (activeModelType === 'hunyuan-mt-15') {
+      const isChinese = from === 'zh' || from === 'zh-Hant' || to === 'zh' || to === 'zh-Hant'
+      if (isChinese) {
+        const targetZh = LANG_NAMES_ZH[to] ?? to
+        return `将以下完整句子翻译为${targetZh}，注意只需要输出翻译后的结果：\n\n${text}`
+      }
+      return `Translate the following complete sentence into ${toLang}, output only the translation:\n\n${text}`
+    }
+    return `Translate the following complete sentence from ${fromLang} to ${toLang}. Output only the translation:\n\n${text}`
+  }
+
+  // Incremental: partial clause, translate what's available
+  if (activeModelType === 'hunyuan-mt-15') {
+    const isChinese = from === 'zh' || from === 'zh-Hant' || to === 'zh' || to === 'zh-Hant'
+    if (isChinese) {
+      const targetZh = LANG_NAMES_ZH[to] ?? to
+      return `将以下文本翻译为${targetZh}，注意只需要输出翻译后的结果：\n\n${text}`
+    }
+    return `Translate the following partial text into ${toLang}, without additional explanation:\n\n${text}`
+  }
+
+  return `Translate this partial ${fromLang} text into ${toLang}. Output only the translation:\n\n${text}`
+}
+
+/**
+ * Handle SimulMT translation with persistent session for KV cache reuse.
+ * The session is kept alive across turns so the system prompt and prior
+ * context remain in the KV cache, avoiding re-evaluation.
+ */
+async function handleTranslateSimulMt(
+  id: string,
+  text: string,
+  previousOutput: string,
+  from: string,
+  to: string,
+  isRevision: boolean,
+  translateContext?: TranslateContextPayload
+): Promise<void> {
+  if (!context) {
+    process.parentPort!.postMessage({
+      type: 'error',
+      id,
+      message: 'Model not initialized'
+    })
+    return
+  }
+
+  try {
+    const { LlamaChatSession } = await import('node-llama-cpp')
+
+    const langPair = `${from}-${to}`
+    const t0 = performance.now()
+
+    // Reset session if language pair changed
+    if (simulMtLanguagePair !== langPair) {
+      if (simulMtSession) {
+        simulMtSequence?.dispose?.()
+        simulMtSession.dispose?.()
+      }
+      simulMtSession = null
+      simulMtSequence = null
+      simulMtLanguagePair = langPair
+    }
+
+    // Create persistent session if needed
+    if (!simulMtSession) {
+      simulMtSequence = await createContextSequence()
+
+      const fromLang = LANG_NAMES_EN[from] ?? from
+      const toLang = LANG_NAMES_EN[to] ?? to
+      const systemPrompt = activeModelType === 'lfm2'
+        ? getLFM2SystemPrompt(to)
+        : `You are a simultaneous interpreter translating ${fromLang} to ${toLang}. ` +
+          `Translate each input segment accurately and concisely. Output only the translation.`
+
+      simulMtSession = new LlamaChatSession({
+        contextSequence: simulMtSequence,
+        systemPrompt
+      })
+      log.info(`SimulMT session created for ${langPair}`)
+    }
+
+    const contextSection = buildContextPrompt(translateContext)
+    const prompt = contextSection + buildSimulMtPrompt(text, from, to, isRevision)
+    const inferenceParams = getInferenceParams()
+
+    const t1 = performance.now()
+    const response = await simulMtSession.prompt(prompt, {
+      ...inferenceParams,
+      ...(previousOutput?.trim() && !isRevision && { responsePrefix: previousOutput })
+    })
+    const inferenceMs = performance.now() - t1
+    const totalMs = performance.now() - t0
+
+    const label = isRevision ? 'SimulMT(rev)' : 'SimulMT(incr)'
+    log.info(
+      `${label}: total=${totalMs.toFixed(0)}ms inference=${inferenceMs.toFixed(0)}ms ` +
+      `inputLen=${text.length} outputLen=${response.length}`
+    )
+
+    process.parentPort!.postMessage({
+      type: 'result',
+      id,
+      text: response.trim()
+    })
+  } catch (err) {
+    // Reset session on error to avoid corrupted state
+    if (simulMtSession) {
+      simulMtSequence?.dispose?.()
+      simulMtSession.dispose?.()
+      simulMtSession = null
+      simulMtSequence = null
+    }
+    process.parentPort!.postMessage({
+      type: 'error',
+      id,
+      message: err instanceof Error ? err.message : String(err)
+    })
+  }
+}
+
+/** Reset the persistent SimulMT session (e.g. on speech segment end) */
+function handleSimulMtReset(): void {
+  if (simulMtSession) {
+    simulMtSequence?.dispose?.()
+    simulMtSession.dispose?.()
+    simulMtSession = null
+    simulMtSequence = null
+    log.info('SimulMT session reset')
+  }
+}
+
 async function handleSummarize(id: string, transcript: string): Promise<void> {
   if (!context) {
     process.parentPort!.postMessage({
@@ -473,6 +636,13 @@ async function handleGERCorrect(
 
 async function handleDispose(): Promise<void> {
   try {
+    // Clean up SimulMT session
+    if (simulMtSession) {
+      simulMtSequence?.dispose?.()
+      simulMtSession.dispose?.()
+      simulMtSession = null
+      simulMtSequence = null
+    }
     if (draftContext) {
       await draftContext.dispose()
       draftContext = null
@@ -516,6 +686,12 @@ process.parentPort!.on('message', (e: { data: WorkerInboundMessage }) => {
         case 'translate-incremental':
           await handleTranslateIncremental(msg.id, msg.text, msg.previousOutput, msg.from, msg.to, msg.context)
           break
+        case 'translate-simulmt':
+          await handleTranslateSimulMt(msg.id, msg.text, msg.previousOutput, msg.from, msg.to, msg.isRevision, msg.context)
+          break
+        case 'simulmt-reset':
+          handleSimulMtReset()
+          break
         case 'summarize':
           await handleSummarize(msg.id, msg.transcript)
           break
@@ -535,7 +711,7 @@ process.parentPort!.on('message', (e: { data: WorkerInboundMessage }) => {
     }
   }
 
-  if (msg.type === 'translate' || msg.type === 'translate-incremental' || msg.type === 'summarize' || msg.type === 'ger-correct') {
+  if (msg.type === 'translate' || msg.type === 'translate-incremental' || msg.type === 'translate-simulmt' || msg.type === 'summarize' || msg.type === 'ger-correct') {
     // Queue to serialize context access
     requestQueue = requestQueue.then(handleMessage, handleMessage)
   } else {
