@@ -90,7 +90,7 @@ async function initPipeline(): Promise<void> {
       onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
     }))
   }
-  // Experimental: Apple SpeechTranscriber (macOS 26+) — requires apple-stt CLI, not shown in UI
+  // Apple SpeechTranscriber (macOS 26+) — primary on Tahoe, zero model management, ANE-native (#548)
   if (process.platform === 'darwin') {
     ctx.pipeline.registerSTT('apple-speech-transcriber', () => new AppleSpeechTranscriberEngine({
       onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)

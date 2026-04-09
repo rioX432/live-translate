@@ -7,16 +7,16 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 
 ## Current Engine Landscape
 
-### STT Engines (2 primary + 8 experimental)
+### STT Engines (3 primary + 7 experimental)
 
 **Primary (shown in UI):**
 | Engine | File | Notes |
 |--------|------|-------|
+| Apple SpeechTranscriber | `AppleSpeechTranscriberEngine.ts` | macOS 26+ only, zero setup, ANE-native, 2.2x faster than Whisper Turbo |
 | Whisper Local | `WhisperLocalEngine.ts` | Native whisper.cpp, primary default |
 | MLX Whisper | `MlxWhisperEngine.ts` | Apple Silicon, JA CER 8.1%, EN WER 3.8%, 2.9s |
 
 **Experimental (hidden from UI):**
-- Apple SpeechTranscriber (`AppleSpeechTranscriberEngine.ts`) — macOS 26+ only, zero model management
 - Moonshine Tiny JA (`MoonshineTinyJaEngine.ts`) — ultra-fast draft STT, JA CER 10.1%, 845ms latency
 - Kotoba-Whisper (`KotobaWhisperEngine.ts`) — JA-optimized Whisper variant
 - SpeechSwift (`SpeechSwiftEngine.ts`) — speech-swift CLI bridge

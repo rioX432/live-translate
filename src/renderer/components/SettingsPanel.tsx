@@ -128,6 +128,7 @@ function SettingsPanel(): React.JSX.Element {
             whisperVariant={s.whisperVariant}
             onWhisperVariantChange={s.setWhisperVariant}
             platform={s.platform}
+            isMacOS26={s.isMacOS26}
             disabled={disabled}
             sourceLanguage={s.sourceLanguage}
             draftSttEnabled={s.draftSttEnabled}

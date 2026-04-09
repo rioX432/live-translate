@@ -112,6 +112,8 @@ export interface SettingsState {
 
   // Platform
   platform: string
+  /** Whether the current system is macOS 26+ (Tahoe) */
+  isMacOS26: boolean
 
   // Meeting summary
   lastTranscriptPath: string | null
@@ -318,6 +320,7 @@ export function useSettingsState(): SettingsState {
     sttEngine: language.sttEngine, setSttEngine: language.setSttEngine,
     whisperVariant: language.whisperVariant, setWhisperVariant: language.setWhisperVariant,
     platform: language.platform,
+    isMacOS26: language.isMacOS26,
     draftSttEnabled: language.draftSttEnabled, setDraftSttEnabled: language.setDraftSttEnabled,
 
     // Session

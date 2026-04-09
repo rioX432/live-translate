@@ -12,6 +12,8 @@ export interface LanguageSettingsState {
   whisperVariant: WhisperVariantType
   setWhisperVariant: (v: WhisperVariantType) => void
   platform: string
+  /** Whether the current system is macOS 26+ (Tahoe), enabling Apple SpeechTranscriber */
+  isMacOS26: boolean
   draftSttEnabled: boolean
   setDraftSttEnabled: (v: boolean) => void
 }
@@ -22,6 +24,7 @@ export function useLanguageSettings(): LanguageSettingsState {
   const [sttEngine, setSttEngine] = useState<SttEngineType>('mlx-whisper')
   const [whisperVariant, setWhisperVariant] = useState<WhisperVariantType>('kotoba-v2.0')
   const [platform, setPlatform] = useState<string>('darwin')
+  const [isMacOS26, setIsMacOS26] = useState(false)
   const [draftSttEnabled, setDraftSttEnabled] = useState(false)
 
   // Load language/STT settings on mount
@@ -34,12 +37,21 @@ export function useLanguageSettings(): LanguageSettingsState {
       if (s.draftSttEnabled !== undefined) setDraftSttEnabled(!!s.draftSttEnabled)
     })
 
-    // Set platform-aware STT default (mlx-whisper on macOS, whisper-local on Windows)
-    window.api.getPlatform().then((p) => {
+    // Set platform-aware STT default and detect macOS version
+    Promise.all([
+      window.api.getPlatform(),
+      window.api.getMacOSVersion()
+    ]).then(([p, macVer]) => {
       setPlatform(p)
+      // macOS 26+ (Tahoe) enables Apple SpeechTranscriber as primary STT (#548)
+      const isTahoe = macVer !== null && parseInt(macVer.split('.')[0], 10) >= 26
+      setIsMacOS26(isTahoe)
       window.api.getSettings().then((s) => {
         if (!s.sttEngine) {
-          if (p === 'darwin') {
+          if (isTahoe) {
+            // Default to Apple SpeechTranscriber on macOS 26+ — zero setup required
+            setSttEngine('apple-speech-transcriber')
+          } else if (p === 'darwin') {
             setSttEngine('mlx-whisper')
           } else {
             setSttEngine('whisper-local')
@@ -67,6 +79,7 @@ export function useLanguageSettings(): LanguageSettingsState {
     sttEngine, setSttEngine,
     whisperVariant, setWhisperVariant,
     platform,
+    isMacOS26,
     draftSttEnabled, setDraftSttEnabled
   }
 }
