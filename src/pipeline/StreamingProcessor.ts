@@ -11,6 +11,7 @@ import type { STTEngine } from '../engines/types'
 import type { LocalAgreement } from './LocalAgreement'
 import type { ContextBuffer } from './ContextBuffer'
 import type { GERProcessor } from './GERProcessor'
+import { detectClauseBoundary, countUnits } from './ClauseBoundaryDetector'
 import { createLogger } from '../main/logger'
 
 const log = createLogger('pipeline:stream')
@@ -57,6 +58,11 @@ export class StreamingProcessor {
   private translateDebounceTimer: ReturnType<typeof setTimeout> | null = null
   private lastSourceTextForTranslate = ''
 
+  /** SimulMT state: last boundary we translated up to (#550) */
+  private simulMtLastBoundaryText = ''
+  /** SimulMT: in-flight translation promise to prevent concurrent requests */
+  private simulMtInFlight = false
+
   /** Last diarization result for merging with STT output (#549) */
   private lastDiarizationResult: DiarizationResult | null = null
 
@@ -82,6 +88,14 @@ export class StreamingProcessor {
       this.translateDebounceTimer = null
     }
     this.lastSourceTextForTranslate = ''
+    this.simulMtLastBoundaryText = ''
+    this.simulMtInFlight = false
+
+    // Reset persistent SimulMT session in worker
+    const translator = this.deps.getTranslator()
+    if (translator?.resetSimulMtSession) {
+      translator.resetSimulMtSession()
+    }
   }
 
   async processStreaming(
@@ -127,40 +141,56 @@ export class StreamingProcessor {
 
       const fullSourceText = agreement.confirmedText + agreement.interimText
 
-      // Debounced translation: schedule translation when source text stabilizes for 1s.
-      // This avoids translating on every interim update while still translating
-      // during continuous speech (at natural pauses / breathing points).
-      if (fullSourceText !== this.lastSourceTextForTranslate) {
-        this.lastSourceTextForTranslate = fullSourceText
-        if (this.translateDebounceTimer) clearTimeout(this.translateDebounceTimer)
-        this.translateDebounceTimer = setTimeout(() => {
-          this.translateDebounceTimer = null
-          const translator = this.deps.getTranslator()
-          if (!translator || !fullSourceText.trim()) return
-          const glossaryEntries = this.deps.getGlossary()
-          const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
-          translator.translate(
-            fullSourceText,
-            sttResult.language,
-            targetLang,
-            this.deps.contextBuffer.getContext(glossary)
-          ).then((translated) => {
-            this.lastTranslatedConfirmed = translated
-            const debouncedResult: TranslationResult = {
-              sourceText: fullSourceText,
-              confirmedText: agreement.confirmedText,
-              interimText: agreement.interimText,
-              translatedText: translated,
-              sourceLanguage: sttResult.language,
-              targetLanguage: targetLang,
-              timestamp: Date.now(),
-              isInterim: true
-            }
-            this.deps.emitter.emit('interim-result', debouncedResult)
-          }).catch((err) => {
-            log.warn('Debounced translation failed:', err)
-          })
-        }, TRANSLATE_DEBOUNCE_MS)
+      const simulMtConfig = this.deps.getSimulMtConfig()
+      const translator = this.deps.getTranslator()
+      const useSimulMt = simulMtConfig.enabled && translator?.translateSimulMt
+
+      if (useSimulMt) {
+        // SimulMT mode (#550): translate at clause boundaries using KV cache reuse
+        this.handleSimulMtStreaming(
+          fullSourceText,
+          sttResult.language,
+          targetLang,
+          agreement.confirmedText,
+          agreement.interimText,
+          simulMtConfig.waitK
+        )
+      } else {
+        // Standard debounced translation: schedule translation when source text stabilizes for 1s.
+        // This avoids translating on every interim update while still translating
+        // during continuous speech (at natural pauses / breathing points).
+        if (fullSourceText !== this.lastSourceTextForTranslate) {
+          this.lastSourceTextForTranslate = fullSourceText
+          if (this.translateDebounceTimer) clearTimeout(this.translateDebounceTimer)
+          this.translateDebounceTimer = setTimeout(() => {
+            this.translateDebounceTimer = null
+            const dbTranslator = this.deps.getTranslator()
+            if (!dbTranslator || !fullSourceText.trim()) return
+            const glossaryEntries = this.deps.getGlossary()
+            const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
+            dbTranslator.translate(
+              fullSourceText,
+              sttResult.language,
+              targetLang,
+              this.deps.contextBuffer.getContext(glossary)
+            ).then((translated) => {
+              this.lastTranslatedConfirmed = translated
+              const debouncedResult: TranslationResult = {
+                sourceText: fullSourceText,
+                confirmedText: agreement.confirmedText,
+                interimText: agreement.interimText,
+                translatedText: translated,
+                sourceLanguage: sttResult.language,
+                targetLanguage: targetLang,
+                timestamp: Date.now(),
+                isInterim: true
+              }
+              this.deps.emitter.emit('interim-result', debouncedResult)
+            }).catch((err) => {
+              log.warn('Debounced translation failed:', err)
+            })
+          }, TRANSLATE_DEBOUNCE_MS)
+        }
       }
 
       const interimResult: TranslationResult = {
@@ -220,8 +250,28 @@ export class StreamingProcessor {
       const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
       const translator = this.deps.getTranslator()
 
+      const simulMtConfig = this.deps.getSimulMtConfig()
+      const useSimulMt = simulMtConfig.enabled && translator?.translateSimulMt
+
       let translatedText = ''
-      if (translator && agreement.confirmedText.trim()) {
+      let translationStage: 'simulmt-revised' | undefined
+
+      if (useSimulMt && translator && agreement.confirmedText.trim()) {
+        // SimulMT revision: retranslate the full clause for accuracy (#550)
+        translatedText = await translator.translateSimulMt(
+          agreement.confirmedText,
+          this.simulMtPreviousOutput,
+          sttResult.language,
+          targetLang,
+          true, // revision mode — full clause available
+          this.deps.contextBuffer.getContext(glossary)
+        )
+        translationStage = 'simulmt-revised'
+        this.deps.contextBuffer.add(agreement.confirmedText, translatedText)
+
+        // Reset SimulMT session for the next speech segment
+        translator.resetSimulMtSession?.()
+      } else if (translator && agreement.confirmedText.trim()) {
         translatedText = await translator.translate(
           agreement.confirmedText,
           sttResult.language,
@@ -233,6 +283,9 @@ export class StreamingProcessor {
 
       this.lastTranslatedConfirmed = ''
       this.simulMtPreviousOutput = ''
+      this.simulMtLastBoundaryText = ''
+      this.simulMtInFlight = false
+
       const result: TranslationResult = {
         sourceText: agreement.confirmedText,
         translatedText,
@@ -241,6 +294,7 @@ export class StreamingProcessor {
         timestamp: Date.now(),
         isInterim: false,
         confidence: sttResult.confidence,
+        ...(translationStage && { translationStage }),
         ...(this.lastDiarizationResult && {
           speakerLabel: this.lastDiarizationResult.speakerLabel,
           speakerIndex: this.lastDiarizationResult.speakerIndex
@@ -273,6 +327,80 @@ export class StreamingProcessor {
       for (const r of this.streamingLockResolvers) r()
       this.streamingLockResolvers = []
     }
+  }
+
+  /**
+   * Handle SimulMT streaming translation (#550).
+   *
+   * Instead of debouncing for 1s, translates at clause/phrase boundaries
+   * detected by the ClauseBoundaryDetector. Uses translateSimulMt() which
+   * maintains a persistent KV cache session for lower latency.
+   *
+   * Translation triggers:
+   * 1. New clause boundary detected (particle-based for JA, whitespace for EN)
+   * 2. Enough units accumulated beyond waitK threshold
+   * 3. Source text changed since last boundary translation
+   */
+  private handleSimulMtStreaming(
+    fullSourceText: string,
+    sourceLang: Language,
+    targetLang: Language,
+    confirmedText: string,
+    interimText: string,
+    waitK: number
+  ): void {
+    const translator = this.deps.getTranslator()
+    if (!translator?.translateSimulMt || !fullSourceText.trim()) return
+
+    // Skip if a SimulMT request is already in-flight
+    if (this.simulMtInFlight) return
+
+    // Check if we have enough units to start translating (wait-k policy)
+    const unitCount = countUnits(fullSourceText, sourceLang)
+    if (unitCount < waitK) return
+
+    // Detect clause boundary in the source text
+    const boundary = detectClauseBoundary(fullSourceText, sourceLang)
+    const textToTranslate = boundary ? boundary.stablePrefix : fullSourceText
+
+    // Skip if we already translated this exact boundary text
+    if (textToTranslate === this.simulMtLastBoundaryText) return
+
+    this.simulMtLastBoundaryText = textToTranslate
+    this.simulMtInFlight = true
+
+    const glossaryEntries = this.deps.getGlossary()
+    const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
+
+    translator.translateSimulMt(
+      textToTranslate,
+      this.simulMtPreviousOutput,
+      sourceLang,
+      targetLang,
+      false, // not a revision — incremental
+      this.deps.contextBuffer.getContext(glossary)
+    ).then((translated) => {
+      this.simulMtPreviousOutput = translated
+      this.lastTranslatedConfirmed = translated
+
+      const simulMtResult: TranslationResult = {
+        sourceText: fullSourceText,
+        confirmedText,
+        interimText,
+        translatedText: translated,
+        sourceLanguage: sourceLang,
+        targetLanguage: targetLang,
+        timestamp: Date.now(),
+        isInterim: true,
+        translationStage: 'simulmt-partial'
+      }
+
+      this.deps.emitter.emit('interim-result', simulMtResult)
+    }).catch((err) => {
+      log.warn('SimulMT translation failed:', err)
+    }).finally(() => {
+      this.simulMtInFlight = false
+    })
   }
 
   /**

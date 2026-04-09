@@ -138,6 +138,51 @@ export abstract class LlamaWorkerTranslator implements TranslatorEngine {
     )
   }
 
+  /**
+   * SimulMT translation with persistent KV cache session (#550).
+   * Uses a multi-turn conversational format where the system prompt
+   * and prior context are cached in KV, reducing latency for
+   * incremental translation during simultaneous interpreting.
+   *
+   * @param text - Current source text (may be partial clause)
+   * @param previousOutput - Previous translation to extend
+   * @param from - Source language
+   * @param to - Target language
+   * @param isRevision - True when full clause arrived, retranslate for accuracy
+   * @param context - Translation context (glossary, previous segments)
+   */
+  async translateSimulMt(
+    text: string,
+    previousOutput: string,
+    from: Language,
+    to: Language,
+    isRevision: boolean,
+    context?: TranslateContext
+  ): Promise<string> {
+    if (!text.trim()) return previousOutput || ''
+    if (from === to) return text
+    if (!this.initialized) {
+      throw new Error(`[${this.id}-worker] Not initialized`)
+    }
+
+    const t0 = performance.now()
+    const result = await workerPool.sendRequest(
+      { type: 'translate-simulmt', text, previousOutput, from, to, isRevision, context },
+      'translate-simulmt'
+    )
+    const ms = performance.now() - t0
+    const label = isRevision ? 'simulmt-rev' : 'simulmt-incr'
+    this.log.info(`${label} ${from}→${to} inputLen=${text.length} outputLen=${result.length} time=${ms.toFixed(0)}ms`)
+    return result
+  }
+
+  /** Reset the persistent SimulMT session (e.g. on speech segment boundary) */
+  resetSimulMtSession(): void {
+    if (this.initialized) {
+      workerPool.sendFireAndForget({ type: 'simulmt-reset' })
+    }
+  }
+
   async dispose(): Promise<void> {
     if (this.initialized) {
       await workerPool.release()

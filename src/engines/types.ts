@@ -59,8 +59,8 @@ export interface TranslationResult {
   confirmedText?: string
   /** Unstable trailing portion still being recognized */
   interimText?: string
-  /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), or 'ger-corrected' (GER post-correction) */
-  translationStage?: 'draft' | 'refined' | 'ger-corrected'
+  /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), 'ger-corrected' (GER), 'simulmt-partial' (partial clause), 'simulmt-revised' (full clause revision) */
+  translationStage?: 'draft' | 'refined' | 'ger-corrected' | 'simulmt-partial' | 'simulmt-revised'
   /** STT confidence score (0.0–1.0), forwarded from STTResult for UI styling */
   confidence?: number
   /** Speaker label from diarization (e.g. 'Speaker 1', 'Speaker 2') */
@@ -119,6 +119,24 @@ export interface TranslatorEngine {
     to: Language,
     context?: TranslateContext
   ): Promise<string>
+
+  /**
+   * Conversational SimulMT translation with KV cache reuse (#550).
+   * Uses a persistent multi-turn session for lower-latency incremental translation.
+   * When isRevision=true, the full clause has arrived and translation is refined.
+   * Optional — only LLM engines with persistent session support implement this.
+   */
+  translateSimulMt?(
+    text: string,
+    previousOutput: string,
+    from: Language,
+    to: Language,
+    isRevision: boolean,
+    context?: TranslateContext
+  ): Promise<string>
+
+  /** Reset the persistent SimulMT session (e.g. on speech segment boundary) */
+  resetSimulMtSession?(): void
 
   /** Release resources */
   dispose(): Promise<void>
