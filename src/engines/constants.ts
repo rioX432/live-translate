@@ -96,6 +96,16 @@ export const MOONSHINE_TINY_JA_TRANSCRIBE_TIMEOUT_MS = 15_000
 export const MOONSHINE_TINY_JA_INIT_TIMEOUT_MS = 120_000
 
 // ---------------------------------------------------------------------------
+// CarelessWhisper (causal streaming STT via LoRA) (#555)
+// ---------------------------------------------------------------------------
+
+/** Command timeout for CarelessWhisper transcription (ms) */
+export const CARELESS_WHISPER_TRANSCRIBE_TIMEOUT_MS = 15_000
+
+/** Init timeout for CarelessWhisper bridge — model + LoRA weight download on first run (ms) */
+export const CARELESS_WHISPER_INIT_TIMEOUT_MS = 180_000
+
+// ---------------------------------------------------------------------------
 // ANE translator
 // ---------------------------------------------------------------------------
 

@@ -12,6 +12,7 @@ import { AppleSpeechTranscriberEngine } from '../engines/stt/AppleSpeechTranscri
 import { Qwen3ASREngine } from '../engines/stt/Qwen3ASREngine'
 import { MoonshineTinyJaEngine } from '../engines/stt/MoonshineTinyJaEngine'
 import { QwenAsrNativeEngine } from '../engines/stt/QwenAsrNativeEngine'
+import { CarelessWhisperEngine } from '../engines/stt/CarelessWhisperEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
@@ -110,6 +111,12 @@ async function initPipeline(): Promise<void> {
   // Experimental: Qwen3-ASR via antirez/qwen-asr pure C — cross-platform, no Python/Swift (#545)
   ctx.pipeline.registerSTT('qwen-asr-native', () => new QwenAsrNativeEngine({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
+  }))
+  // Experimental: CarelessWhisper — causal streaming Whisper via LoRA, <300ms chunks (#555)
+  ctx.pipeline.registerSTT('careless-whisper', () => new CarelessWhisperEngine({
+    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
+    modelSize: (store.get('carelessWhisperModel') as string) || undefined,
+    chunkSizeMs: (store.get('carelessWhisperChunkMs') as number) || undefined
   }))
 
   // Register translator engines
