@@ -67,6 +67,12 @@ export interface TranslationResult {
   speakerLabel?: string
   /** Speaker index (0-based) for color assignment in SubtitleOverlay */
   speakerIndex?: number
+  /**
+   * Per-token confidence scores (0.0–1.0) for the translated text.
+   * Each entry corresponds to a whitespace-delimited token in translatedText.
+   * Absent or empty means uniform confidence (e.g. cloud APIs that don't provide scores).
+   */
+  tokenConfidences?: number[]
 }
 
 /**
