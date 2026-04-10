@@ -1,6 +1,6 @@
 import React from 'react'
 import { Section } from './Section'
-import { selectStyle } from './shared'
+import { selectStyle, sliderLabelStyle } from './shared'
 import type { UseAudioCaptureReturn, AudioSource } from '../../hooks/useAudioCapture'
 
 /** Audio source display labels */
@@ -18,9 +18,12 @@ interface AudioSettingsProps {
   onNoiseSuppressionChange: (enabled: boolean) => void
   /** macOS requires Screen Recording permission for system audio (#501) */
   platform: string
+  /** #606: Streaming chunk interval in ms */
+  streamingIntervalMs: number
+  onStreamingIntervalChange: (ms: number) => void
 }
 
-export function AudioSettings({ audio, disabled, noiseSuppressionEnabled, onNoiseSuppressionChange, platform }: AudioSettingsProps): React.JSX.Element {
+export function AudioSettings({ audio, disabled, noiseSuppressionEnabled, onNoiseSuppressionChange, platform, streamingIntervalMs, onStreamingIntervalChange }: AudioSettingsProps): React.JSX.Element {
   const showMicSelector = audio.audioSource !== 'system'
 
   return (
@@ -113,6 +116,27 @@ export function AudioSettings({ audio, disabled, noiseSuppressionEnabled, onNois
           <span>Noise suppression (DeepFilterNet3)</span>
         </label>
       )}
+      {/* #606: Streaming interval slider */}
+      <div style={{ marginTop: '10px' }}>
+        <label style={sliderLabelStyle}>
+          Streaming Interval: {streamingIntervalMs}ms
+        </label>
+        <input
+          type="range"
+          min={500}
+          max={3000}
+          step={100}
+          value={streamingIntervalMs}
+          onChange={(e) => onStreamingIntervalChange(Number(e.target.value))}
+          disabled={disabled}
+          style={{ width: '100%' }}
+          aria-label="Streaming interval in milliseconds"
+        />
+        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', color: '#64748b' }}>
+          <span>500ms (lower latency)</span>
+          <span>3000ms (higher accuracy)</span>
+        </div>
+      </div>
       {audio.permissionError && (
         <div style={{ marginTop: '6px', fontSize: '12px', color: '#ef4444' }}>
           {audio.permissionError}

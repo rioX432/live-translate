@@ -184,7 +184,7 @@ export const store = new Store<AppSettings>({
     targetLanguage: 'en',
     wsAudioPort: DEFAULT_WS_PORT,
     noiseSuppressionEnabled: false,
-    streamingIntervalMs: 1000,
+    streamingIntervalMs: 800,
     showConfidenceIndicator: true,
     audioSource: 'microphone',
     ttsEnabled: false,
