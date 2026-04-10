@@ -66,6 +66,13 @@ export class StreamingProcessor {
   /** Last diarization result for merging with STT output (#549) */
   private lastDiarizationResult: DiarizationResult | null = null
 
+  /** Clause-level overlap: source text already sent for translation (#615) */
+  private clauseTranslatedPrefix = ''
+  /** Clause-level overlap: translation result for the translated prefix (#615) */
+  private clauseTranslation = ''
+  /** Clause-level overlap: in-flight flag to prevent concurrent clause translations */
+  private clauseTranslationInFlight = false
+
   private deps: StreamingDeps
 
   constructor(deps: StreamingDeps) {
@@ -90,6 +97,9 @@ export class StreamingProcessor {
     this.lastSourceTextForTranslate = ''
     this.simulMtLastBoundaryText = ''
     this.simulMtInFlight = false
+    this.clauseTranslatedPrefix = ''
+    this.clauseTranslation = ''
+    this.clauseTranslationInFlight = false
 
     // Reset persistent SimulMT session in worker
     const translator = this.deps.getTranslator()
@@ -156,6 +166,18 @@ export class StreamingProcessor {
           simulMtConfig.waitK
         )
       } else {
+        // Fire clause-level overlap translation when new confirmed text is available (#615).
+        // This runs in parallel (fire-and-forget) so translation starts before STT
+        // finishes the next chunk, reducing perceived latency.
+        if (agreement.newConfirmed) {
+          this.runClauseTranslation(
+            agreement.confirmedText,
+            fullSourceText,
+            sttResult.language,
+            targetLang
+          )
+        }
+
         // Standard debounced translation: schedule translation when source text stabilizes for 1s.
         // This avoids translating on every interim update while still translating
         // during continuous speech (at natural pauses / breathing points).
@@ -297,6 +319,9 @@ export class StreamingProcessor {
       this.simulMtPreviousOutput = ''
       this.simulMtLastBoundaryText = ''
       this.simulMtInFlight = false
+      this.clauseTranslatedPrefix = ''
+      this.clauseTranslation = ''
+      this.clauseTranslationInFlight = false
 
       const result: TranslationResult = {
         sourceText: agreement.confirmedText,
@@ -470,6 +495,84 @@ export class StreamingProcessor {
       .catch((err) => {
         log.warn('Diarization error (non-fatal):', err instanceof Error ? err.message : err)
       })
+  }
+
+  /**
+   * Run clause-level overlap translation when new confirmed text arrives (#615).
+   *
+   * Detects a clause boundary in the confirmed text and translates up to that
+   * boundary immediately (fire-and-forget), without waiting for the debounce timer.
+   * This overlaps translation with the next STT chunk, reducing end-to-end latency.
+   *
+   * Uses SSBD when a previous clause translation exists to avoid re-translating
+   * the already-translated prefix.
+   */
+  private runClauseTranslation(
+    confirmedText: string,
+    fullSourceText: string,
+    sourceLang: Language,
+    targetLang: Language
+  ): void {
+    const translator = this.deps.getTranslator()
+    if (!translator || !confirmedText.trim()) return
+
+    // Skip if already translating a clause or nothing new to translate
+    if (this.clauseTranslationInFlight) return
+    if (confirmedText === this.clauseTranslatedPrefix) return
+
+    // Detect clause boundary in confirmed text
+    const boundary = detectClauseBoundary(confirmedText, sourceLang)
+    if (!boundary) return
+
+    const textToTranslate = boundary.stablePrefix
+
+    // Skip if this boundary was already translated
+    if (textToTranslate === this.clauseTranslatedPrefix) return
+
+    this.clauseTranslationInFlight = true
+
+    const glossaryEntries = this.deps.getGlossary()
+    const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
+    const ctx = this.deps.contextBuffer.getContext(glossary)
+
+    const t0 = performance.now()
+
+    // Use SSBD if we have a previous clause translation to build on (#607)
+    const translatePromise = (translator.translateSSBD && this.clauseTranslation)
+      ? translator.translateSSBD(
+          textToTranslate,
+          this.clauseTranslation,
+          sourceLang,
+          targetLang,
+          ctx
+        ).catch((ssbdErr) => {
+          log.warn('SSBD clause translation failed, falling back:', ssbdErr)
+          return translator.translate(textToTranslate, sourceLang, targetLang, ctx)
+        })
+      : translator.translate(textToTranslate, sourceLang, targetLang, ctx)
+
+    translatePromise.then((translated) => {
+      const clauseMs = (performance.now() - t0).toFixed(0)
+      log.info(`Clause translation: ${clauseMs}ms → "${translated}" (prefix: "${textToTranslate}")`)
+
+      this.clauseTranslatedPrefix = textToTranslate
+      this.clauseTranslation = translated
+      this.lastTranslatedConfirmed = translated
+
+      const clauseResult: TranslationResult = {
+        sourceText: fullSourceText,
+        translatedText: translated,
+        sourceLanguage: sourceLang,
+        targetLanguage: targetLang,
+        timestamp: Date.now(),
+        isInterim: true
+      }
+      this.deps.emitter.emit('interim-result', clauseResult)
+    }).catch((err) => {
+      log.warn('Clause translation error (non-fatal):', err instanceof Error ? err.message : err)
+    }).finally(() => {
+      this.clauseTranslationInFlight = false
+    })
   }
 
   /**
