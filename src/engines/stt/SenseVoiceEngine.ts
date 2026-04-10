@@ -4,7 +4,7 @@ import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 import { ALL_LANGUAGES } from '../types'
-import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
+import { SubprocessBridge, resolveBridgeScript, type SpawnConfig, type InitResult } from '../SubprocessBridge'
 import { SENSEVOICE_TRANSCRIBE_TIMEOUT_MS, SENSEVOICE_INIT_TIMEOUT_MS, PYTHON_IMPORT_CHECK_TIMEOUT_MS } from '../constants'
 
 /**
@@ -54,7 +54,7 @@ export class SenseVoiceEngine extends SubprocessBridge implements STTEngine {
     this.onProgress?.(`Using Python: ${python3}`)
     return {
       command: python3,
-      args: [join(__dirname, '../../resources/sensevoice-bridge.py')],
+      args: [resolveBridgeScript('sensevoice-bridge.py')],
       initMessage: {
         action: 'init',
         model: this.model

@@ -324,9 +324,11 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
         minSpeechMs: 250,
         // AudioWorklet runs audio processing off the main thread (replaces deprecated ScriptProcessor)
         processorType: 'AudioWorklet',
-        // Serve ONNX model and WASM from public/vad/
-        baseAssetPath: '/vad/',
-        onnxWASMBasePath: '/vad/',
+        // Serve ONNX model and WASM from public/vad/ (dev) or vad-asset:// protocol (packaged).
+        // Dynamic import() cannot read from asar, so packaged app uses a custom protocol
+        // that serves from app.asar.unpacked.
+        baseAssetPath: window.location.protocol === 'file:' ? 'vad-asset://host/' : '/vad/',
+        onnxWASMBasePath: window.location.protocol === 'file:' ? 'vad-asset://host/' : '/vad/',
         onFrameProcessed: (_probs, frame) => {
           // Volume meter (RMS) from each frame
           let sum = 0

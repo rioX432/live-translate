@@ -4,7 +4,7 @@ import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 import { ALL_LANGUAGES } from '../types'
-import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
+import { SubprocessBridge, resolveBridgeScript, type SpawnConfig, type InitResult } from '../SubprocessBridge'
 import {
   CARELESS_WHISPER_TRANSCRIBE_TIMEOUT_MS,
   CARELESS_WHISPER_INIT_TIMEOUT_MS,
@@ -85,7 +85,7 @@ export class CarelessWhisperEngine extends SubprocessBridge implements STTEngine
     this.onProgress?.(`Using Python: ${python3}`)
     return {
       command: python3,
-      args: [join(__dirname, '../../resources/careless-whisper-bridge.py')],
+      args: [resolveBridgeScript('careless-whisper-bridge.py')],
       initMessage: {
         action: 'init',
         model_size: this.modelSize,

@@ -64,6 +64,19 @@ export class VirtualMicManager {
    * Does not throw if naudiodon is unavailable; the feature is simply disabled.
    */
   async initialize(): Promise<void> {
+    // naudiodon's PortAudio backend crashes with SIGSEGV in getDevices() on
+    // macOS 26+ (Tahoe) due to incompatible PortAudio host API changes.
+    // Skip loading entirely on affected versions to prevent app crash at startup.
+    if (process.platform === 'darwin') {
+      const majorVersion = Number(require('os').release().split('.')[0])
+      // Darwin 25.x = macOS 26 (Tahoe)
+      if (majorVersion >= 25) {
+        log.warn(`naudiodon skipped — PortAudio crashes on macOS 26+ (Darwin ${majorVersion})`)
+        this.portAudio = null
+        return
+      }
+    }
+
     try {
       // Dynamic import to avoid hard dependency — naudiodon may not be installed
       this.portAudio = await import('naudiodon') as unknown as PortAudioModule

@@ -1,12 +1,48 @@
-import { spawn, type ChildProcess } from 'child_process'
+import { spawn, execSync, type ChildProcess } from 'child_process'
 import { existsSync, realpathSync } from 'fs'
 import { join } from 'path'
+import { homedir } from 'os'
 import {
   BRIDGE_STDERR_MAX_LINES,
   BRIDGE_STDERR_WINDOW_MS,
   BRIDGE_MAX_PENDING_REQUESTS
 } from './constants'
 import { createLogger, type Logger } from '../main/logger'
+
+/**
+ * Build a PATH that includes common locations for Python, Homebrew, etc.
+ * Packaged Electron apps inherit a minimal PATH (/usr/bin:/bin:/usr/sbin:/sbin)
+ * which misses Homebrew, pyenv, and user venvs.
+ */
+export function getEnrichedPath(): string {
+  const base = process.env.PATH ?? '/usr/bin:/bin:/usr/sbin:/sbin'
+  const home = homedir()
+  const extras = [
+    `${home}/.local/bin`,
+    `${home}/.pyenv/shims`,
+    '/opt/homebrew/bin',
+    '/usr/local/bin',
+    `${home}/mlx-env/bin`,
+    `${home}/.venv/bin`,
+  ]
+  // Prepend extras that aren't already in PATH
+  const missing = extras.filter((p) => !base.split(':').includes(p))
+  return [...missing, base].join(':')
+}
+
+/**
+ * Resolve a Python bridge script path.
+ * In dev: resources/ relative to project root (via __dirname).
+ * In packaged app: extraResources/bridge-scripts/ via process.resourcesPath.
+ */
+export function resolveBridgeScript(scriptName: string): string {
+  const { app } = require('electron')
+  if (app.isPackaged) {
+    return join(process.resourcesPath, 'bridge-scripts', scriptName)
+  }
+  // Dev mode: __dirname = out/main/ → ../../resources/
+  return join(__dirname, '../../resources', scriptName)
+}
 
 /**
  * Spawn configuration returned by subclasses to define how the Python bridge
@@ -138,7 +174,8 @@ export abstract class SubprocessBridge {
 
     try {
       this.process = spawn(spawnConfig.command, spawnConfig.args, {
-        stdio: ['pipe', 'pipe', 'pipe']
+        stdio: ['pipe', 'pipe', 'pipe'],
+        env: { ...process.env, PATH: getEnrichedPath() }
       })
     } catch {
       clearTimeout(timer)

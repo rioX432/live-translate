@@ -4,7 +4,7 @@ import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 import { ALL_LANGUAGES } from '../types'
-import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
+import { SubprocessBridge, type SpawnConfig, type InitResult, getEnrichedPath, resolveBridgeScript } from '../SubprocessBridge'
 import { MLX_WHISPER_TRANSCRIBE_TIMEOUT_MS, MLX_WHISPER_INIT_TIMEOUT_MS, PYTHON_IMPORT_CHECK_TIMEOUT_MS } from '../constants'
 
 export class MlxWhisperEngine extends SubprocessBridge implements STTEngine {
@@ -42,7 +42,7 @@ export class MlxWhisperEngine extends SubprocessBridge implements STTEngine {
     this.onProgress?.(`Using Python: ${python3}`)
     return {
       command: python3,
-      args: [join(__dirname, '../../resources/mlx-whisper-bridge.py')],
+      args: [resolveBridgeScript('mlx-whisper-bridge.py')],
       initMessage: {
         action: 'init',
         model: this.model
@@ -117,9 +117,11 @@ function findPython3WithMlxWhisper(): string {
   }
 
   // Try versioned python binaries (prefer 3.12/3.13 over 3.14 due to native extension compatibility)
+  // Use enriched PATH so packaged Electron can find Homebrew/pyenv Python
+  const env = { ...process.env, PATH: getEnrichedPath() }
   for (const bin of ['python3.12', 'python3.13', 'python3']) {
     try {
-      execSync(`${bin} -c "import mlx_whisper"`, { stdio: 'ignore', timeout: PYTHON_IMPORT_CHECK_TIMEOUT_MS })
+      execSync(`${bin} -c "import mlx_whisper"`, { stdio: 'ignore', timeout: PYTHON_IMPORT_CHECK_TIMEOUT_MS, env })
       return bin
     } catch { /* not available or mlx_whisper not installed */ }
   }

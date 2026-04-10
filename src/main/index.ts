@@ -1,4 +1,4 @@
-import { app } from 'electron'
+import { app, protocol, net } from 'electron'
 import { initMain as initAudioLoopback } from 'electron-audio-loopback'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
@@ -270,6 +270,12 @@ registerAudioHandlers(ctx)
 registerIpcHandlers(ctx)
 registerUpdateHandlers(ctx)
 
+// --- Register custom protocol for serving VAD assets outside asar ---
+// Must be called before app.whenReady()
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'vad-asset', privileges: { standard: true, secure: true, supportFetchAPI: true } }
+])
+
 // --- Initialize electron-audio-loopback before app is ready ---
 // Must be called before app.whenReady() per package documentation
 initAudioLoopback()
@@ -277,6 +283,17 @@ initAudioLoopback()
 // --- App Lifecycle ---
 
 app.whenReady().then(async () => {
+  // Serve VAD assets (ONNX, WASM, worklet) from filesystem.
+  // In packaged app, these are in app.asar.unpacked; dynamic import() can't read from asar.
+  protocol.handle('vad-asset', (request) => {
+    const filename = decodeURIComponent(new URL(request.url).pathname).replace(/^\/+/, '')
+    const { join } = require('path')
+    const vadDir = app.isPackaged
+      ? join(process.resourcesPath, 'app.asar.unpacked', 'out', 'renderer', 'vad')
+      : join(__dirname, '../renderer/vad')
+    return net.fetch(`file://${join(vadDir, filename)}`)
+  })
+
   // #519: Load MDM managed preferences early (before pipeline init)
   loadMdmConfig()
 

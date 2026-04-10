@@ -65,8 +65,10 @@ export function useLanguageSettings(): LanguageSettingsState {
     }).catch((e) => console.warn('[settings] Failed to load platform/settings:', e))
   }, [])
 
-  // Auto-select Kotoba-Whisper when source language is set to JA on Apple Silicon (#534)
-  // Revert to mlx-whisper when source changes away from JA
+  // Auto-select Kotoba-Whisper when source language is changed to JA on Apple Silicon (#534)
+  // Revert to mlx-whisper when source changes away from JA.
+  // Only trigger on sourceLanguage changes — not on sttEngine changes,
+  // so that explicit user selection of mlx-whisper is respected.
   useEffect(() => {
     if (platform !== 'darwin') return
     if (sourceLanguage === 'ja' && sttEngine === 'mlx-whisper') {
@@ -75,7 +77,8 @@ export function useLanguageSettings(): LanguageSettingsState {
       // Kotoba-Whisper only outputs JA — switch back to mlx-whisper for non-JA sources
       setSttEngine('mlx-whisper')
     }
-  }, [sourceLanguage, platform, sttEngine])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sourceLanguage, platform])
 
   return {
     sourceLanguage, setSourceLanguage,

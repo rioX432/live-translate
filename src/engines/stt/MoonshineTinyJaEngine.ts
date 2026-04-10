@@ -3,7 +3,7 @@ import { join } from 'path'
 import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult } from '../types'
-import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
+import { SubprocessBridge, resolveBridgeScript, type SpawnConfig, type InitResult } from '../SubprocessBridge'
 import {
   MOONSHINE_TINY_JA_TRANSCRIBE_TIMEOUT_MS,
   MOONSHINE_TINY_JA_INIT_TIMEOUT_MS,
@@ -58,7 +58,7 @@ export class MoonshineTinyJaEngine extends SubprocessBridge implements STTEngine
     this.onProgress?.(`Using Python: ${python3}`)
     return {
       command: python3,
-      args: [join(__dirname, '../../resources/moonshine-tiny-ja-bridge.py')],
+      args: [resolveBridgeScript('moonshine-tiny-ja-bridge.py')],
       initMessage: {
         action: 'init',
         model: this.model

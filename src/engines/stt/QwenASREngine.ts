@@ -4,7 +4,7 @@ import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 import { ALL_LANGUAGES } from '../types'
-import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
+import { SubprocessBridge, resolveBridgeScript, type SpawnConfig, type InitResult } from '../SubprocessBridge'
 import { QWEN_ASR_TRANSCRIBE_TIMEOUT_MS, QWEN_ASR_INIT_TIMEOUT_MS, PYTHON_IMPORT_CHECK_TIMEOUT_MS } from '../constants'
 
 /** Qwen3-ASR model variant */
@@ -81,7 +81,7 @@ export class QwenASREngine extends SubprocessBridge implements STTEngine {
     this.onProgress?.(`Using Python: ${python3}`)
     return {
       command: python3,
-      args: [join(__dirname, '../../resources/qwen-asr-bridge.py')],
+      args: [resolveBridgeScript('qwen-asr-bridge.py')],
       initMessage: {
         action: 'init',
         model: config.modelId

@@ -29,6 +29,19 @@ function sendStatus(ctx: AppContext, status: UpdateStatus): void {
  * Must be called after app.whenReady() and window creation.
  */
 export function initAutoUpdater(ctx: AppContext): void {
+  // Skip auto-updater for unsigned/local builds — app-update.yml won't exist
+  const { app } = require('electron')
+  if (!app.isPackaged) {
+    log.info('Dev mode — skipping auto-updater')
+    return
+  }
+  const { existsSync } = require('fs')
+  const { join } = require('path')
+  if (!existsSync(join(process.resourcesPath, 'app-update.yml'))) {
+    log.info('No app-update.yml — skipping auto-updater (unsigned build)')
+    return
+  }
+
   // Disable auto-download — let user decide when to install
   autoUpdater.autoDownload = false
   autoUpdater.autoInstallOnAppQuit = true

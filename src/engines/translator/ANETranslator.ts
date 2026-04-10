@@ -1,6 +1,5 @@
-import { join } from 'path'
 import type { TranslatorEngine, Language, TranslateContext } from '../types'
-import { SubprocessBridge, type SpawnConfig, type InitResult } from '../SubprocessBridge'
+import { SubprocessBridge, resolveBridgeScript, type SpawnConfig, type InitResult } from '../SubprocessBridge'
 import { ANE_TRANSLATE_TIMEOUT_MS, ANE_INIT_TIMEOUT_MS } from '../constants'
 
 /**
@@ -48,7 +47,7 @@ export class ANETranslator extends SubprocessBridge implements TranslatorEngine 
     this.onProgress?.('Starting ANEMLL bridge...')
     return {
       command: this.resolvePython(),
-      args: [join(__dirname, '../../resources/ane-translate-bridge.py')],
+      args: [resolveBridgeScript('ane-translate-bridge.py')],
       initMessage: {
         action: 'init',
         model: this.model,

@@ -9,9 +9,15 @@ files:
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!benchmark/*'
+extraResources:
+  - from: 'resources/'
+    to: 'bridge-scripts/'
+    filter:
+      - '*.py'
 asarUnpack:
   - 'node_modules/@kutalia/whisper-node-addon/**'
   - 'node_modules/node-llama-cpp/**'
+  - 'out/renderer/vad/**'
 publish:
   provider: github
 mac:
