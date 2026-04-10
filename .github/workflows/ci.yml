@@ -47,6 +47,9 @@ jobs:
 
       - run: npm ci --ignore-scripts
 
+      # Ensure electron binary is available for tests that import electron
+      - run: node node_modules/electron/install.js
+
       - run: npm run test
 
   build:
