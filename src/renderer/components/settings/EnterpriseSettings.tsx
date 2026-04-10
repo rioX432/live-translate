@@ -46,14 +46,23 @@ export function EnterpriseSettings({ disabled }: Props): React.JSX.Element {
   const [usagePeriod, setUsagePeriod] = useState(30)
 
   useEffect(() => {
-    window.api.enterpriseGetMdmConfig().then(setMdmConfig).catch((err) => console.warn('Failed to load MDM config:', err))
-    window.api.enterpriseGetTelemetryConsent().then(setTelemetry).catch((err) => console.warn('Failed to load telemetry consent:', err))
+    window.api.enterpriseGetMdmConfig().then(setMdmConfig).catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[enterprise] Failed to load MDM config:', e.message)
+    })
+    window.api.enterpriseGetTelemetryConsent().then(setTelemetry).catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[enterprise] Failed to load telemetry consent:', e.message)
+    })
   }, [])
 
   useEffect(() => {
     window.api.enterpriseGetUsageSummary(usagePeriod).then((data) => {
       if (!('error' in data)) setUsage(data)
-    }).catch((err) => console.warn('Failed to load usage summary:', err))
+    }).catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[enterprise] Failed to load usage summary:', e.message)
+    })
   }, [usagePeriod])
 
   const handleTelemetryToggle = async (): Promise<void> => {

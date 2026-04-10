@@ -59,12 +59,18 @@ export function TTSSettings({ disabled }: TTSSettingsProps): React.JSX.Element {
       setVoice(settings.voice)
       setVolume(settings.volume)
       setOutputDevice(settings.outputDevice)
-    }).catch((err) => console.warn('Failed to load TTS settings:', err))
+    }).catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[tts-settings] Failed to load TTS settings:', e.message)
+    })
 
     // Enumerate audio output devices
     navigator.mediaDevices.enumerateDevices().then((devices) => {
       setOutputDevices(devices.filter((d) => d.kind === 'audiooutput'))
-    }).catch((err) => console.warn('Failed to enumerate audio devices:', err))
+    }).catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[tts-settings] Failed to enumerate audio devices:', e.message)
+    })
   }, [])
 
   // Set up TTS audio playback listener
@@ -80,12 +86,14 @@ export function TTSSettings({ disabled }: TTSSettingsProps): React.JSX.Element {
     try {
       const result = await window.api.ttsSetEnabled(checked)
       if (result.error) {
-        console.error('TTS enable failed:', result.error)
+        console.error('[tts-settings] TTS enable failed:', result.error)
         setEnabled(false)
       } else {
         setEnabled(checked)
       }
-    } catch {
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[tts-settings] TTS toggle failed:', e.message)
       setEnabled(false)
     } finally {
       setLoading(false)
@@ -223,13 +231,17 @@ function playTtsAudio(
 
   // Route to specific output device if supported and specified
   if (outputDeviceId && 'setSinkId' in audioCtx) {
-    (audioCtx as AudioContextWithSink).setSinkId(outputDeviceId).catch(() => {
-      // Fallback to default device if setSinkId fails
+    (audioCtx as AudioContextWithSink).setSinkId(outputDeviceId).catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[tts-settings] setSinkId failed, falling back to default device:', e.message)
     })
   }
 
   source.onended = (): void => {
-    audioCtx.close().catch((err) => console.warn('AudioContext close failed:', err))
+    audioCtx.close().catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[tts-settings] AudioContext close failed:', e.message)
+    })
   }
 
   source.start()

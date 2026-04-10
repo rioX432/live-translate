@@ -14,7 +14,10 @@ export function CorrectionHistory(): React.JSX.Element {
   const [isEditMode, setIsEditMode] = useState(false)
 
   const loadHistory = useCallback(() => {
-    window.api.getCorrectionHistory?.().then(setHistory).catch((err) => console.warn('Failed to load correction history:', err))
+    window.api.getCorrectionHistory?.().then(setHistory).catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[correction-history] Failed to load correction history:', e.message)
+    })
   }, [])
 
   useEffect(() => {
@@ -37,7 +40,10 @@ export function CorrectionHistory(): React.JSX.Element {
   const handleClearHistory = useCallback(() => {
     window.api.clearCorrectionHistory?.().then(() => {
       setHistory([])
-    }).catch((err) => console.warn('Failed to clear correction history:', err))
+    }).catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[correction-history] Failed to clear correction history:', e.message)
+    })
   }, [])
 
   return (

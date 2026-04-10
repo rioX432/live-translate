@@ -64,8 +64,9 @@ export function ModelDownloadProgress({
       setDownloadStatus(status)
       setIsFirstRun(firstRun)
       if (status.status === 'downloading') setDownloading(true)
-    }).catch(() => {
-      // Ignore errors on load
+    }).catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[model-download] Failed to load onboarding status:', e.message)
     })
   }, [])
 
@@ -90,7 +91,9 @@ export function ModelDownloadProgress({
     setDownloading(true)
     try {
       await window.api.onboardingStartDownload()
-    } catch {
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[model-download] Failed to start download:', e.message)
       setDownloading(false)
     }
   }, [])
@@ -102,8 +105,9 @@ export function ModelDownloadProgress({
         setSwitchedToLocal(true)
         onSwitchToLocal(result.engine)
       }
-    } catch {
-      // Ignore
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[model-download] Failed to switch to local engine:', e.message)
     }
   }, [onSwitchToLocal])
 
@@ -112,8 +116,9 @@ export function ModelDownloadProgress({
       await window.api.onboardingDismiss()
       setIsFirstRun(false)
       onDismiss()
-    } catch {
-      // Ignore
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[model-download] Failed to dismiss onboarding:', e.message)
     }
   }, [onDismiss])
 

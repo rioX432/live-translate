@@ -39,7 +39,10 @@ export function GlossarySettings({
     if (orgGlossaryTerms.length > 0 && glossaryTerms.length > 0) {
       window.api.getMergedGlossary().then((result) => {
         setConflicts(result.conflicts)
-      }).catch((err) => console.warn('Failed to merge glossary:', err))
+      }).catch((err: unknown) => {
+        const e = err instanceof Error ? err : new Error(String(err))
+        console.warn('[glossary] Failed to merge glossary:', e.message)
+      })
     } else {
       setConflicts([])
     }
@@ -69,8 +72,10 @@ export function GlossarySettings({
         }
         setGlossaryStatus(`Imported ${result.count} terms`)
       }
-    } catch (err) {
-      setGlossaryStatus(`Import failed: ${err}`)
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[glossary] Import failed:', e.message)
+      setGlossaryStatus(`Import failed: ${e.message}`)
     }
   }
 
@@ -87,8 +92,10 @@ export function GlossarySettings({
         return
       }
       setGlossaryStatus(`Exported ${result.count} terms`)
-    } catch (err) {
-      setGlossaryStatus(`Export failed: ${err}`)
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[glossary] Export failed:', e.message)
+      setGlossaryStatus(`Export failed: ${e.message}`)
     }
   }
 
