@@ -11,7 +11,9 @@ test.beforeAll(async () => {
     env: {
       ...process.env,
       // Disable hardware acceleration in CI to avoid GPU issues
-      ELECTRON_DISABLE_GPU: '1'
+      ELECTRON_DISABLE_GPU: '1',
+      // Skip Quick Start onboarding so the settings panel renders immediately
+      SKIP_ONBOARDING: '1'
     }
   })
 
@@ -87,7 +89,7 @@ test.describe('Engine selection', () => {
 
     // Find the OPUS-MT radio by its unique description text
     const engineGroup = settingsWindow.locator('[role="radiogroup"]')
-    const opusRadio = engineGroup.locator('label').filter({ hasText: '~100MB' }).locator('input[type="radio"]')
+    const opusRadio = engineGroup.locator('label').filter({ hasText: 'Legacy Fallback' }).locator('input[type="radio"]')
     await opusRadio.click()
     await expect(opusRadio).toBeChecked()
   })
@@ -169,6 +171,7 @@ test.describe('Settings persistence', () => {
     await expandAdvancedSettings()
 
     const targetSelect = settingsWindow.locator('[aria-label="Target language"]')
+    await expect(targetSelect).toBeVisible()
     await targetSelect.selectOption('ja')
     await expect(targetSelect).toHaveValue('ja')
   })
