@@ -483,7 +483,8 @@ export class TranslationPipeline extends EventEmitter {
         sttResult.confidence,
         sttResult.language,
         targetLang,
-        Date.now()
+        Date.now(),
+        translated || undefined
       )
 
       return {

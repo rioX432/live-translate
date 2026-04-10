@@ -59,8 +59,8 @@ export interface TranslationResult {
   confirmedText?: string
   /** Unstable trailing portion still being recognized */
   interimText?: string
-  /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), 'ger-corrected' (GER), 'simulmt-partial' (partial clause), 'simulmt-revised' (full clause revision) */
-  translationStage?: 'draft' | 'refined' | 'ger-corrected' | 'simulmt-partial' | 'simulmt-revised'
+  /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), 'ger-corrected' (GER), 'simulmt-partial' (partial clause), 'simulmt-revised' (full clause revision), 'ssbd-retranslated' (SSBD re-translation) */
+  translationStage?: 'draft' | 'refined' | 'ger-corrected' | 'simulmt-partial' | 'simulmt-revised' | 'ssbd-retranslated'
   /** STT confidence score (0.0–1.0), forwarded from STTResult for UI styling */
   confidence?: number
   /** Speaker label from diarization (e.g. 'Speaker 1', 'Speaker 2') */
@@ -138,6 +138,20 @@ export interface TranslatorEngine {
     from: Language,
     to: Language,
     isRevision: boolean,
+    context?: TranslateContext
+  ): Promise<string>
+
+  /**
+   * SSBD (Self-Speculative Biased Decoding) translation for re-translation (#607).
+   * Uses the previous translation as a speculative draft, verifying tokens in batch.
+   * Only re-generates from the divergence point for faster re-translations.
+   * Optional — only offline LLM engines support this.
+   */
+  translateSSBD?(
+    text: string,
+    previousOutput: string,
+    from: Language,
+    to: Language,
     context?: TranslateContext
   ): Promise<string>
 
