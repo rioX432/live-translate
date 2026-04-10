@@ -59,6 +59,18 @@ let speculativeEnabled = false
 let requestQueue: Promise<void> = Promise.resolve()
 let activeModelType: ModelType = 'translategemma'
 
+/**
+ * Persistent prefix-cached session for standard translate/translate-incremental.
+ * Keeps the system prompt evaluated in the KV cache so subsequent translations
+ * only need to evaluate the new user message tokens.
+ * The session is reset between translations via resetChatHistory() which
+ * preserves the KV cache prefix — node-llama-cpp's adaptStateToTokens()
+ * automatically reuses matching prefix tokens.
+ */
+let prefixCacheSession: import('node-llama-cpp').LlamaChatSession | null = null
+let prefixCacheSequence: LlamaContextSequence | null = null
+let prefixCacheSystemPrompt: string | undefined = undefined
+
 async function handleInit(
   modelPath: string,
   kvCacheQuant?: boolean,
@@ -116,6 +128,12 @@ async function handleInit(
   }
 
   process.parentPort!.postMessage({ type: 'ready' })
+
+  // Queue prefix cache warm-up through the request queue to avoid
+  // concurrent access with incoming translate requests.
+  // This pre-evaluates the system prompt into the KV cache so the
+  // first translation avoids the cold-start penalty.
+  requestQueue = requestQueue.then(() => warmPrefixCache(), () => warmPrefixCache())
 }
 
 /** Build context sections for the translation prompt */
@@ -231,43 +249,121 @@ async function createContextSequence(): Promise<LlamaContextSequence> {
   return context!.getSequence()
 }
 
+/**
+ * Ensure the prefix-cached session exists and matches the desired system prompt.
+ * Creates or recreates the session if the system prompt changed.
+ */
+async function ensurePrefixCacheSession(systemPrompt?: string): Promise<{
+  session: import('node-llama-cpp').LlamaChatSession
+  created: boolean
+}> {
+  const { LlamaChatSession } = await import('node-llama-cpp')
+
+  // Reuse existing session if system prompt matches
+  if (prefixCacheSession && prefixCacheSystemPrompt === systemPrompt) {
+    return { session: prefixCacheSession, created: false }
+  }
+
+  // Dispose stale session if system prompt changed
+  if (prefixCacheSession) {
+    log.info('Prefix cache invalidated: system prompt changed')
+    prefixCacheSequence?.dispose?.()
+    prefixCacheSession.dispose?.()
+    prefixCacheSession = null
+    prefixCacheSequence = null
+  }
+
+  // Create new persistent session
+  prefixCacheSequence = await createContextSequence()
+  prefixCacheSession = new LlamaChatSession({
+    contextSequence: prefixCacheSequence,
+    ...(systemPrompt && { systemPrompt })
+  })
+  prefixCacheSystemPrompt = systemPrompt
+  log.info('Prefix cache session created' + (systemPrompt ? ' (with system prompt)' : ''))
+
+  return { session: prefixCacheSession, created: true }
+}
+
+/**
+ * Warm the prefix cache by pre-evaluating the system prompt into the KV cache.
+ * Called after model initialization so the first translation is fast.
+ */
+async function warmPrefixCache(): Promise<void> {
+  if (!context) return
+
+  try {
+    const t0 = performance.now()
+    // Determine the system prompt based on model type.
+    // For LFM2, we use a generic warm-up prompt (actual target language will be set per-request).
+    // For other models, no system prompt is used in standard translate.
+    const systemPrompt = activeModelType === 'lfm2' ? getLFM2SystemPrompt('en') : undefined
+    const { session } = await ensurePrefixCacheSession(systemPrompt)
+
+    // Pre-evaluate the system prompt into KV cache using preloadPrompt
+    // This forces the chat template + system prompt tokens into the context
+    await session.preloadPrompt('warmup')
+    // Reset so the warmup prompt doesn't affect actual translations
+    session.resetChatHistory()
+
+    const warmMs = performance.now() - t0
+    log.info(`Prefix cache warmed in ${warmMs.toFixed(0)}ms`)
+  } catch (err) {
+    log.error('Failed to warm prefix cache (non-fatal):', err)
+    // Non-fatal: translations will still work, just without prefix cache
+    prefixCacheSequence?.dispose?.()
+    prefixCacheSession?.dispose?.()
+    prefixCacheSession = null
+    prefixCacheSequence = null
+  }
+}
+
 /** Run translation inference and return the result */
 async function runInference(
   prompt: string,
   previousOutput?: string,
   systemPrompt?: string
 ): Promise<{ response: string; inferenceMs: number; contextMs: number }> {
-  const { LlamaChatSession } = await import('node-llama-cpp')
-
   const t0 = performance.now()
-  const contextSequence = await createContextSequence()
-  const contextMs = performance.now() - t0
 
-  const session = new LlamaChatSession({
-    contextSequence,
-    ...(systemPrompt && { systemPrompt })
-  })
+  try {
+    // Use the prefix-cached session for KV cache reuse
+    const { session, created } = await ensurePrefixCacheSession(systemPrompt)
 
-  const inferenceParams = getInferenceParams()
-  const t1 = performance.now()
-  const response = await session.prompt(prompt, {
-    ...inferenceParams,
-    ...(previousOutput?.trim() && { responsePrefix: previousOutput })
-  })
-  const inferenceMs = performance.now() - t1
+    // Reset chat history before each translation to clear previous conversation
+    // while preserving the system prompt prefix in the KV cache
+    if (!created) {
+      session.resetChatHistory()
+    }
 
-  // Log speculative decoding stats for debugging
-  if (speculativeEnabled && contextSequence.tokenPredictions) {
-    const stats = contextSequence.tokenPredictions
-    const label = previousOutput !== undefined ? 'Incremental speculative' : 'Speculative'
-    log.info(`${label} stats — validated: ${stats.validated}, refuted: ${stats.refuted}`)
+    const contextMs = performance.now() - t0
+
+    const inferenceParams = getInferenceParams()
+    const t1 = performance.now()
+    const response = await session.prompt(prompt, {
+      ...inferenceParams,
+      ...(previousOutput?.trim() && { responsePrefix: previousOutput })
+    })
+    const inferenceMs = performance.now() - t1
+
+    // Log speculative decoding stats for debugging
+    if (speculativeEnabled && prefixCacheSequence?.tokenPredictions) {
+      const stats = prefixCacheSequence.tokenPredictions
+      const label = previousOutput !== undefined ? 'Incremental speculative' : 'Speculative'
+      log.info(`${label} stats — validated: ${stats.validated}, refuted: ${stats.refuted}`)
+    }
+
+    return { response: response.trim(), inferenceMs, contextMs }
+  } catch (err) {
+    // Invalidate prefix cache on error to avoid corrupted state
+    log.error('Inference failed, invalidating prefix cache:', err)
+    prefixCacheSequence?.dispose?.()
+    prefixCacheSession?.dispose?.()
+    prefixCacheSession = null
+    prefixCacheSequence = null
+    prefixCacheSystemPrompt = undefined
+    throw err
   }
-
-  // Clean up the session context to free memory
-  contextSequence.dispose?.()
-  session.dispose?.()
-
-  return { response: response.trim(), inferenceMs, contextMs }
 }
 
 async function handleTranslate(
@@ -636,6 +732,14 @@ async function handleGERCorrect(
 
 async function handleDispose(): Promise<void> {
   try {
+    // Clean up prefix cache session
+    if (prefixCacheSession) {
+      prefixCacheSequence?.dispose?.()
+      prefixCacheSession.dispose?.()
+      prefixCacheSession = null
+      prefixCacheSequence = null
+      prefixCacheSystemPrompt = undefined
+    }
     // Clean up SimulMT session
     if (simulMtSession) {
       simulMtSequence?.dispose?.()
