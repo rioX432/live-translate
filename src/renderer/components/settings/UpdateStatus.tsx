@@ -15,7 +15,8 @@ export function UpdateStatus(): React.JSX.Element {
   useEffect(() => {
     // Load current status on mount
     window.api.updateGetStatus().then(setUpdate).catch((err: unknown) => {
-      console.warn('Failed to fetch update status:', err)
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[update-status] Failed to fetch update status:', e.message)
     })
 
     // Listen for status changes from main process

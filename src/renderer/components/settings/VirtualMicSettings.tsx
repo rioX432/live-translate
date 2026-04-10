@@ -33,13 +33,19 @@ export function VirtualMicSettings({ disabled }: VirtualMicSettingsProps): React
       setActiveDeviceId(status.activeDeviceId)
       setActiveDeviceName(status.activeDeviceName)
       setDevices(status.availableDevices)
-    }).catch((err) => console.warn('Failed to get virtual mic status:', err))
+    }).catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[virtual-mic] Failed to get status:', e.message)
+    })
   }, [])
 
   const refreshDevices = useCallback(() => {
     window.api.virtualMicRefreshDevices().then((devs) => {
       setDevices(devs)
-    }).catch((err) => console.warn('Failed to refresh virtual mic devices:', err))
+    }).catch((err: unknown) => {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[virtual-mic] Failed to refresh devices:', e.message)
+    })
   }, [])
 
   const handleEnable = useCallback(async (deviceId: number) => {
@@ -56,7 +62,9 @@ export function VirtualMicSettings({ disabled }: VirtualMicSettingsProps): React
         const device = devices.find((d) => d.id === deviceId)
         setActiveDeviceName(device?.name ?? null)
       }
-    } catch {
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[virtual-mic] Failed to enable:', e.message)
       setEnabled(false)
       setError('Failed to enable virtual mic')
     } finally {
@@ -72,7 +80,9 @@ export function VirtualMicSettings({ disabled }: VirtualMicSettingsProps): React
       setEnabled(false)
       setActiveDeviceId(null)
       setActiveDeviceName(null)
-    } catch {
+    } catch (err: unknown) {
+      const e = err instanceof Error ? err : new Error(String(err))
+      console.warn('[virtual-mic] Failed to disable:', e.message)
       setError('Failed to disable virtual mic')
     } finally {
       setLoading(false)
