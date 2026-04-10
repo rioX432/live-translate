@@ -53,7 +53,7 @@ function getDailyStatsPath(date: string): string {
 
 /** Sanitize date string to prevent path traversal */
 function sanitizeDate(date: string): string {
-  return date.replace(/[^0-9\-]/g, '').slice(0, 10)
+  return date.replace(/[^0-9-]/g, '').slice(0, 10)
 }
 
 /** Get today's date in YYYY-MM-DD format */

@@ -13,7 +13,7 @@ export function KeyboardShortcuts(): React.JSX.Element {
     window.api.getShortcutLabels?.().then(setShortcuts).catch(() => {})
   }, [])
 
-  if (!shortcuts) return <></>
+  if (!shortcuts) return <div style={{ color: '#64748b', fontSize: '12px' }}>Loading shortcuts...</div>
 
   return (
     <Section label="Keyboard Shortcuts">

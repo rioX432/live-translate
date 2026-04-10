@@ -118,6 +118,7 @@ function SettingsPanel(): React.JSX.Element {
       {/* Advanced Settings toggle */}
       <button
         onClick={() => s.setShowAdvanced(!s.showAdvanced)}
+        aria-expanded={s.showAdvanced}
         style={advancedToggleStyle}
       >
         <span>Advanced Settings</span>

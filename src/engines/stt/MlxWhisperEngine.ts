@@ -8,8 +8,8 @@ import { SubprocessBridge, type SpawnConfig, type InitResult } from '../Subproce
 import { MLX_WHISPER_TRANSCRIBE_TIMEOUT_MS, MLX_WHISPER_INIT_TIMEOUT_MS, PYTHON_IMPORT_CHECK_TIMEOUT_MS } from '../constants'
 
 export class MlxWhisperEngine extends SubprocessBridge implements STTEngine {
-  readonly id = 'mlx-whisper'
-  readonly name = 'mlx-whisper (Apple Silicon)'
+  readonly id: string = 'mlx-whisper'
+  readonly name: string = 'mlx-whisper (Apple Silicon)'
   readonly isOffline = true
 
   private model: string

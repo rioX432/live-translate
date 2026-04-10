@@ -96,7 +96,7 @@ export class OnnxWebTranslator implements TranslatorEngine {
         return false
       }
 
-      this.pipeline = pipe as unknown as typeof this.pipeline
+      this.pipeline = pipe as unknown as NonNullable<OnnxWebTranslator['pipeline']>
       this.activeBackend = device
       this.onProgress?.(`NLLB-200 ready (${device.toUpperCase()})`)
       log.info(`Initialized with ${device} backend, dtype=${dtype}`)

@@ -42,7 +42,7 @@ const SILENCE_TIMEOUT_MS = 4000
 const FADE_OUT_MS = 800
 
 /** Dimmed color for interim (unconfirmed) text */
-const INTERIM_TEXT_COLOR = 'rgba(255, 255, 255, 0.5)'
+const INTERIM_TEXT_COLOR = 'rgba(255, 255, 255, 0.7)'
 
 /**
  * Speaker color palette for diarization (#549).
@@ -527,6 +527,9 @@ function SubtitleOverlay(): React.JSX.Element {
             fontWeight: 600,
             lineHeight: 1.5,
             textShadow: effectiveTextShadow,
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            wordBreak: 'break-word',
             ...spacingStyle
           }}
         >
@@ -548,6 +551,7 @@ function SubtitleOverlay(): React.JSX.Element {
               lineHeight: 1.5,
               marginTop: '0.25rem',
               textShadow: effectiveTextShadow,
+              wordBreak: 'break-word',
               cursor: isEditMode ? 'text' : 'default',
               borderBottom: isEditMode ? '1px dashed rgba(255,255,255,0.3)' : 'none',
               paddingBottom: isEditMode ? '2px' : 0,
@@ -601,7 +605,8 @@ function SubtitleOverlay(): React.JSX.Element {
                 color: '#fff',
                 border: 'none',
                 borderRadius: '4px',
-                padding: '4px 8px',
+                padding: '8px 16px',
+                minHeight: '44px',
                 fontSize: '12px',
                 fontWeight: 700,
                 cursor: 'pointer',
@@ -612,13 +617,14 @@ function SubtitleOverlay(): React.JSX.Element {
             </button>
             <button
               onClick={handleEditCancel}
-              aria-label="Cancel editing"
+              aria-label="Cancel edit"
               style={{
                 background: '#64748b',
                 color: '#fff',
                 border: 'none',
                 borderRadius: '4px',
-                padding: '4px 8px',
+                padding: '8px 16px',
+                minHeight: '44px',
                 fontSize: '12px',
                 fontWeight: 700,
                 cursor: 'pointer'

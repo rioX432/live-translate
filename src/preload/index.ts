@@ -208,6 +208,19 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('onboarding-download-progress', handler)
   },
 
+  // Keyboard shortcuts (#509)
+  getShortcutLabels: () => ipcRenderer.invoke('get-shortcut-labels'),
+  onShortcutAction: (callback: (action: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, action: string): void => callback(action)
+    ipcRenderer.on('shortcut-action', handler)
+    return () => ipcRenderer.off('shortcut-action', handler)
+  },
+  onLanguageSwitched: (callback: (data: { sourceLanguage: string; targetLanguage: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, data: { sourceLanguage: string; targetLanguage: string }): void => callback(data)
+    ipcRenderer.on('language-switched', handler)
+    return () => ipcRenderer.off('language-switched', handler)
+  },
+
   // Auto-update (#314)
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateDownload: () => ipcRenderer.invoke('update-download'),

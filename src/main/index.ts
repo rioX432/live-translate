@@ -13,7 +13,6 @@ import { Qwen3ASREngine } from '../engines/stt/Qwen3ASREngine'
 import { MoonshineTinyJaEngine } from '../engines/stt/MoonshineTinyJaEngine'
 import { QwenAsrNativeEngine } from '../engines/stt/QwenAsrNativeEngine'
 import { CarelessWhisperEngine } from '../engines/stt/CarelessWhisperEngine'
-import { OnnxWebSTTEngine } from '../engines/stt/OnnxWebSTTEngine'
 import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
 import { SLMTranslator } from '../engines/translator/SLMTranslator'
 import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
@@ -121,9 +120,6 @@ async function initPipeline(): Promise<void> {
     modelSize: (store.get('carelessWhisperModel') as string) || undefined,
     chunkSizeMs: (store.get('carelessWhisperChunkMs') as number) || undefined
   }))
-  // Experimental: Whisper ONNX Web — WebGPU/WASM fallback STT (stub, #556)
-  ctx.pipeline.registerSTT('onnx-web-stt', () => new OnnxWebSTTEngine())
-
   // Register translator engines
   // ONNX-based OPUS-MT — legacy fallback for low-memory systems and while downloading LLM models
   ctx.pipeline.registerTranslator('opus-mt', () => new OpusMTTranslator({

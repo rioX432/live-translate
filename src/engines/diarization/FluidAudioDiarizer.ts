@@ -94,7 +94,7 @@ export class FluidAudioDiarizer extends SubprocessBridge implements SpeakerDiari
     if (result.status !== 'ready') {
       throw new Error(`FluidAudio init returned unexpected status: ${result.status}`)
     }
-    log.info('FluidAudio diarizer ready')
+    this.log.info('FluidAudio diarizer ready')
     this.onProgress?.('Speaker diarization ready (FluidAudio)')
   }
 
@@ -122,7 +122,7 @@ export class FluidAudioDiarizer extends SubprocessBridge implements SpeakerDiari
       })
 
       if (result.error) {
-        log.warn('Diarization error:', result.error)
+        this.log.warn('Diarization error:', result.error)
         return null
       }
 
@@ -134,7 +134,7 @@ export class FluidAudioDiarizer extends SubprocessBridge implements SpeakerDiari
         confidence: result.confidence as number
       }
     } catch (err) {
-      log.warn('Diarization failed (non-fatal):', err instanceof Error ? err.message : err)
+      this.log.warn('Diarization failed (non-fatal):', err instanceof Error ? err.message : err)
       return null
     } finally {
       try { unlinkSync(tempPath) } catch { /* ignore */ }

@@ -24,6 +24,7 @@ export interface MdmConfig {
 }
 
 const BUNDLE_ID = 'com.live-translate.app'
+const MDM_READ_TIMEOUT_MS = 2000
 
 /** Cached MDM config — loaded once at startup */
 let cachedConfig: MdmConfig | null = null
@@ -45,7 +46,7 @@ function readManagedPref(key: string): string | null {
     // MDM profiles are deployed to /Library/Managed Preferences/
     const result = execSync(
       `defaults read "/Library/Managed Preferences/${BUNDLE_ID}" ${key} 2>/dev/null`,
-      { encoding: 'utf-8', timeout: 2000 }
+      { encoding: 'utf-8', timeout: MDM_READ_TIMEOUT_MS }
     ).trim()
     return result || null
   } catch {

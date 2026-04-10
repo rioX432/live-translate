@@ -1,6 +1,6 @@
 import { execFile, execSync } from 'child_process'
 import { join } from 'path'
-import { writeFileSync, unlinkSync, existsSync, mkdirSync } from 'fs'
+import { writeFileSync, unlinkSync, existsSync } from 'fs'
 import { tmpdir, homedir } from 'os'
 import type { STTEngine, STTResult, Language } from '../types'
 import { createLogger } from '../../main/logger'
