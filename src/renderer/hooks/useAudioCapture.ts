@@ -35,7 +35,7 @@ export interface NoiseSuppressionProcessor {
   destroy: () => Promise<void>
 }
 
-const DEFAULT_STREAMING_INTERVAL_MS = 1000
+const DEFAULT_STREAMING_INTERVAL_MS = 800
 const SAMPLE_RATE = 16000
 const MAX_ROLLING_BUFFER_SECONDS = 3
 /** Overlap from previous chunk to prevent word boundary cutting (200ms at 16kHz) */

@@ -136,6 +136,8 @@ export interface SettingsState {
   // Audio + noise suppression
   audio: UseAudioCaptureReturn
   noiseSuppression: UseNoiseSuppressionReturn
+  streamingIntervalMs: number
+  setStreamingIntervalMs: (v: number) => void
 
   // Actions
   handleStart: () => Promise<void>
@@ -197,7 +199,8 @@ export function useSettingsState(): SettingsState {
         adaptiveRoutingEnabled: engine.adaptiveRoutingEnabled,
         adaptiveRoutingShortThreshold: engine.adaptiveRoutingShortThreshold,
         adaptiveRoutingLongThreshold: engine.adaptiveRoutingLongThreshold,
-        adaptiveRoutingQualityEngine: engine.adaptiveRoutingQualityEngine
+        adaptiveRoutingQualityEngine: engine.adaptiveRoutingQualityEngine,
+        streamingIntervalMs: session.streamingIntervalMs
       }), 10_000, 'saveSettings')
 
       const resolvedMode = resolveEngineMode(engine.engineMode, apiKeys, engine.gpuInfo)
@@ -341,6 +344,7 @@ export function useSettingsState(): SettingsState {
 
     // Audio + noise suppression
     audio: session.audio, noiseSuppression: session.noiseSuppression,
+    streamingIntervalMs: session.streamingIntervalMs, setStreamingIntervalMs: session.setStreamingIntervalMs,
 
     // UI state
     showAdvanced, setShowAdvanced,

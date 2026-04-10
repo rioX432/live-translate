@@ -91,6 +91,11 @@ function SettingsPanel(): React.JSX.Element {
         noiseSuppressionEnabled={s.noiseSuppression.enabled}
         onNoiseSuppressionChange={s.noiseSuppression.setEnabled}
         platform={s.platform}
+        streamingIntervalMs={s.streamingIntervalMs}
+        onStreamingIntervalChange={(v) => {
+          s.setStreamingIntervalMs(v)
+          window.api.saveSettings({ streamingIntervalMs: v })
+        }}
       />
 
       {/* Current config summary — always visible */}

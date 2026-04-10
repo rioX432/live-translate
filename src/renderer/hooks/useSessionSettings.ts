@@ -30,6 +30,9 @@ export interface SessionSettingsState {
 
   audio: UseAudioCaptureReturn
   noiseSuppression: UseNoiseSuppressionReturn
+
+  streamingIntervalMs: number
+  setStreamingIntervalMs: (v: number) => void
 }
 
 export function useSessionSettings(): SessionSettingsState {
@@ -47,8 +50,8 @@ export function useSessionSettings(): SessionSettingsState {
 
   const [crashedSession, setCrashedSession] = useState<{ config: Record<string, unknown>; startedAt: number } | null>(null)
 
-  // Streaming interval from settings (#506)
-  const [streamingIntervalMs, setStreamingIntervalMs] = useState<number | undefined>(undefined)
+  // Streaming interval from settings (#506, #606: lowered default to 800ms)
+  const [streamingIntervalMs, setStreamingIntervalMs] = useState<number>(800)
 
   // Noise suppression + audio capture
   const noiseSuppression = useNoiseSuppression()
@@ -189,6 +192,7 @@ export function useSessionSettings(): SessionSettingsState {
     isSummarizing, setIsSummarizing,
     crashedSession, setCrashedSession,
     startSessionTimer, stopSessionTimer,
-    audio, noiseSuppression
+    audio, noiseSuppression,
+    streamingIntervalMs, setStreamingIntervalMs
   }
 }
