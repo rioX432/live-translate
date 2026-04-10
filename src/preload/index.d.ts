@@ -138,6 +138,13 @@ export interface ElectronAPI {
   }>
   enterpriseSetTelemetryConsent: (consent: boolean) => Promise<{ success: boolean; reason?: string }>
 
+  // Subtitle drag mode (#509)
+  toggleSubtitleDragMode: (enabled: boolean) => Promise<void>
+  moveSubtitleByDelta: (dx: number, dy: number) => void
+  saveSubtitlePosition: () => Promise<void>
+  resetSubtitlePosition: () => Promise<void>
+  onDragModeChanged: (callback: (enabled: boolean) => void) => (() => void)
+
   // Subtitle edit mode (#590)
   toggleSubtitleEditMode: (enabled: boolean) => Promise<void>
   onEditModeChanged: (callback: (enabled: boolean) => void) => (() => void)
@@ -174,6 +181,11 @@ export interface ElectronAPI {
     message?: string
     error?: string
   }) => void) => (() => void)
+
+  // Keyboard shortcuts (#509)
+  getShortcutLabels: () => Promise<Record<string, { action: string; shortcut: string }>>
+  onShortcutAction: (callback: (action: string) => void) => (() => void)
+  onLanguageSwitched: (callback: (data: { sourceLanguage: string; targetLanguage: string }) => void) => (() => void)
 
   // Audio MessagePort for zero-copy transfer (#553)
   onAudioPort: (callback: (port: MessagePort) => void) => (() => void)

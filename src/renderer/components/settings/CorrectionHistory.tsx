@@ -14,7 +14,7 @@ export function CorrectionHistory(): React.JSX.Element {
   const [isEditMode, setIsEditMode] = useState(false)
 
   const loadHistory = useCallback(() => {
-    window.api.getCorrectionHistory?.().then(setHistory).catch(() => {})
+    window.api.getCorrectionHistory?.().then(setHistory).catch((err) => console.warn('Failed to load correction history:', err))
   }, [])
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export function CorrectionHistory(): React.JSX.Element {
   const handleClearHistory = useCallback(() => {
     window.api.clearCorrectionHistory?.().then(() => {
       setHistory([])
-    }).catch(() => {})
+    }).catch((err) => console.warn('Failed to clear correction history:', err))
   }, [])
 
   return (
@@ -65,7 +65,7 @@ export function CorrectionHistory(): React.JSX.Element {
         )}
 
         {/* Correction history */}
-        {history.length > 0 && (
+        {history.length > 0 ? (
           <div style={historyContainerStyle}>
             <div style={{
               display: 'flex',
@@ -103,6 +103,10 @@ export function CorrectionHistory(): React.JSX.Element {
               </div>
             ))}
           </div>
+        ) : (
+          <div style={{ fontSize: '11px', color: '#64748b' }}>
+            No corrections yet. Use Edit Mode to correct translations.
+          </div>
         )}
       </div>
     </Section>
@@ -127,7 +131,7 @@ const clearButtonStyle: React.CSSProperties = {
   color: '#64748b',
   border: '1px solid #475569',
   borderRadius: '4px',
-  padding: '2px 8px',
-  fontSize: '10px',
+  padding: '6px 12px',
+  fontSize: '11px',
   cursor: 'pointer'
 }

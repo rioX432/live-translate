@@ -60,6 +60,7 @@ export function registerQuickStartIpc(ctx: AppContext): void {
 
   // Check if setup has been completed
   ipcMain.handle('quick-start-is-completed', () => {
+    if (process.env.SKIP_ONBOARDING === '1') return true
     return store.get('hasCompletedSetup')
   })
 

@@ -1,15 +1,10 @@
 import { MessageChannelMain } from 'electron'
 import { createLogger } from './logger'
 import { SAMPLE_RATE } from './constants'
+import { MIN_AUDIO_CHUNK_SAMPLES, SILENCE_THRESHOLD } from './audio-constants'
 import type { AppContext } from './app-context'
 
 const log = createLogger('audio-port')
-
-/** Minimum number of samples for a valid audio chunk (0.5s at 16kHz) */
-const MIN_AUDIO_CHUNK_SAMPLES = 8000
-
-/** Minimum amplitude to consider a chunk as non-silent */
-const SILENCE_THRESHOLD = 0.001
 
 /**
  * Set up a MessagePort channel for zero-copy audio transfer between

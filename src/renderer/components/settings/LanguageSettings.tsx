@@ -20,7 +20,7 @@ export function LanguageSettings({
 }: LanguageSettingsProps): React.JSX.Element {
   return (
     <Section label="Language">
-      <div style={{ display: 'flex', gap: '12px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', marginBottom: '4px' }}>
             Source Language

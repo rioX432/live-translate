@@ -33,13 +33,13 @@ export function VirtualMicSettings({ disabled }: VirtualMicSettingsProps): React
       setActiveDeviceId(status.activeDeviceId)
       setActiveDeviceName(status.activeDeviceName)
       setDevices(status.availableDevices)
-    }).catch(() => {})
+    }).catch((err) => console.warn('Failed to get virtual mic status:', err))
   }, [])
 
   const refreshDevices = useCallback(() => {
     window.api.virtualMicRefreshDevices().then((devs) => {
       setDevices(devs)
-    }).catch(() => {})
+    }).catch((err) => console.warn('Failed to refresh virtual mic devices:', err))
   }, [])
 
   const handleEnable = useCallback(async (deviceId: number) => {

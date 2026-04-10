@@ -73,6 +73,7 @@ class WorkerPool {
    * If the worker is already running with a different model, it will hot-swap.
    */
   async acquire(options: WorkerInitOptions, onProgress?: (message: string) => void): Promise<void> {
+    // Safe: JS is single-threaded; increment completes before any await yields
     this.refCount++
     this.onProgress = onProgress
 

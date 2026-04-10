@@ -214,6 +214,23 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
     }
   }, [])
 
+  // Consolidated cleanup for loopback stream, AudioContext, and rolling buffer refs
+  const cleanupResources = useCallback(() => {
+    if (loopbackStreamRef.current) {
+      loopbackStreamRef.current.getTracks().forEach((t) => t.stop())
+      loopbackStreamRef.current = null
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close().catch((err) => console.warn('[audio-capture] AudioContext close error:', err))
+      audioContextRef.current = null
+    }
+    isSpeakingRef.current = false
+    rollingBufferRef.current = []
+    rollingBufferIndexRef.current = 0
+    rollingBufferFullRef.current = false
+    prevChunkTailRef.current = null
+  }, [])
+
   // #501: Acquire system audio loopback stream via electron-audio-loopback
   const getLoopbackStream = useCallback(async (): Promise<MediaStream> => {
     // Enable loopback audio in the main process (registers desktopCapturer handler)
@@ -383,23 +400,11 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
         vadRef.current = null
       }
       // #501: Clean up loopback resources on failed start
-      if (loopbackStreamRef.current) {
-        loopbackStreamRef.current.getTracks().forEach((t) => t.stop())
-        loopbackStreamRef.current = null
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {})
-        audioContextRef.current = null
-      }
-      isSpeakingRef.current = false
-      rollingBufferRef.current = []
-      rollingBufferIndexRef.current = 0
-      rollingBufferFullRef.current = false
-      prevChunkTailRef.current = null
+      cleanupResources()
       setIsCapturing(false)
       throw err
     }
-  }, [selectedDevice, audioSource, isCapturing, startStreamingTimer, stopStreamingTimer, getLoopbackStream, mixStreams])
+  }, [selectedDevice, audioSource, isCapturing, startStreamingTimer, stopStreamingTimer, getLoopbackStream, mixStreams, cleanupResources])
 
   const stop = useCallback(() => {
     stopStreamingTimer()
@@ -408,25 +413,13 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
       vadRef.current = null
     }
     // #501: Release loopback stream and audio mixer resources
-    if (loopbackStreamRef.current) {
-      loopbackStreamRef.current.getTracks().forEach((t) => t.stop())
-      loopbackStreamRef.current = null
-    }
-    if (audioContextRef.current) {
-      audioContextRef.current.close().catch((err) => console.warn('[audio-capture] AudioContext close error:', err))
-      audioContextRef.current = null
-    }
+    cleanupResources()
     // #313: Release DeepFilterNet3 resources
     noiseSuppression?.destroy().catch((err) => console.warn('[audio-capture] Noise suppression cleanup error:', err))
-    isSpeakingRef.current = false
-    rollingBufferRef.current = []
-    rollingBufferIndexRef.current = 0
-    rollingBufferFullRef.current = false
-    prevChunkTailRef.current = null
     setIsCapturing(false)
     setVolume(0)
     console.log('[audio-capture] VAD stopped')
-  }, [stopStreamingTimer, noiseSuppression])
+  }, [stopStreamingTimer, noiseSuppression, cleanupResources])
 
   // #443: Safety net — clear streaming timer, VAD, and loopback on unmount if stop() was not called
   useEffect(() => {
@@ -440,16 +433,9 @@ export function useAudioCapture(noiseSuppression?: NoiseSuppressionProcessor, st
         vadRef.current = null
       }
       // #501: Release loopback resources on unmount
-      if (loopbackStreamRef.current) {
-        loopbackStreamRef.current.getTracks().forEach((t) => t.stop())
-        loopbackStreamRef.current = null
-      }
-      if (audioContextRef.current) {
-        audioContextRef.current.close().catch(() => {})
-        audioContextRef.current = null
-      }
+      cleanupResources()
     }
-  }, [])
+  }, [cleanupResources])
 
   const onAudioChunk = useCallback((callback: (chunk: Float32Array) => void) => {
     chunkCallbackRef.current = callback

@@ -65,11 +65,11 @@ describe('shortcut-manager', () => {
 
       const dispose = registerGlobalShortcuts(ctx as never)
 
-      expect(globalShortcut.register).toHaveBeenCalledTimes(6)
+      expect(globalShortcut.register).toHaveBeenCalledTimes(7)
       expect(typeof dispose).toBe('function')
 
       dispose()
-      expect(globalShortcut.unregister).toHaveBeenCalledTimes(6)
+      expect(globalShortcut.unregister).toHaveBeenCalledTimes(7)
     })
   })
 
@@ -78,7 +78,7 @@ describe('shortcut-manager', () => {
       const { getShortcutLabels } = await import('./shortcut-manager')
       const labels = getShortcutLabels()
 
-      expect(Object.keys(labels)).toHaveLength(6)
+      expect(Object.keys(labels)).toHaveLength(7)
       expect(labels['toggle-capture'].action).toBe('Toggle capture')
       expect(labels['copy-last-subtitle'].action).toBe('Copy last subtitle')
     })

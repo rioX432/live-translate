@@ -54,6 +54,7 @@ export function registerAudioIpc(ctx: AppContext): void {
   ipcMain.handle('ws-audio-stop', async () => {
     try {
       if (ctx.wsAudioServer) {
+        ctx.wsAudioServer.removeAllListeners()
         await ctx.wsAudioServer.stop()
         ctx.wsAudioServer = null
       }

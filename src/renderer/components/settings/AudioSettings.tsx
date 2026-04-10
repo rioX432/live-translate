@@ -40,7 +40,7 @@ export function AudioSettings({ audio, disabled, noiseSuppressionEnabled, onNois
         ))}
       </select>
       {/* Description for selected audio source */}
-      <div style={{ fontSize: '11px', color: '#64748b', marginBottom: '8px' }}>
+      <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '8px' }}>
         {AUDIO_SOURCE_OPTIONS.find((o) => o.value === audio.audioSource)?.description}
         {audio.audioSource !== 'microphone' && platform === 'darwin' && (
           <span style={{ color: '#f59e0b' }}>

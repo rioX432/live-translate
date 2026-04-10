@@ -59,12 +59,12 @@ export function TTSSettings({ disabled }: TTSSettingsProps): React.JSX.Element {
       setVoice(settings.voice)
       setVolume(settings.volume)
       setOutputDevice(settings.outputDevice)
-    }).catch(() => {})
+    }).catch((err) => console.warn('Failed to load TTS settings:', err))
 
     // Enumerate audio output devices
     navigator.mediaDevices.enumerateDevices().then((devices) => {
       setOutputDevices(devices.filter((d) => d.kind === 'audiooutput'))
-    }).catch(() => {})
+    }).catch((err) => console.warn('Failed to enumerate audio devices:', err))
   }, [])
 
   // Set up TTS audio playback listener
@@ -229,7 +229,7 @@ function playTtsAudio(
   }
 
   source.onended = (): void => {
-    audioCtx.close().catch(() => {})
+    audioCtx.close().catch((err) => console.warn('AudioContext close failed:', err))
   }
 
   source.start()

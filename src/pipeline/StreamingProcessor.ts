@@ -258,7 +258,7 @@ export class StreamingProcessor {
 
       if (useSimulMt && translator && agreement.confirmedText.trim()) {
         // SimulMT revision: retranslate the full clause for accuracy (#550)
-        translatedText = await translator.translateSimulMt(
+        translatedText = await translator.translateSimulMt!(
           agreement.confirmedText,
           this.simulMtPreviousOutput,
           sttResult.language,

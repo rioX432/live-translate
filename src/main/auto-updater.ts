@@ -116,10 +116,11 @@ export function registerUpdateHandlers(ctx: AppContext): void {
   })
 }
 
-/** Clean up timer on app quit */
+/** Clean up timer and listeners on app quit */
 export function disposeAutoUpdater(): void {
   if (checkTimer) {
     clearInterval(checkTimer)
     checkTimer = null
   }
+  autoUpdater.removeAllListeners()
 }
