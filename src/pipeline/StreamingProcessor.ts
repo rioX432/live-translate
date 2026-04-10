@@ -168,12 +168,24 @@ export class StreamingProcessor {
             if (!dbTranslator || !fullSourceText.trim()) return
             const glossaryEntries = this.deps.getGlossary()
             const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
-            dbTranslator.translate(
-              fullSourceText,
-              sttResult.language,
-              targetLang,
-              this.deps.contextBuffer.getContext(glossary)
-            ).then((translated) => {
+            const ctx = this.deps.contextBuffer.getContext(glossary)
+
+            // Use SSBD for re-translation when we have a previous translation,
+            // since most of the output likely remains valid (#607)
+            const translatePromise = (dbTranslator.translateSSBD && this.lastTranslatedConfirmed)
+              ? dbTranslator.translateSSBD(
+                  fullSourceText,
+                  this.lastTranslatedConfirmed,
+                  sttResult.language,
+                  targetLang,
+                  ctx
+                ).catch((ssbdErr) => {
+                  log.warn('SSBD debounced translation failed, falling back:', ssbdErr)
+                  return dbTranslator.translate(fullSourceText, sttResult.language, targetLang, ctx)
+                })
+              : dbTranslator.translate(fullSourceText, sttResult.language, targetLang, ctx)
+
+            translatePromise.then((translated) => {
               this.lastTranslatedConfirmed = translated
               const debouncedResult: TranslationResult = {
                 sourceText: fullSourceText,
@@ -311,7 +323,8 @@ export class StreamingProcessor {
           sttResult.confidence,
           sttResult.language,
           targetLang,
-          result.timestamp
+          result.timestamp,
+          translatedText || undefined
         )
       }
 

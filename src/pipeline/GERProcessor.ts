@@ -45,6 +45,8 @@ export class GERProcessor {
   private deps: GERDeps
   /** Track in-flight corrections to avoid duplicate work */
   private pendingTimestamp: number | null = null
+  /** Last known translation for SSBD re-translation draft */
+  private lastTranslation: string | null = null
 
   constructor(deps: GERDeps) {
     this.deps = deps
@@ -70,13 +72,15 @@ export class GERProcessor {
    * @param language - Detected source language
    * @param targetLanguage - Translation target language
    * @param timestamp - Original result timestamp for deduplication
+   * @param previousTranslation - Previous translation output for SSBD re-translation draft
    */
   maybeCorrect(
     sttText: string,
     confidence: number | undefined,
     language: Language,
     targetLanguage: Language,
-    timestamp: number
+    timestamp: number,
+    previousTranslation?: string
   ): void {
     if (!this.enabled) return
 
@@ -102,6 +106,7 @@ export class GERProcessor {
     }
 
     this.pendingTimestamp = timestamp
+    this.lastTranslation = previousTranslation ?? null
     this.runCorrection(sttText, language, targetLanguage, timestamp).catch((err) => {
       log.warn('GER correction failed:', err)
     }).finally(() => {
@@ -114,6 +119,7 @@ export class GERProcessor {
   /** Reset state (e.g., on pipeline stop) */
   reset(): void {
     this.pendingTimestamp = null
+    this.lastTranslation = null
   }
 
   private async runCorrection(
@@ -156,18 +162,35 @@ export class GERProcessor {
       return
     }
 
-    // Re-translate the corrected text
+    // Re-translate the corrected text, using SSBD if available for faster re-translation.
+    // Since GER only makes small corrections, most of the previous translation remains valid.
     const translator = this.deps.getTranslator()
     if (!translator) {
       log.warn('GER: no translator available for re-translation')
       return
     }
 
-    const translatedText = await translator.translate(
-      trimmedCorrected,
-      language,
-      targetLanguage
-    )
+    let translatedText: string
+    if (translator.translateSSBD && this.lastTranslation) {
+      try {
+        translatedText = await translator.translateSSBD(
+          trimmedCorrected,
+          this.lastTranslation,
+          language,
+          targetLanguage
+        )
+        log.info('GER: used SSBD for re-translation')
+      } catch (ssbdErr) {
+        log.warn('GER: SSBD failed, falling back to regular translate:', ssbdErr)
+        translatedText = await translator.translate(trimmedCorrected, language, targetLanguage)
+      }
+    } else {
+      translatedText = await translator.translate(
+        trimmedCorrected,
+        language,
+        targetLanguage
+      )
+    }
 
     const result: TranslationResult = {
       sourceText: trimmedCorrected,

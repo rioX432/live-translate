@@ -7,6 +7,7 @@
  *   Main → Worker: { type: 'init', modelPath: string, kvCacheQuant?: boolean, modelType?: ModelType, draftModelPath?: string }
  *   Main → Worker: { type: 'translate', id: string, text: string, from: string, to: string }
  *   Main → Worker: { type: 'translate-incremental', id: string, text: string, previousOutput: string, from: string, to: string }
+ *   Main → Worker: { type: 'translate-ssbd', id: string, text: string, previousOutput: string, from: string, to: string }
  *   Main → Worker: { type: 'translate-simulmt', id: string, text: string, previousOutput: string, from: string, to: string, isRevision: boolean }
  *   Main → Worker: { type: 'simulmt-reset' }
  *   Main → Worker: { type: 'summarize', id: string, transcript: string }
@@ -16,7 +17,7 @@
  *   Worker → Main: { type: 'error', id?: string, message: string }
  */
 
-import type { Llama, LlamaModel, LlamaContext, LlamaContextSequence } from 'node-llama-cpp'
+import type { Llama, LlamaModel, LlamaContext, LlamaContextSequence, Token } from 'node-llama-cpp'
 import { LANG_NAMES_EN, LANG_NAMES_ZH } from '../engines/language-names'
 import { formatGlossaryPrompt } from '../engines/translator/glossary-utils'
 import { createLogger } from './logger'
@@ -30,6 +31,7 @@ type WorkerInboundMessage =
   | { type: 'init'; modelPath: string; kvCacheQuant?: boolean; modelType?: ModelType; draftModelPath?: string }
   | { type: 'translate'; id: string; text: string; from: string; to: string; context?: TranslateContextPayload }
   | { type: 'translate-incremental'; id: string; text: string; previousOutput: string; from: string; to: string; context?: TranslateContextPayload }
+  | { type: 'translate-ssbd'; id: string; text: string; previousOutput: string; from: string; to: string; context?: TranslateContextPayload }
   | { type: 'translate-simulmt'; id: string; text: string; previousOutput: string; from: string; to: string; isRevision: boolean; context?: TranslateContextPayload }
   | { type: 'simulmt-reset' }
   | { type: 'summarize'; id: string; transcript: string }
@@ -39,6 +41,52 @@ type WorkerInboundMessage =
 interface TranslateContextPayload {
   previousSegments?: Array<{ source: string; translated: string }>
   glossary?: Array<{ source: string; target: string }>
+}
+
+/**
+ * Custom TokenPredictor that returns a fixed sequence of tokens as predictions.
+ * Used for SSBD: the previous translation output tokens are fed as speculative
+ * predictions, and node-llama-cpp's speculative decoding verifies them in batch.
+ */
+class FixedSequenceTokenPredictor {
+  private tokens: Token[] = []
+  private position = 0
+
+  constructor(tokens: Token[]) {
+    this.tokens = tokens
+  }
+
+  reset(): void {
+    this.position = 0
+  }
+
+  pushTokens(tokens: Token[]): void {
+    this.position += tokens.length
+  }
+
+  predictTokens(): Token[] {
+    if (this.position >= this.tokens.length) return []
+    // Return remaining tokens from the fixed sequence
+    const remaining = this.tokens.slice(this.position)
+    // Return a reasonable batch size for verification
+    return remaining.slice(0, 32)
+  }
+
+  stop(): void {
+    // no-op
+  }
+
+  updateInputTokens(): void {
+    // no-op
+  }
+
+  dispose(): void {
+    this.tokens = []
+  }
+
+  [Symbol.dispose](): void {
+    this.dispose()
+  }
 }
 
 /** Context size for translation (short segments) */
@@ -465,6 +513,143 @@ async function handleTranslateIncremental(
 }
 
 /**
+ * Handle SSBD (Self-Speculative Biased Decoding) translation.
+ * Uses the previous translation output as a speculative draft:
+ * 1. Tokenize the previous output
+ * 2. Create a context sequence with the previous tokens as a custom predictor
+ * 3. node-llama-cpp verifies them in batch and accepts/rejects
+ * 4. Normal autoregressive decoding resumes from the divergence point
+ *
+ * Falls back to regular translation if SSBD fails.
+ */
+async function handleTranslateSSBD(
+  id: string,
+  text: string,
+  previousOutput: string,
+  from: string,
+  to: string,
+  translateContext?: TranslateContextPayload
+): Promise<void> {
+  if (!context || !model) {
+    process.parentPort!.postMessage({
+      type: 'error',
+      id,
+      message: 'Model not initialized'
+    })
+    return
+  }
+
+  try {
+    const memBefore = process.memoryUsage()
+    const t0 = performance.now()
+    const prompt = buildTranslationPrompt(text, from, to, translateContext)
+    const promptMs = performance.now() - t0
+    const systemPrompt = activeModelType === 'lfm2' ? getLFM2SystemPrompt(to) : undefined
+
+    // Tokenize the previous output for use as speculative draft
+    const previousTokens = model.tokenize(previousOutput, false)
+
+    if (previousTokens.length === 0) {
+      // No tokens to speculate with, fall back to regular translation
+      const { response, inferenceMs, contextMs } = await runInference(prompt, undefined, systemPrompt)
+      const totalMs = performance.now() - t0
+      logSSBDProfile(totalMs, promptMs, 0, inferenceMs, text.length, response.length, 0, 0, memBefore)
+      process.parentPort!.postMessage({ type: 'result', id, text: response })
+      return
+    }
+
+    // Create an SSBD-specific session with the fixed sequence token predictor
+    const { LlamaChatSession } = await import('node-llama-cpp')
+
+    // Create a dedicated sequence with the fixed-token predictor
+    const predictor = new FixedSequenceTokenPredictor(previousTokens)
+    const ssbdSequence = context.getSequence({
+      tokenPredictor: predictor as unknown as import('node-llama-cpp').TokenPredictor
+    })
+
+    const ssbdSession = new LlamaChatSession({
+      contextSequence: ssbdSequence,
+      ...(systemPrompt && { systemPrompt })
+    })
+
+    try {
+      const inferenceParams = getInferenceParams()
+      const t1 = performance.now()
+
+      // Use responsePrefix to seed the model with previous output tokens.
+      // Combined with our FixedSequenceTokenPredictor, this enables
+      // speculative verification of the previous output.
+      const response = await ssbdSession.prompt(prompt, {
+        ...inferenceParams,
+        responsePrefix: previousOutput
+      })
+      const inferenceMs = performance.now() - t1
+
+      // Collect speculative decoding stats
+      const stats = ssbdSequence.tokenPredictions
+      const validated = stats?.validated ?? 0
+      const refuted = stats?.refuted ?? 0
+
+      const memAfter = process.memoryUsage()
+      const totalMs = performance.now() - t0
+
+      logSSBDProfile(totalMs, promptMs, 0, inferenceMs, text.length, response.trim().length, validated, refuted, memBefore)
+
+      process.parentPort!.postMessage({
+        type: 'result',
+        id,
+        text: response.trim()
+      })
+    } finally {
+      ssbdSession.dispose?.()
+      ssbdSequence.dispose?.()
+      predictor.dispose()
+    }
+  } catch (err) {
+    // SSBD failed — fall back to regular translation
+    log.warn('SSBD failed, falling back to regular translate:', err instanceof Error ? err.message : err)
+    try {
+      const systemPrompt = activeModelType === 'lfm2' ? getLFM2SystemPrompt(to) : undefined
+      const prompt = buildTranslationPrompt(text, from, to, translateContext)
+      const { response } = await runInference(prompt, undefined, systemPrompt)
+      process.parentPort!.postMessage({ type: 'result', id, text: response })
+    } catch (fallbackErr) {
+      process.parentPort!.postMessage({
+        type: 'error',
+        id,
+        message: fallbackErr instanceof Error ? fallbackErr.message : String(fallbackErr)
+      })
+    }
+  }
+}
+
+/** Log SSBD profiling information */
+function logSSBDProfile(
+  totalMs: number,
+  promptMs: number,
+  contextMs: number,
+  inferenceMs: number,
+  inputLen: number,
+  outputLen: number,
+  validated: number,
+  refuted: number,
+  memBefore: NodeJS.MemoryUsage
+): void {
+  const memAfter = process.memoryUsage()
+  const acceptRate = validated + refuted > 0
+    ? ((validated / (validated + refuted)) * 100).toFixed(0)
+    : 'N/A'
+  log.info(
+    `Profile(ssbd): total=${totalMs.toFixed(0)}ms prompt=${promptMs.toFixed(0)}ms ` +
+    `ctx=${contextMs.toFixed(0)}ms inference=${inferenceMs.toFixed(0)}ms ` +
+    `inputLen=${inputLen} outputLen=${outputLen} ` +
+    `validated=${validated} refuted=${refuted} acceptRate=${acceptRate}% ` +
+    `rss=${(memAfter.rss / 1048576).toFixed(0)}MB ` +
+    `heapDelta=${((memAfter.heapUsed - memBefore.heapUsed) / 1048576).toFixed(1)}MB`
+  )
+}
+
+/**
  * Persistent SimulMT session state.
  * Unlike regular translate which creates a new session per request,
  * SimulMT keeps a single LlamaChatSession alive across multiple turns.
@@ -790,6 +975,9 @@ process.parentPort!.on('message', (e: { data: WorkerInboundMessage }) => {
         case 'translate-incremental':
           await handleTranslateIncremental(msg.id, msg.text, msg.previousOutput, msg.from, msg.to, msg.context)
           break
+        case 'translate-ssbd':
+          await handleTranslateSSBD(msg.id, msg.text, msg.previousOutput, msg.from, msg.to, msg.context)
+          break
         case 'translate-simulmt':
           await handleTranslateSimulMt(msg.id, msg.text, msg.previousOutput, msg.from, msg.to, msg.isRevision, msg.context)
           break
@@ -815,7 +1003,7 @@ process.parentPort!.on('message', (e: { data: WorkerInboundMessage }) => {
     }
   }
 
-  if (msg.type === 'translate' || msg.type === 'translate-incremental' || msg.type === 'translate-simulmt' || msg.type === 'summarize' || msg.type === 'ger-correct') {
+  if (msg.type === 'translate' || msg.type === 'translate-incremental' || msg.type === 'translate-ssbd' || msg.type === 'translate-simulmt' || msg.type === 'summarize' || msg.type === 'ger-correct') {
     // Queue to serialize context access
     requestQueue = requestQueue.then(handleMessage, handleMessage)
   } else {

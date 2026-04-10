@@ -139,6 +139,43 @@ export abstract class LlamaWorkerTranslator implements TranslatorEngine {
   }
 
   /**
+   * SSBD (Self-Speculative Biased Decoding) translation for re-translation (#607).
+   * Uses the previous translation as a speculative draft, verifying tokens in batch.
+   * Only re-generates from the divergence point, significantly speeding up
+   * re-translations when the source text is only slightly changed.
+   *
+   * Falls back to regular translate if SSBD fails in the worker.
+   *
+   * @param text - New source text to translate
+   * @param previousOutput - Previous translation to use as speculative draft
+   * @param from - Source language
+   * @param to - Target language
+   * @param context - Translation context (glossary, previous segments)
+   */
+  async translateSSBD(
+    text: string,
+    previousOutput: string,
+    from: Language,
+    to: Language,
+    context?: TranslateContext
+  ): Promise<string> {
+    if (!text.trim()) return previousOutput || ''
+    if (from === to) return text
+    if (!this.initialized) {
+      throw new Error(`[${this.id}-worker] Not initialized`)
+    }
+
+    const t0 = performance.now()
+    const result = await workerPool.sendRequest(
+      { type: 'translate-ssbd', text, previousOutput, from, to, context },
+      'translate-ssbd'
+    )
+    const ms = performance.now() - t0
+    this.log.info(`ssbd ${from}→${to} inputLen=${text.length} outputLen=${result.length} time=${ms.toFixed(0)}ms`)
+    return result
+  }
+
+  /**
    * SimulMT translation with persistent KV cache session (#550).
    * Uses a multi-turn conversational format where the system prompt
    * and prior context are cached in KV, reducing latency for
