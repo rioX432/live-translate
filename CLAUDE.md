@@ -2,6 +2,17 @@
 
 Strictly follow the rules in [AGENTS.md](./AGENTS.md).
 
+## Core Values
+
+1. **完全オフラインで動作する翻訳** — クラウド不要、プライバシー完全保証。ネット環境を気にせずどこでも使える
+2. **リアルタイム性の極限追求** — 発話から翻訳表示までの遅延を最小化。会話の流れを止めない即時翻訳
+
+## Won't Do
+- **会議サマリー機能** — 翻訳オーバーレイの責務外。翻訳精度とリアルタイム性に集中
+- **翻訳エンジンの際限ない追加** — 最適なエンジンを厳選して提供。ユーザーにエンジン選択の複雑さを見せない。簡単な設定で即開始できることが優先
+- **オンラインAPI翻訳エンジン（Google/DeepL/Gemini等）** — Core Value①オフラインに反する
+- **エンタープライズ機能（MDM/管理者ロック/使用量分析）** — 個人向けツール。企業向け機能は範囲外
+
 ## Think Twice
 
 Before acting, always pause and reconsider. Re-read the requirements, re-check your assumptions, and verify your approach is correct before writing any code.
