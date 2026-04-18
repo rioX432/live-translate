@@ -69,7 +69,8 @@ export function UpdateStatus(): React.JSX.Element {
               color: '#e2e8f0',
               border: 'none',
               borderRadius: '6px',
-              cursor: 'pointer'
+              cursor: 'pointer',
+              minHeight: '44px'
             }}
           >
             Check for Updates
@@ -178,7 +179,8 @@ export function UpdateStatus(): React.JSX.Element {
                 color: '#e2e8f0',
                 border: 'none',
                 borderRadius: '6px',
-                cursor: 'pointer'
+                cursor: 'pointer',
+                minHeight: '44px'
               }}
             >
               Retry

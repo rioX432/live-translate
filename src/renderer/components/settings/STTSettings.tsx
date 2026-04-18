@@ -32,7 +32,7 @@ export function STTSettings({
   const showKotobaWhisper = platform === 'darwin' && (sourceLanguage === 'ja' || sourceLanguage === 'auto')
 
   return (
-    <Section label="Speech Recognition">
+    <Section label="Speech Recognition" helpText="Choose a speech recognition engine. Whisper Local is recommended for most users.">
       <select
         value={sttEngine}
         onChange={(e) => onSttEngineChange(e.target.value as SttEngineType)}

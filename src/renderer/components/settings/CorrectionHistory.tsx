@@ -38,6 +38,7 @@ export function CorrectionHistory(): React.JSX.Element {
   }, [isEditMode])
 
   const handleClearHistory = useCallback(() => {
+    if (!window.confirm('Clear all corrections? This cannot be undone.')) return
     window.api.clearCorrectionHistory?.().then(() => {
       setHistory([])
     }).catch((err: unknown) => {
@@ -139,5 +140,6 @@ const clearButtonStyle: React.CSSProperties = {
   borderRadius: '4px',
   padding: '6px 12px',
   fontSize: '11px',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  minHeight: '44px'
 }

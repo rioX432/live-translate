@@ -8,6 +8,12 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=Noto+Sans:wght@400;600;700&family=Noto+Sans+JP:wght@400;600;700&display=swap" rel="stylesheet" />
     <style>
+      html, body, #root {
+        height: 100%;
+      }
+      button:hover:not(:disabled) {
+        filter: brightness(1.2);
+      }
       select:focus-visible, input:focus-visible, button:focus-visible {
         outline: 2px solid #60a5fa;
         outline-offset: 2px;

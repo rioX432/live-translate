@@ -98,7 +98,7 @@ export function AccessibilitySettings({
         </div>
 
         {(letterSpacing > 0 || wordSpacing > 0) && (
-          <div style={{ fontSize: '11px', color: '#64748b' }}>
+          <div style={{ fontSize: '11px', color: '#94a3b8' }}>
             WCAG 1.4.12 recommends: letter 0.12em, word 0.16em
           </div>
         )}

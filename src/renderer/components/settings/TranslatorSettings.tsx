@@ -1,7 +1,7 @@
 import React from 'react'
 import { GlossarySettings } from './GlossarySettings'
 import { Section } from './Section'
-import { API_ENGINE_MODES, LLM_ENGINE_MODES, inputStyle, radioLabelStyle, selectStyle } from './shared'
+import { API_ENGINE_MODES, LLM_ENGINE_MODES, disclosureArrowStyle, disclosureToggleStyle, inputStyle, radioLabelStyle, selectStyle } from './shared'
 import type { EngineMode } from './shared'
 
 interface TranslatorSettingsProps {
@@ -91,7 +91,9 @@ export function TranslatorSettings({
 
   return (
     <>
-      <Section label="Translation Engine" role="radiogroup">
+      <Section label="Translation Engine" helpText="HY-MT 1.5 is recommended for most users. Quality engines need more memory but produce better translations.">
+        <fieldset style={{ border: 'none', margin: 0, padding: 0 }}>
+        <legend style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Translation Engine</legend>
         <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
           Offline
         </div>
@@ -121,6 +123,9 @@ export function TranslatorSettings({
             <div style={{ fontSize: '12px', color: '#94a3b8' }}>350M params, ~230MB — GPT-4o-class quality at minimal cost</div>
           </div>
         </label>
+        <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '8px', marginBottom: '4px', paddingTop: '8px', borderTop: '1px solid #1e293b' }}>
+          Quality
+        </div>
         <label style={radioLabelStyle}>
           <input
             type="radio"
@@ -147,6 +152,9 @@ export function TranslatorSettings({
             <div style={{ fontSize: '12px', color: '#94a3b8' }}>WMT25 winner, 33 languages, ~4GB — slower but higher quality</div>
           </div>
         </label>
+        <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '8px', marginBottom: '4px', paddingTop: '8px', borderTop: '1px solid #1e293b' }}>
+          Other
+        </div>
         {platform === 'darwin' && (
           <label style={radioLabelStyle}>
             <input
@@ -304,6 +312,11 @@ export function TranslatorSettings({
                     style={{ width: '100%' }}
                   />
                 </div>
+                {adaptiveRoutingShortThreshold >= adaptiveRoutingLongThreshold && (
+                  <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '4px' }}>
+                    Warning: thresholds overlap — all text will use the fast engine only
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -314,22 +327,9 @@ export function TranslatorSettings({
           <button
             onClick={() => onShowApiOptionsChange(!showApiOptions)}
             aria-expanded={showApiOptions}
-            style={{
-              background: 'transparent',
-              border: 'none',
-              color: '#cbd5e1',
-              fontSize: '11px',
-              fontWeight: 600,
-              textTransform: 'uppercase',
-              letterSpacing: '0.05em',
-              cursor: 'pointer',
-              padding: '4px 0',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
+            style={disclosureToggleStyle}
           >
-            <span style={{ transform: showApiOptions ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', fontSize: '10px' }}>
+            <span style={disclosureArrowStyle(showApiOptions)}>
               ▶
             </span>
             API Translation (requires internet)
@@ -390,6 +390,7 @@ export function TranslatorSettings({
                       value={apiKey}
                       onChange={(e) => onApiKeyChange(e.target.value)}
                       placeholder="Google Cloud Translation key"
+                      aria-label="Google Cloud Translation API key"
                       style={inputStyle}
                       disabled={disabled}
                     />
@@ -400,6 +401,7 @@ export function TranslatorSettings({
                       value={deeplApiKey}
                       onChange={(e) => onDeeplApiKeyChange(e.target.value)}
                       placeholder="DeepL API key"
+                      aria-label="DeepL API key"
                       style={inputStyle}
                       disabled={disabled}
                     />
@@ -410,6 +412,7 @@ export function TranslatorSettings({
                       value={geminiApiKey}
                       onChange={(e) => onGeminiApiKeyChange(e.target.value)}
                       placeholder="Gemini API key"
+                      aria-label="Gemini API key"
                       style={inputStyle}
                       disabled={disabled}
                     />
@@ -421,6 +424,7 @@ export function TranslatorSettings({
                         value={microsoftApiKey}
                         onChange={(e) => onMicrosoftApiKeyChange(e.target.value)}
                         placeholder="Azure Microsoft Translator key"
+                        aria-label="Azure Microsoft Translator key"
                         style={inputStyle}
                         disabled={disabled}
                       />
@@ -429,6 +433,7 @@ export function TranslatorSettings({
                         value={microsoftRegion}
                         onChange={(e) => onMicrosoftRegionChange(e.target.value)}
                         placeholder="Azure region (e.g. eastus)"
+                        aria-label="Azure region"
                         style={inputStyle}
                         disabled={disabled}
                       />
@@ -439,6 +444,7 @@ export function TranslatorSettings({
             </div>
           )}
         </div>
+        </fieldset>
       </Section>
 
       <GlossarySettings

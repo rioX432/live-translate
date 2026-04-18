@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { Section } from './Section'
-import { selectStyle, sliderLabelStyle } from './shared'
+import { selectStyle, sliderLabelStyle, errorContainerStyle, warningContainerStyle } from './shared'
 
 interface VirtualDevice {
   id: number
@@ -66,7 +66,7 @@ export function VirtualMicSettings({ disabled }: VirtualMicSettingsProps): React
       const e = err instanceof Error ? err : new Error(String(err))
       console.warn('[virtual-mic] Failed to enable:', e.message)
       setEnabled(false)
-      setError('Failed to enable virtual mic')
+      setError(`Failed to enable virtual mic: ${e.message}`)
     } finally {
       setLoading(false)
     }
@@ -83,7 +83,7 @@ export function VirtualMicSettings({ disabled }: VirtualMicSettingsProps): React
     } catch (err: unknown) {
       const e = err instanceof Error ? err : new Error(String(err))
       console.warn('[virtual-mic] Failed to disable:', e.message)
-      setError('Failed to disable virtual mic')
+      setError(`Failed to disable virtual mic: ${e.message}`)
     } finally {
       setLoading(false)
     }
@@ -112,7 +112,7 @@ export function VirtualMicSettings({ disabled }: VirtualMicSettingsProps): React
   const noDevices = devices.length === 0
 
   return (
-    <Section label="Virtual Microphone (Meeting Sharing)">
+    <Section label="Virtual Microphone (Meeting Sharing)" helpText="Routes translated speech to a virtual audio device. Requires BlackHole (free) to be installed.">
       {/* Enable/disable toggle */}
       <label style={{
         display: 'flex',
@@ -142,14 +142,7 @@ export function VirtualMicSettings({ disabled }: VirtualMicSettingsProps): React
 
       {/* Error message */}
       {error && (
-        <div style={{
-          fontSize: '12px',
-          color: '#f87171',
-          marginBottom: '8px',
-          padding: '6px 8px',
-          background: '#1e1215',
-          borderRadius: '4px'
-        }}>
+        <div role="alert" style={errorContainerStyle}>
           {error}
         </div>
       )}
@@ -197,21 +190,14 @@ export function VirtualMicSettings({ disabled }: VirtualMicSettingsProps): React
 
       {/* No devices warning */}
       {noDevices && (
-        <div style={{
-          fontSize: '12px',
-          color: '#f59e0b',
-          padding: '8px',
-          background: '#1a1500',
-          borderRadius: '6px',
-          marginBottom: '6px'
-        }}>
+        <div style={warningContainerStyle}>
           No virtual audio device detected. Install{' '}
-          <span style={{ color: '#93c5fd', textDecoration: 'underline', cursor: 'pointer' }}
-            onClick={() => {
-              // Open BlackHole download page in default browser
-              window.open('https://existential.audio/blackhole/', '_blank')
-            }}
-          >BlackHole</span>{' '}
+          <a
+            href="https://existential.audio/blackhole/"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ color: '#93c5fd', textDecoration: 'underline' }}
+          >BlackHole</a>{' '}
           (free, open-source) to enable this feature.
         </div>
       )}
