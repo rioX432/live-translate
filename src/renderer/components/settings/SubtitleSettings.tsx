@@ -78,6 +78,7 @@ export function SubtitleSettings({
                 type="color"
                 value={sourceColor}
                 onChange={(e) => onSourceColorChange(e.target.value)}
+                aria-label="Source text color"
                 style={colorInputStyle}
               />
             </div>
@@ -87,6 +88,7 @@ export function SubtitleSettings({
                 type="color"
                 value={translatedColor}
                 onChange={(e) => onTranslatedColorChange(e.target.value)}
+                aria-label="Translated text color"
                 style={colorInputStyle}
               />
             </div>
@@ -108,6 +110,7 @@ export function SubtitleSettings({
             <select
               value={position}
               onChange={(e) => onPositionChange(e.target.value as SubtitlePositionType)}
+              aria-label="Subtitle position"
               style={selectStyle}
             >
               <option value="bottom">Bottom</option>

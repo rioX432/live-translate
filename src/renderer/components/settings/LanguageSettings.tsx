@@ -27,7 +27,13 @@ export function LanguageSettings({
           </div>
           <select
             value={sourceLanguage}
-            onChange={(e) => onSourceLanguageChange(e.target.value as SourceLanguage)}
+            onChange={(e) => {
+              const newSource = e.target.value as SourceLanguage
+              onSourceLanguageChange(newSource)
+              if (newSource !== 'auto' && newSource === targetLanguage) {
+                onTargetLanguageChange(newSource === 'en' ? 'ja' : 'en')
+              }
+            }}
             style={selectStyle}
             disabled={disabled}
             aria-label="Source language"
@@ -44,7 +50,13 @@ export function LanguageSettings({
           </div>
           <select
             value={targetLanguage}
-            onChange={(e) => onTargetLanguageChange(e.target.value as Language)}
+            onChange={(e) => {
+              const newTarget = e.target.value as Language
+              onTargetLanguageChange(newTarget)
+              if (sourceLanguage !== 'auto' && sourceLanguage === newTarget) {
+                onSourceLanguageChange(newTarget === 'en' ? 'ja' : 'en')
+              }
+            }}
             style={selectStyle}
             disabled={disabled}
             aria-label="Target language"
@@ -55,11 +67,6 @@ export function LanguageSettings({
           </select>
         </div>
       </div>
-      {sourceLanguage !== 'auto' && sourceLanguage === targetLanguage && (
-        <div style={{ marginTop: '6px', fontSize: '11px', color: '#f59e0b' }}>
-          Source and target languages are the same. Translation will fall back to ja/en swap.
-        </div>
-      )}
     </Section>
   )
 }

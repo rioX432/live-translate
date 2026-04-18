@@ -1,4 +1,13 @@
 import { useState } from 'react'
+
+function friendlyError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err)
+  if (msg.includes('timed out')) return 'Failed to start — model loading took too long. Try restarting the app.'
+  if (msg.includes('Model not found') || msg.includes('model not found')) return 'Model not found. It may need to be downloaded first.'
+  if (msg.includes('permission')) return 'Microphone permission denied. Check System Preferences.'
+  if (msg.includes('ENOENT') || msg.includes('No such file')) return 'Required file not found. Try reinstalling the app.'
+  return `Unexpected error: ${msg}`
+}
 import type { UseAudioCaptureReturn } from './useAudioCapture'
 import type { UseNoiseSuppressionReturn } from './useNoiseSuppression'
 import { useEngineSettings } from './useEngineSettings'
@@ -218,7 +227,7 @@ export function useSettingsState(): SettingsState {
       session.startSessionTimer()
       session.setStatus('Listening...')
     } catch (err) {
-      session.setStatus(`Error: ${err}`)
+      session.setStatus(friendlyError(err))
       session.setIsRunning(false)
       session.stopSessionTimer()
     } finally {
@@ -237,7 +246,8 @@ export function useSettingsState(): SettingsState {
         session.setLastTranscriptPath(result.logPath)
       }
     } catch (err) {
-      session.setStatus(`Stop error: ${err}`)
+      const msg = err instanceof Error ? err.message : String(err)
+      session.setStatus(`Stop error: ${msg}`)
     } finally {
       session.setIsRunning(false)
     }
@@ -261,7 +271,8 @@ export function useSettingsState(): SettingsState {
       session.startSessionTimer()
       session.setStatus('Listening... (resumed)')
     } catch (err) {
-      session.setStatus(`Resume failed: ${err}`)
+      const msg = err instanceof Error ? err.message : String(err)
+      session.setStatus(`Resume failed: ${msg}`)
       session.setIsRunning(false)
       session.audio.stop()
       session.stopSessionTimer()

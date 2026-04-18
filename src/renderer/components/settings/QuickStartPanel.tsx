@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react'
 import {
   LANGUAGE_LABELS,
   selectStyle,
-  buttonStyle
+  buttonStyle,
+  errorContainerStyle
 } from './shared'
 import type { Language, SourceLanguage } from './shared'
 
@@ -82,7 +83,10 @@ export function QuickStartPanel({ onSetupComplete }: QuickStartPanelProps): Reac
           <p style={subtitleStyle}>Detecting your hardware...</p>
         </div>
         <div style={spinnerContainerStyle}>
-          <div style={spinnerStyle} />
+          <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
+          <div role="status" aria-label="Loading">
+            <div style={spinnerStyle} />
+          </div>
         </div>
       </div>
     )
@@ -98,7 +102,7 @@ export function QuickStartPanel({ onSetupComplete }: QuickStartPanelProps): Reac
       </div>
 
       {error && (
-        <div style={errorStyle}>{error}</div>
+        <div role="alert" style={errorContainerStyle}>{error}</div>
       )}
 
       {/* Hardware info */}
@@ -126,7 +130,7 @@ export function QuickStartPanel({ onSetupComplete }: QuickStartPanelProps): Reac
       {/* Recommendation */}
       {recommendation && (
         <div style={infoCardStyle}>
-          <div style={{ fontSize: '11px', color: '#64748b', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: '8px', fontWeight: 600 }}>
+          <div style={{ fontSize: '11px', color: '#94a3b8', textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: '8px', fontWeight: 600 }}>
             Recommended Configuration
           </div>
           <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px', lineHeight: '1.5' }}>
@@ -146,7 +150,7 @@ export function QuickStartPanel({ onSetupComplete }: QuickStartPanelProps): Reac
             </div>
           )}
           {recommendation.needsDownload && recommendation.fallbackEngine && (
-            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '6px' }}>
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px' }}>
               Translation will start immediately using a lightweight fallback while models download.
             </div>
           )}
@@ -171,7 +175,7 @@ export function QuickStartPanel({ onSetupComplete }: QuickStartPanelProps): Reac
               ))}
             </select>
           </div>
-          <div style={{ flex: 0, display: 'flex', alignItems: 'flex-end', paddingBottom: '8px', color: '#64748b' }}>
+          <div style={{ flex: 0, display: 'flex', alignItems: 'flex-end', paddingBottom: '8px', color: '#94a3b8' }}>
             →
           </div>
           <div style={{ flex: 1 }}>
@@ -285,7 +289,7 @@ const sectionLabelStyle: React.CSSProperties = {
 const fieldLabelStyle: React.CSSProperties = {
   display: 'block',
   fontSize: '11px',
-  color: '#64748b',
+  color: '#94a3b8',
   marginBottom: '4px'
 }
 
@@ -317,11 +321,3 @@ const spinnerStyle: React.CSSProperties = {
   animation: 'spin 0.8s linear infinite'
 }
 
-const errorStyle: React.CSSProperties = {
-  background: '#7f1d1d',
-  color: '#fca5a5',
-  padding: '10px 12px',
-  borderRadius: '6px',
-  fontSize: '12px',
-  marginBottom: '16px'
-}

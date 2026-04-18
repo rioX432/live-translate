@@ -227,7 +227,7 @@ export function ModelDownloadProgress({
             aria-valuemax={100}
           />
         </div>
-        <div style={{ fontSize: '11px', color: '#64748b' }}>
+        <div style={{ fontSize: '11px', color: '#94a3b8' }}>
           {progress}% complete
         </div>
       </div>

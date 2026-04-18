@@ -95,6 +95,9 @@ export function AudioSettings({ audio, disabled, noiseSuppressionEnabled, onNois
           }}
         />
       </div>
+      <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+        Input level: {Math.round(audio.volume * 100)}%
+      </div>
       {/* #313: Noise suppression toggle — only relevant when microphone is active */}
       {showMicSelector && (
         <label style={{
@@ -138,7 +141,7 @@ export function AudioSettings({ audio, disabled, noiseSuppressionEnabled, onNois
         </div>
       </div>
       {audio.permissionError && (
-        <div style={{ marginTop: '6px', fontSize: '12px', color: '#ef4444' }}>
+        <div role="alert" style={{ marginTop: '6px', fontSize: '12px', color: '#ef4444' }}>
           {audio.permissionError}
         </div>
       )}

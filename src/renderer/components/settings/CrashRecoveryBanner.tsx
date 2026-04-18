@@ -34,7 +34,8 @@ export function CrashRecoveryBanner({ isStarting, onResume, onDismiss }: CrashRe
             borderRadius: '6px',
             cursor: 'pointer',
             color: '#fff',
-            background: '#16a34a'
+            background: '#16a34a',
+            minHeight: '44px'
           }}
         >
           Resume
@@ -49,7 +50,8 @@ export function CrashRecoveryBanner({ isStarting, onResume, onDismiss }: CrashRe
             borderRadius: '6px',
             cursor: 'pointer',
             color: '#94a3b8',
-            background: 'transparent'
+            background: 'transparent',
+            minHeight: '44px'
           }}
         >
           Dismiss

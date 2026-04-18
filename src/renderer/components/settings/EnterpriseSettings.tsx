@@ -111,8 +111,9 @@ export function EnterpriseSettings({ disabled }: Props): React.JSX.Element {
       {/* Usage Analytics */}
       <Section label="Usage Analytics">
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-          <label style={{ fontSize: '12px', color: '#94a3b8' }}>Period:</label>
+          <label htmlFor="usage-period-select" style={{ fontSize: '12px', color: '#94a3b8' }}>Period:</label>
           <select
+            id="usage-period-select"
             style={{ ...selectStyle, width: 'auto', padding: '4px 8px', fontSize: '12px' }}
             value={usagePeriod}
             onChange={(e) => setUsagePeriod(Number(e.target.value))}

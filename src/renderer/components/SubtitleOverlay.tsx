@@ -528,7 +528,6 @@ function SubtitleOverlay(): React.JSX.Element {
             lineHeight: 1.5,
             textShadow: effectiveTextShadow,
             overflow: 'hidden',
-            textOverflow: 'ellipsis',
             wordBreak: 'break-word',
             ...spacingStyle
           }}
@@ -543,7 +542,15 @@ function SubtitleOverlay(): React.JSX.Element {
         {translatedText && !isEditing && (
           <div
             aria-live="assertive"
+            role={isEditMode ? 'button' : undefined}
+            tabIndex={isEditMode ? 0 : undefined}
             onClick={handleTranslationClick}
+            onKeyDown={isEditMode ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                handleTranslationClick()
+              }
+            } : undefined}
             style={{
               color: effectiveTranslatedColor,
               fontSize: `${translatedFontSize}px`,
@@ -592,7 +599,7 @@ function SubtitleOverlay(): React.JSX.Element {
                 border: `1px solid ${effectiveTranslatedColor}`,
                 borderRadius: '4px',
                 padding: '2px 6px',
-                outline: 'none',
+                outline: '2px solid transparent',
                 textShadow: effectiveTextShadow
               }}
             />

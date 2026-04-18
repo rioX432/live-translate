@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { Section } from './Section'
-import { inputStyle } from './shared'
+import { disclosureArrowStyle, disclosureToggleStyle, inputStyle } from './shared'
 
 interface GlossarySettingsProps {
   disabled: boolean
@@ -19,7 +19,8 @@ const glossaryButtonStyle: React.CSSProperties = {
   border: 'none',
   borderRadius: '4px',
   cursor: 'pointer',
-  whiteSpace: 'nowrap'
+  whiteSpace: 'nowrap',
+  minHeight: '44px'
 }
 
 export function GlossarySettings({
@@ -119,7 +120,7 @@ export function GlossarySettings({
               </button>
             </>
           )}
-          <span style={{ fontSize: '11px', color: '#64748b', alignSelf: 'center' }}>
+          <span style={{ fontSize: '11px', color: '#94a3b8', alignSelf: 'center' }}>
             {glossaryTerms.length} terms
           </span>
         </div>
@@ -127,7 +128,7 @@ export function GlossarySettings({
           <div
             style={{
               fontSize: '12px',
-              color: '#64748b',
+              color: '#94a3b8',
               textAlign: 'center',
               padding: '16px 0',
               borderBottom: '1px solid #1e293b'
@@ -162,7 +163,7 @@ export function GlossarySettings({
                 >
                   {term.source}
                 </span>
-                <span style={{ color: '#64748b', flexShrink: 0 }}>&rarr;</span>
+                <span style={{ color: '#94a3b8', flexShrink: 0 }}>&rarr;</span>
                 <span
                   style={{
                     flex: 1,
@@ -206,6 +207,7 @@ export function GlossarySettings({
             value={newGlossarySource}
             onChange={(e) => setNewGlossarySource(e.target.value)}
             placeholder="Source term"
+            aria-label="Source term"
             style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
             disabled={disabled}
           />
@@ -214,6 +216,7 @@ export function GlossarySettings({
             value={newGlossaryTarget}
             onChange={(e) => setNewGlossaryTarget(e.target.value)}
             placeholder="Translation"
+            aria-label="Translation"
             style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
             disabled={disabled}
           />
@@ -248,19 +251,9 @@ export function GlossarySettings({
         <button
           onClick={() => setShowOrgGlossary(!showOrgGlossary)}
           aria-expanded={showOrgGlossary}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: '#cbd5e1',
-            fontSize: '12px',
-            cursor: 'pointer',
-            padding: '4px 0',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px'
-          }}
+          style={{ ...disclosureToggleStyle, fontSize: '12px' }}
         >
-          <span style={{ transform: showOrgGlossary ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s', fontSize: '10px' }}>
+          <span style={disclosureArrowStyle(showOrgGlossary)}>
             &#9654;
           </span>
           Shared team glossary — org terms override personal when conflicts
@@ -282,6 +275,7 @@ export function GlossarySettings({
                   </button>
                   <button
                     onClick={() => {
+                      if (!window.confirm('Clear organization glossary? This cannot be undone.')) return
                       onOrgGlossaryTermsChange([])
                       window.api.saveOrgGlossary([])
                       setGlossaryStatus('Organization glossary cleared')
@@ -293,13 +287,13 @@ export function GlossarySettings({
                   </button>
                 </>
               )}
-              <span style={{ fontSize: '11px', color: '#64748b', alignSelf: 'center' }}>
+              <span style={{ fontSize: '11px', color: '#94a3b8', alignSelf: 'center' }}>
                 {orgGlossaryTerms.length} terms
               </span>
             </div>
 
             {orgGlossaryTerms.length === 0 ? (
-              <div style={{ fontSize: '12px', color: '#64748b', textAlign: 'center', padding: '12px 0' }}>
+              <div style={{ fontSize: '12px', color: '#94a3b8', textAlign: 'center', padding: '12px 0' }}>
                 No organization glossary imported. Import a JSON or CSV file shared by your team.
               </div>
             ) : (
@@ -319,7 +313,7 @@ export function GlossarySettings({
                     <span style={{ flex: 1, minWidth: 0, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={term.source}>
                       {term.source}
                     </span>
-                    <span style={{ color: '#64748b', flexShrink: 0 }}>&rarr;</span>
+                    <span style={{ color: '#94a3b8', flexShrink: 0 }}>&rarr;</span>
                     <span style={{ flex: 1, minWidth: 0, color: '#a78bfa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={term.target}>
                       {term.target}
                     </span>
@@ -337,13 +331,13 @@ export function GlossarySettings({
                   <div key={idx} style={{ fontSize: '11px', color: '#94a3b8', padding: '2px 0' }}>
                     <span style={{ color: '#e2e8f0' }}>{c.source}</span>
                     {' '}
-                    <span style={{ textDecoration: 'line-through', color: '#64748b' }}>{c.personalTarget}</span>
+                    <span style={{ textDecoration: 'line-through', color: '#94a3b8' }}>{c.personalTarget}</span>
                     {' '}
                     <span style={{ color: '#a78bfa' }}>{c.orgTarget}</span>
                   </div>
                 ))}
                 {conflicts.length > 5 && (
-                  <div style={{ fontSize: '11px', color: '#64748b' }}>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
                     ...and {conflicts.length - 5} more
                   </div>
                 )}

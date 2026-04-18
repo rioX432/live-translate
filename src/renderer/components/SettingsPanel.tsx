@@ -75,6 +75,12 @@ function SettingsPanel(): React.JSX.Element {
     <div style={containerStyle}>
       <h1 style={titleStyle}>live-translate</h1>
 
+      {disabled && (
+        <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '12px', padding: '8px 12px', background: '#1e293b', borderRadius: '6px' }}>
+          Settings are locked while translation is active. Stop the session to make changes.
+        </div>
+      )}
+
       {/* Crash recovery banner */}
       {s.crashedSession && !s.isRunning && (
         <CrashRecoveryBanner
@@ -124,6 +130,7 @@ function SettingsPanel(): React.JSX.Element {
       <button
         onClick={() => s.setShowAdvanced(!s.showAdvanced)}
         aria-expanded={s.showAdvanced}
+        aria-controls="advanced-settings-content"
         style={advancedToggleStyle}
       >
         <span>Advanced Settings</span>
@@ -134,7 +141,7 @@ function SettingsPanel(): React.JSX.Element {
 
       {/* Advanced Settings content */}
       {s.showAdvanced && (
-        <div style={{ marginBottom: '16px' }}>
+        <div id="advanced-settings-content" style={{ marginBottom: '16px' }}>
           <LanguageSettings
             sourceLanguage={s.sourceLanguage}
             onSourceLanguageChange={s.setSourceLanguage}
@@ -279,7 +286,7 @@ const containerStyle: React.CSSProperties = {
   fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   color: '#e2e8f0',
   background: '#0f172a',
-  minHeight: '100vh',
+  minHeight: '100%',
   fontSize: '0.875rem'
 }
 
