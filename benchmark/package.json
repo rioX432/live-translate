@@ -29,9 +29,14 @@
     "stt:moonshine": "tsx --expose-gc run.ts --stt --engines moonshine",
     "stt:sensevoice": "tsx --expose-gc run.ts --stt --engines sensevoice",
     "stt:qwen": "tsx --expose-gc run.ts --stt --engines qwen-asr",
+    "stt:qwen3-swift-06b": "tsx --expose-gc run.ts --stt --engines qwen3-asr-swift-06b",
+    "stt:qwen3-swift-17b": "tsx --expose-gc run.ts --stt --engines qwen3-asr-swift-17b",
+    "stt:qwen3-native-06b": "tsx --expose-gc run.ts --stt --engines qwen3-asr-native-06b",
+    "stt:qwen3-native-17b": "tsx --expose-gc run.ts --stt --engines qwen3-asr-native-17b",
     "stt:sherpa": "tsx --expose-gc run.ts --stt --engines sherpa-onnx",
     "stt:sherpa-sensevoice": "tsx --expose-gc run.ts --stt --engines sherpa-sensevoice",
-    "stt:all": "tsx --expose-gc run.ts --stt --engines whisper-local,mlx-whisper,lightning-whisper,moonshine,sensevoice,qwen-asr,sherpa-onnx,sherpa-sensevoice",
+    "stt:promotion-candidates": "tsx --expose-gc run.ts --stt --engines whisper-local,mlx-whisper,sherpa-sensevoice,qwen3-asr-swift-06b,qwen3-asr-native-06b",
+    "stt:all": "tsx --expose-gc run.ts --stt --engines whisper-local,mlx-whisper,lightning-whisper,moonshine,sensevoice,qwen-asr,qwen3-asr-swift-06b,qwen3-asr-swift-17b,qwen3-asr-native-06b,qwen3-asr-native-17b,sherpa-onnx,sherpa-sensevoice",
     "stt:generate-testset": "bash scripts/generate-stt-testset.sh"
   },
   "dependencies": {

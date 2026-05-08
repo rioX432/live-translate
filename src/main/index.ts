@@ -83,7 +83,8 @@ async function initPipeline(): Promise<void> {
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
     modelKey: (store.get('sherpaOnnxModel') as string) || undefined
   }))
-  // Experimental: SenseVoice Small via sherpa-onnx — ultra-fast CJK STT, no Python (#554)
+  // SenseVoice Small via sherpa-onnx — ultra-fast CJK STT, no Python (#554, #692)
+  // Primary candidate: ~70ms for 10s audio, 229MB int8 model, pending benchmark validation
   ctx.pipeline.registerSTT('sensevoice-sherpa', () => new SenseVoiceSherpaEngine({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
   }))

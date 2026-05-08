@@ -62,8 +62,11 @@ function buildAccuracyBreakdown(summaries: STTEngineSummary[]): string {
 }
 
 function buildGoNoGoTable(summaries: STTEngineSummary[]): string {
-  const LATENCY_THRESHOLD = 3000 // 3s for STT (longer than translation)
-  const ERROR_RATE_THRESHOLD = 0.25 // 25% WER/CER
+  // Promotion criteria from issue #692:
+  //   JA CER < 15%, EN WER < 10%, latency < 3s, memory < 4GB
+  const LATENCY_THRESHOLD = 3000 // 3s for STT
+  const JA_CER_THRESHOLD = 0.15 // 15% CER for Japanese
+  const EN_WER_THRESHOLD = 0.10 // 10% WER for English
   const MEMORY_THRESHOLD_MB = 4 * 1024
 
   // Aggregate per-engine across languages
@@ -74,30 +77,35 @@ function buildGoNoGoTable(summaries: STTEngineSummary[]): string {
 
     // Use "all" language if available, otherwise average across languages
     const allRun = runs.find((r) => r.language === 'all')
+    const jaRun = runs.find((r) => r.language === 'ja')
+    const enRun = runs.find((r) => r.language === 'en')
+
     const avgLatency = allRun
       ? allRun.latency.avg
       : runs.reduce((acc, r) => acc + r.latency.avg, 0) / runs.length
-    const avgErrorRate = allRun
-      ? allRun.accuracy.errorRate
-      : runs.reduce((acc, r) => acc + r.accuracy.errorRate, 0) / runs.length
     const peakRss = Math.max(...runs.map((r) => r.peakRssMB))
 
+    const jaCer = jaRun?.accuracy.errorRate ?? (allRun?.accuracy.errorRate ?? 1)
+    const enWer = enRun?.accuracy.errorRate ?? (allRun?.accuracy.errorRate ?? 1)
+
     const latencyOk = avgLatency < LATENCY_THRESHOLD
-    const accuracyOk = avgErrorRate < ERROR_RATE_THRESHOLD
+    const jaCerOk = jaCer < JA_CER_THRESHOLD
+    const enWerOk = enWer < EN_WER_THRESHOLD
     const memoryOk = peakRss < MEMORY_THRESHOLD_MB
 
-    return { id, label, avgLatency, avgErrorRate, peakRss, latencyOk, accuracyOk, memoryOk }
+    return { id, label, avgLatency, jaCer, enWer, peakRss, latencyOk, jaCerOk, enWerOk, memoryOk }
   })
 
   const header = `| Criteria | ${engineMetrics.map((e) => e.label).join(' | ')} |`
   const sep = `|---|${engineMetrics.map(() => '---').join('|')}|`
 
   const latencyRow = `| Latency (<3s) | ${engineMetrics.map((e) => (e.latencyOk ? `Yes (${fmt(e.avgLatency)}ms)` : `No (${fmt(e.avgLatency)}ms)`)).join(' | ')} |`
-  const accuracyRow = `| Error rate (<25%) | ${engineMetrics.map((e) => (e.accuracyOk ? `Yes (${pct(e.avgErrorRate)})` : `No (${pct(e.avgErrorRate)})`)).join(' | ')} |`
+  const jaCerRow = `| JA CER (<15%) | ${engineMetrics.map((e) => (e.jaCerOk ? `Yes (${pct(e.jaCer)})` : `No (${pct(e.jaCer)})`)).join(' | ')} |`
+  const enWerRow = `| EN WER (<10%) | ${engineMetrics.map((e) => (e.enWerOk ? `Yes (${pct(e.enWer)})` : `No (${pct(e.enWer)})`)).join(' | ')} |`
   const memoryRow = `| Memory (<4GB) | ${engineMetrics.map((e) => (e.memoryOk ? `Yes (${fmt(e.peakRss / 1024, 2)}GB)` : `No (${fmt(e.peakRss / 1024, 2)}GB)`)).join(' | ')} |`
-  const recRow = `| Recommendation | ${engineMetrics.map((e) => (e.latencyOk && e.accuracyOk && e.memoryOk ? 'Go' : 'No-Go')).join(' | ')} |`
+  const recRow = `| Recommendation | ${engineMetrics.map((e) => (e.latencyOk && e.jaCerOk && e.enWerOk && e.memoryOk ? 'Promote' : 'No-Go')).join(' | ')} |`
 
-  return [header, sep, latencyRow, accuracyRow, memoryRow, recRow].join('\n')
+  return [header, sep, latencyRow, jaCerRow, enWerRow, memoryRow, recRow].join('\n')
 }
 
 function buildMarkdown(result: STTBenchmarkResult): string {

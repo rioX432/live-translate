@@ -7,21 +7,23 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 
 ## Current Engine Landscape
 
-### STT Engines (3 primary + 7 experimental)
+### STT Engines (6 primary + 5 experimental)
 
 **Primary (shown in UI):**
 | Engine | File | Notes |
 |--------|------|-------|
 | Apple SpeechTranscriber | `AppleSpeechTranscriberEngine.ts` | macOS 26+ only, zero setup, ANE-native, 2.2x faster than Whisper Turbo |
-| Whisper Local | `WhisperLocalEngine.ts` | Native whisper.cpp, primary default |
+| SenseVoice Small (sherpa-onnx) | `SenseVoiceSherpaEngine.ts` | ~70ms/10s audio, 229MB int8, cross-platform, benchmark pending (#692) |
+| Kotoba-Whisper | `KotobaWhisperEngine.ts` | JA-optimized, JA CER 5.6%, Apple Silicon, JA-only output |
+| Qwen3-ASR 0.6B | `Qwen3ASREngine.ts` | Best JA+EN accuracy (CER 6.8%, WER 1.9%), Apple Silicon, ~2.2s |
 | MLX Whisper | `MlxWhisperEngine.ts` | Apple Silicon, JA CER 8.1%, EN WER 3.8%, 2.9s |
+| Whisper Local | `WhisperLocalEngine.ts` | Native whisper.cpp, cross-platform default |
 
 **Experimental (hidden from UI):**
 - Moonshine Tiny JA (`MoonshineTinyJaEngine.ts`) — ultra-fast draft STT, JA CER 10.1%, 845ms latency
-- Kotoba-Whisper (`KotobaWhisperEngine.ts`) — JA-optimized Whisper variant
 - SpeechSwift (`SpeechSwiftEngine.ts`) — speech-swift CLI bridge
 - Qwen3-ASR Native (`QwenAsrNativeEngine.ts`) — antirez/qwen-asr pure C, cross-platform, under evaluation
-- SenseVoice, Qwen3-ASR, Qwen ASR, Sherpa-ONNX — under evaluation
+- SenseVoice FunASR (`SenseVoiceEngine.ts`), Qwen ASR (`QwenASREngine.ts`), Sherpa-ONNX (`SherpaOnnxEngine.ts`) — under evaluation
 
 **Removed (benchmark failures):**
 - Lightning Whisper MLX — JA CER 162%

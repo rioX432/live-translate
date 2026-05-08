@@ -28,7 +28,7 @@ export const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
 
 export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-hybrid' | 'offline-lfm2' | 'offline-plamo' | 'offline-apple'
 
-export type SttEngineType = 'whisper-local' | 'mlx-whisper' | 'kotoba-whisper' | 'qwen3-asr' | 'apple-speech-transcriber'
+export type SttEngineType = 'whisper-local' | 'mlx-whisper' | 'kotoba-whisper' | 'qwen3-asr' | 'sensevoice-sherpa' | 'apple-speech-transcriber'
 export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo' | 'distil-large-v3' | 'base' | 'small'
 export type SubtitlePositionType = 'top' | 'bottom'
 
@@ -173,6 +173,7 @@ export function getEngineDisplayName(mode: EngineMode): string {
 export function getSttDisplayName(sttEngine: SttEngineType, whisperVariant: WhisperVariantType): string {
   switch (sttEngine) {
     case 'apple-speech-transcriber': return 'Apple Speech (Zero Setup)'
+    case 'sensevoice-sherpa': return 'SenseVoice Small (Ultra-fast, Offline)'
     case 'qwen3-asr': return 'Qwen3-ASR 0.6B (Apple Silicon)'
     case 'kotoba-whisper': return 'Kotoba-Whisper v2.0 (JA-optimized)'
     case 'mlx-whisper': return 'mlx-whisper (Apple Silicon)'
