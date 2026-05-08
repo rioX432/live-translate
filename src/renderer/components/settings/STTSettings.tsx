@@ -46,6 +46,7 @@ export function STTSettings({
         {showKotobaWhisper && (
           <option value="kotoba-whisper">Kotoba-Whisper v2.0 (JA-optimized, Apple Silicon)</option>
         )}
+        <option value="sensevoice-sherpa">SenseVoice Small (Ultra-fast, ~70ms, Offline)</option>
         {platform === 'darwin' && (
           <option value="qwen3-asr">Qwen3-ASR 0.6B (Best accuracy, Apple Silicon)</option>
         )}
@@ -102,6 +103,18 @@ export function STTSettings({
               {' '}Warning: this model only outputs Japanese. Set source language to JA for best results.
             </span>
           )}
+        </div>
+      )}
+      {sttEngine === 'sensevoice-sherpa' && (
+        <div style={{ marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+          SenseVoice Small: non-autoregressive, ~70ms for 10s audio (15x faster than Whisper-Large).
+          229MB int8 model, supports JA/EN/ZH/KO with auto language detection.
+          Requires{' '}
+          <span style={{ fontFamily: 'monospace', fontSize: '10px' }}>sherpa-onnx-node</span>
+          . Model (~229MB) auto-downloads on first use.
+          <div style={{ marginTop: '2px', color: '#22c55e' }}>
+            Benchmark pending — accuracy to be validated against Whisper baselines (#692).
+          </div>
         </div>
       )}
       {sttEngine === 'qwen3-asr' && (

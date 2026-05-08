@@ -43,6 +43,8 @@ const AVAILABLE_STT_ENGINES = [
   'qwen-asr',
   'qwen3-asr-swift-06b',
   'qwen3-asr-swift-17b',
+  'qwen3-asr-native-06b',
+  'qwen3-asr-native-17b',
   'sherpa-onnx',
   'sherpa-sensevoice'
 ] as const
@@ -255,6 +257,14 @@ async function createSTTEngine(id: STTEngineId): Promise<STTBenchmarkEngine> {
     case 'qwen3-asr-swift-17b': {
       const { Qwen3ASRSwiftBench } = await import('./src/stt-engines/qwen3-asr-swift.js')
       return new Qwen3ASRSwiftBench({ variant: '1.7b' })
+    }
+    case 'qwen3-asr-native-06b': {
+      const { Qwen3ASRNativeBench } = await import('./src/stt-engines/qwen3-asr-native.js')
+      return new Qwen3ASRNativeBench({ variant: '0.6b' })
+    }
+    case 'qwen3-asr-native-17b': {
+      const { Qwen3ASRNativeBench } = await import('./src/stt-engines/qwen3-asr-native.js')
+      return new Qwen3ASRNativeBench({ variant: '1.7b' })
     }
     case 'sherpa-onnx': {
       const { SherpaOnnxBench } = await import('./src/stt-engines/sherpa-onnx.js')
