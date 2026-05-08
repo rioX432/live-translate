@@ -171,6 +171,8 @@ function SettingsPanel(): React.JSX.Element {
             gpuInfo={s.gpuInfo}
             slmKvCacheQuant={s.slmKvCacheQuant}
             onSlmKvCacheQuantChange={s.setSlmKvCacheQuant}
+            slmSpeculativeDecoding={s.slmSpeculativeDecoding}
+            onSlmSpeculativeDecodingChange={s.setSlmSpeculativeDecoding}
             simulMtEnabled={s.simulMtEnabled}
             onSimulMtEnabledChange={s.setSimulMtEnabled}
             simulMtWaitK={s.simulMtWaitK}
