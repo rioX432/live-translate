@@ -14,6 +14,8 @@ interface TranslatorSettingsProps {
   // SLM options (for Hunyuan-MT)
   slmKvCacheQuant: boolean
   onSlmKvCacheQuantChange: (v: boolean) => void
+  slmSpeculativeDecoding: boolean
+  onSlmSpeculativeDecodingChange: (v: boolean) => void
   simulMtEnabled: boolean
   onSimulMtEnabledChange: (v: boolean) => void
   simulMtWaitK: number
@@ -57,6 +59,8 @@ export function TranslatorSettings({
   gpuInfo,
   slmKvCacheQuant,
   onSlmKvCacheQuantChange,
+  slmSpeculativeDecoding,
+  onSlmSpeculativeDecodingChange,
   simulMtEnabled,
   onSimulMtEnabledChange,
   simulMtWaitK,
@@ -217,6 +221,25 @@ export function TranslatorSettings({
                 <div style={{ fontSize: '11px', color: '#94a3b8' }}>Reduces VRAM ~50%</div>
               </div>
             </label>
+            {(engineMode === 'offline-hymt15' || engineMode === 'offline-hunyuan-mt') && (
+              <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
+                <input
+                  type="checkbox"
+                  checked={slmSpeculativeDecoding}
+                  onChange={(e) => onSlmSpeculativeDecodingChange(e.target.checked)}
+                  disabled={disabled}
+                />
+                <div>
+                  <div style={{ fontWeight: 500, fontSize: '12px' }}>Speculative decoding (LFM2 draft)</div>
+                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
+                    LFM2-350M generates draft tokens, verified by the main model — 1.5-2x faster
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#64748b' }}>
+                    Requires LFM2 model (~230MB). Extra memory: ~230MB on top of the main model.
+                  </div>
+                </div>
+              </label>
+            )}
             <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
               <input
                 type="checkbox"

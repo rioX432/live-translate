@@ -135,7 +135,8 @@ async function initPipeline(): Promise<void> {
   }))
   ctx.pipeline.registerTranslator('hunyuan-mt', () => new HunyuanMTTranslator({
     onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant')
+    kvCacheQuant: store.get('slmKvCacheQuant'),
+    speculativeDecoding: store.get('slmSpeculativeDecoding')
   }))
   // LFM2-350M ultra-fast JA↔EN translator — 350M params, ~230MB
   ctx.pipeline.registerTranslator('lfm2', () => new LFM2Translator({

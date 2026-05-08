@@ -102,6 +102,8 @@ export interface SettingsState {
   // SLM options
   slmKvCacheQuant: boolean
   setSlmKvCacheQuant: (v: boolean) => void
+  slmSpeculativeDecoding: boolean
+  setSlmSpeculativeDecoding: (v: boolean) => void
   simulMtEnabled: boolean
   setSimulMtEnabled: (v: boolean) => void
   simulMtWaitK: number
@@ -197,6 +199,7 @@ export function useSettingsState(): SettingsState {
         sttEngine: language.sttEngine,
         whisperVariant: language.whisperVariant,
         slmKvCacheQuant: engine.slmKvCacheQuant,
+        slmSpeculativeDecoding: engine.slmSpeculativeDecoding,
         simulMtEnabled: engine.simulMtEnabled,
         simulMtWaitK: engine.simulMtWaitK,
         sourceLanguage: language.sourceLanguage,
@@ -310,6 +313,7 @@ export function useSettingsState(): SettingsState {
     microsoftApiKey: engine.microsoftApiKey, setMicrosoftApiKey: engine.setMicrosoftApiKey,
     microsoftRegion: engine.microsoftRegion, setMicrosoftRegion: engine.setMicrosoftRegion,
     slmKvCacheQuant: engine.slmKvCacheQuant, setSlmKvCacheQuant: engine.setSlmKvCacheQuant,
+    slmSpeculativeDecoding: engine.slmSpeculativeDecoding, setSlmSpeculativeDecoding: engine.setSlmSpeculativeDecoding,
     simulMtEnabled: engine.simulMtEnabled, setSimulMtEnabled: engine.setSimulMtEnabled,
     simulMtWaitK: engine.simulMtWaitK, setSimulMtWaitK: engine.setSimulMtWaitK,
     glossaryTerms: engine.glossaryTerms, setGlossaryTerms: engine.setGlossaryTerms,

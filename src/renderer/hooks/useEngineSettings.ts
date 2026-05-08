@@ -21,6 +21,8 @@ export interface EngineSettingsState {
 
   slmKvCacheQuant: boolean
   setSlmKvCacheQuant: (v: boolean) => void
+  slmSpeculativeDecoding: boolean
+  setSlmSpeculativeDecoding: (v: boolean) => void
   simulMtEnabled: boolean
   setSimulMtEnabled: (v: boolean) => void
   simulMtWaitK: number
@@ -56,6 +58,7 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
   const [microsoftApiKey, setMicrosoftApiKey] = useState('')
   const [microsoftRegion, setMicrosoftRegion] = useState('')
   const [slmKvCacheQuant, setSlmKvCacheQuant] = useState(true)
+  const [slmSpeculativeDecoding, setSlmSpeculativeDecoding] = useState(false)
   const [simulMtEnabled, setSimulMtEnabled] = useState(false)
   const [simulMtWaitK, setSimulMtWaitK] = useState(3)
   const [glossaryTerms, setGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
@@ -75,6 +78,7 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
       if (s.microsoftApiKey) setMicrosoftApiKey(str(s.microsoftApiKey, ''))
       if (s.microsoftRegion) setMicrosoftRegion(str(s.microsoftRegion, ''))
       if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(bool(s.slmKvCacheQuant, true))
+      if (s.slmSpeculativeDecoding !== undefined) setSlmSpeculativeDecoding(bool(s.slmSpeculativeDecoding, false))
       if (s.glossaryTerms) setGlossaryTerms(arr<{ source: string; target: string }>(s.glossaryTerms, []))
       if (s.orgGlossaryTerms) setOrgGlossaryTerms(arr<{ source: string; target: string }>(s.orgGlossaryTerms, []))
       if (s.simulMtEnabled !== undefined) setSimulMtEnabled(bool(s.simulMtEnabled, false))
@@ -116,6 +120,7 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
     microsoftApiKey, setMicrosoftApiKey,
     microsoftRegion, setMicrosoftRegion,
     slmKvCacheQuant, setSlmKvCacheQuant,
+    slmSpeculativeDecoding, setSlmSpeculativeDecoding,
     simulMtEnabled, setSimulMtEnabled,
     simulMtWaitK, setSimulMtWaitK,
     glossaryTerms, setGlossaryTerms,
