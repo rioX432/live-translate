@@ -138,6 +138,8 @@ export interface AppSettings {
   onboardingDownloadProgress: number
   /** Preferred local translation engine to switch to after download (#575) */
   preferredLocalEngine: string
+  /** Current model quality tier in use: 1=basic (fast-start), 2=full-quality (#694) */
+  activeModelTier: 1 | 2 | null
 }
 
 export const store = new Store<AppSettings>({
@@ -205,6 +207,7 @@ export const store = new Store<AppSettings>({
     isFirstRun: true,
     onboardingModelStatus: 'idle',
     onboardingDownloadProgress: 0,
-    preferredLocalEngine: 'offline-hymt15'
+    preferredLocalEngine: 'offline-hymt15',
+    activeModelTier: null
   }
 })
