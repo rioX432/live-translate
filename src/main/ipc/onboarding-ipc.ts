@@ -3,21 +3,24 @@ import { store } from '../store'
 import {
   getOnboardingStatus,
   startOnboardingDownload,
-  isOnboardingModelReady
+  isTier1Ready,
+  isTier2Ready,
+  getTier1EngineConfig,
+  getTier2EngineConfig
 } from '../onboarding-downloader'
 import type { AppContext } from '../app-context'
 import { createLogger } from '../logger'
 
 const log = createLogger('ipc:onboarding')
 
-/** Register onboarding IPC handlers for cloud-first progressive download (#575) */
+/** Register onboarding IPC handlers for progressive model loading (#575, #694) */
 export function registerOnboardingIpc(ctx: AppContext): void {
-  // Get current onboarding download status
+  // Get current progressive download status
   ipcMain.handle('onboarding-get-status', () => {
     return getOnboardingStatus()
   })
 
-  // Start background model download
+  // Start progressive background download (Tier 1 → Tier 2)
   ipcMain.handle('onboarding-start-download', async () => {
     const engineMode = await startOnboardingDownload(ctx.mainWindow)
     if (engineMode) {
@@ -26,17 +29,44 @@ export function registerOnboardingIpc(ctx: AppContext): void {
     return { success: false }
   })
 
-  // Switch to local engine after download completes
+  // Switch to Tier 1 (basic offline) engine after Tier 1 download completes
   ipcMain.handle('onboarding-switch-to-local', async () => {
-    if (!isOnboardingModelReady()) {
-      return { error: 'Local model not yet downloaded' }
+    if (!isTier1Ready()) {
+      return { error: 'Tier 1 models not yet downloaded' }
     }
 
-    const preferred = store.get('preferredLocalEngine')
-    store.set('translationEngine', preferred)
+    const tier1Config = getTier1EngineConfig()
+    if (!tier1Config) {
+      return { error: 'Tier 1 engine configuration unavailable' }
+    }
+
+    store.set('translationEngine', tier1Config.engineMode)
+    store.set('sttEngine', tier1Config.sttEngineId)
+    store.set('whisperVariant', tier1Config.whisperVariant)
+    store.set('activeModelTier', 1)
+    // Don't set isFirstRun=false yet — Tier 2 may still need to download
+    log.info(`Onboarding: switched to Tier 1 (${tier1Config.engineMode}, STT: ${tier1Config.sttEngineId})`)
+    return { success: true, engine: tier1Config.engineMode, tier: 1 }
+  })
+
+  // Upgrade to Tier 2 (full-quality) engine after Tier 2 download completes
+  ipcMain.handle('onboarding-upgrade-to-tier2', async () => {
+    if (!isTier2Ready()) {
+      return { error: 'Tier 2 models not yet downloaded' }
+    }
+
+    const tier2Config = getTier2EngineConfig()
+    if (!tier2Config) {
+      return { error: 'Tier 2 engine configuration unavailable' }
+    }
+
+    store.set('translationEngine', tier2Config.engineMode)
+    store.set('sttEngine', tier2Config.sttEngineId)
+    store.set('whisperVariant', tier2Config.whisperVariant)
+    store.set('activeModelTier', 2)
     store.set('isFirstRun', false)
-    log.info(`Onboarding: switched to local engine ${preferred}`)
-    return { success: true, engine: preferred }
+    log.info(`Onboarding: upgraded to Tier 2 (${tier2Config.engineMode}, STT: ${tier2Config.sttEngineId})`)
+    return { success: true, engine: tier2Config.engineMode, tier: 2 }
   })
 
   // Dismiss onboarding (user wants to stay on current engine)

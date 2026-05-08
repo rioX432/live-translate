@@ -163,21 +163,27 @@ export interface ElectronAPI {
 
   // Onboarding: cloud-first progressive download (#575)
   onboardingGetStatus: () => Promise<{
+    tier: number | null
     status: string
     progress: number
-    preferredEngine: string
-    modelReady: boolean
-    targetLabel: string
-    targetSizeMB: number
+    tier1Ready: boolean
+    tier2Ready: boolean
+    currentLabel: string
+    currentTierSizeMB: number
+    error?: string
   }>
   onboardingStartDownload: () => Promise<{ success: boolean; engineMode?: string }>
-  onboardingSwitchToLocal: () => Promise<{ success?: boolean; engine?: string; error?: string }>
+  onboardingSwitchToLocal: () => Promise<{ success?: boolean; engine?: string; tier?: number; error?: string }>
+  onboardingUpgradeToTier2: () => Promise<{ success?: boolean; engine?: string; tier?: number; error?: string }>
   onboardingDismiss: () => Promise<{ success: boolean }>
   onboardingSetPreferredEngine: (engine: string) => Promise<{ success?: boolean; error?: string }>
   onboardingIsFirstRun: () => Promise<boolean>
   onOnboardingDownloadProgress: (callback: (data: {
     status: string
     progress: number
+    tier?: number | null
+    tier1Ready?: boolean
+    tier2Ready?: boolean
     message?: string
     error?: string
   }) => void) => (() => void)

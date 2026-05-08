@@ -39,7 +39,7 @@ import { TTSManager } from './tts-manager'
 import { VirtualMicManager } from './virtual-mic-manager'
 import { loadMdmConfig } from './mdm-config'
 import { trackTranslatedCharacters } from './ipc/pipeline-ipc'
-import { startOnboardingDownload, isOnboardingModelReady } from './onboarding-downloader'
+import { startOnboardingDownload, isTier1Ready, isTier2Ready } from './onboarding-downloader'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
 import type { WhisperVariant } from '../engines/model-downloader'
 
@@ -349,22 +349,26 @@ app.whenReady().then(async () => {
   cleanupShortcuts = registerGlobalShortcuts(ctx)
   initAutoUpdater(ctx)
 
-  // #575: Start background model download for cloud-first onboarding
-  if (store.get('isFirstRun') && !isOnboardingModelReady()) {
+  // #694: Start progressive model download for instant offline start
+  // Tier 1 (fast-start ~371MB) downloads first, Tier 2 (full-quality) follows
+  if (store.get('isFirstRun') && !isTier1Ready()) {
     // Delay to avoid competing with app startup I/O
     setTimeout(() => {
       startOnboardingDownload(ctx.mainWindow).then((engineMode) => {
         if (engineMode) {
-          log.info(`Onboarding model ready: ${engineMode}`)
-          ctx.mainWindow?.webContents.send('onboarding-download-progress', {
-            status: 'completed',
-            progress: 100
-          })
+          log.info(`Tier 1 models ready: ${engineMode} — basic offline translation available`)
         }
       }).catch((err) => {
-        log.error('Onboarding background download failed:', err)
+        log.error('Progressive model download failed:', err)
       })
     }, 5000)
+  } else if (store.get('isFirstRun') && isTier1Ready() && !isTier2Ready()) {
+    // Tier 1 is ready but Tier 2 still needs downloading — resume in background
+    setTimeout(() => {
+      startOnboardingDownload(ctx.mainWindow).catch((err) => {
+        log.error('Tier 2 background download failed:', err)
+      })
+    }, 10000)
   }
 })
 
