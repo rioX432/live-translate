@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useSettingsState } from '../hooks/useSettingsState'
+import { Onboarding } from './Onboarding'
 import {
   AudioSettings,
   LanguageSettings,
@@ -12,7 +13,6 @@ import {
   UpdateStatus,
   CrashRecoveryBanner,
   ConfigSummary,
-  QuickStartPanel,
   EnterpriseSettings,
   KeyboardShortcuts,
   AccessibilitySettings,
@@ -25,16 +25,16 @@ function SettingsPanel(): React.JSX.Element {
   const s = useSettingsState()
   const disabled = s.isRunning || s.isStarting
 
-  const [showQuickStart, setShowQuickStart] = useState(false)
-  const [quickStartChecked, setQuickStartChecked] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+  const [onboardingChecked, setOnboardingChecked] = useState(false)
 
-  // Check if Quick Start should be shown on mount
+  // Decide whether to show the first-run Onboarding (#708)
   useEffect(() => {
     window.api.quickStartIsCompleted().then((completed) => {
-      setShowQuickStart(!completed)
-      setQuickStartChecked(true)
+      setShowOnboarding(!completed)
+      setOnboardingChecked(true)
     }).catch(() => {
-      setQuickStartChecked(true)
+      setOnboardingChecked(true)
     })
   }, [])
 
@@ -57,16 +57,16 @@ function SettingsPanel(): React.JSX.Element {
     }
   }, [s.isRunning, s.isStarting, s.handleStart, s.handleStop])
 
-  // Show nothing until we know whether to show Quick Start
-  if (!quickStartChecked) {
+  // Show nothing until we know whether to show Onboarding
+  if (!onboardingChecked) {
     return <div style={containerStyle} />
   }
 
-  // Show Quick Start panel for first-time users
-  if (showQuickStart) {
+  // Show the three-step onboarding for first-time users (#708)
+  if (showOnboarding) {
     return (
       <div style={containerStyle}>
-        <QuickStartPanel onSetupComplete={() => setShowQuickStart(false)} />
+        <Onboarding onComplete={() => setShowOnboarding(false)} />
       </div>
     )
   }
