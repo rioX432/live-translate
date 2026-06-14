@@ -9,8 +9,23 @@ const API_VERSION = '3.0'
 
 const ERROR_MAPPINGS = [
   { statuses: [401], message: 'Invalid API key or region' },
-  { statuses: [429], message: 'Rate limit exceeded' }
+  { statuses: [429], message: 'Rate limit - retry after short cooldown' }
 ]
+
+/**
+ * Classify Microsoft Translator 429 responses into either monthly quota
+ * exhaustion or short-window rate-limit. The Microsoft API surfaces both
+ * conditions via HTTP 429; only the response body distinguishes them.
+ * Reference: https://learn.microsoft.com/en-us/azure/ai-services/translator/reference/v3-0-reference#errors
+ */
+function classifyMicrosoftError(status: number, body: string): string | null {
+  if (status !== 429) return null
+  const lower = body.toLowerCase()
+  if (lower.includes('outofquota') || lower.includes('quotaexceeded')) {
+    return 'Quota exceeded - monthly limit reached'
+  }
+  return 'Rate limit - retry after short cooldown'
+}
 
 export class MicrosoftTranslator implements TranslatorEngine {
   readonly id = 'microsoft-translate'
@@ -65,7 +80,8 @@ export class MicrosoftTranslator implements TranslatorEngine {
       },
       timeoutMs: this.timeoutMs,
       serviceName: 'Microsoft Translator',
-      errorMappings: ERROR_MAPPINGS
+      errorMappings: ERROR_MAPPINGS,
+      classifyErrorBody: classifyMicrosoftError
     })
 
     return data[0]?.translations[0]?.text || ''

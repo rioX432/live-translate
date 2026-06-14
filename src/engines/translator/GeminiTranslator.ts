@@ -11,8 +11,26 @@ const GEMINI_API_URL =
 
 const ERROR_MAPPINGS = [
   { statuses: [400, 403], message: 'Invalid API key' },
-  { statuses: [429], message: 'Rate limit exceeded' }
+  { statuses: [429], message: 'Rate limit - retry after short cooldown' }
 ]
+
+/**
+ * Classify Gemini API 429 responses. The Gemini API returns 429 for both
+ * per-minute rate-limit and daily/monthly quota exhaustion. The error body
+ * typically contains a quotaId or "quota" mention for monthly exhaustion.
+ * Reference: https://ai.google.dev/gemini-api/docs/troubleshooting
+ */
+function classifyGeminiError(status: number, body: string): string | null {
+  if (status !== 429) return null
+  const lower = body.toLowerCase()
+  if (
+    lower.includes('quota') &&
+    (lower.includes('day') || lower.includes('month') || lower.includes('exceeded'))
+  ) {
+    return 'Quota exceeded - monthly limit reached'
+  }
+  return 'Rate limit - retry after short cooldown'
+}
 
 export class GeminiTranslator implements TranslatorEngine {
   readonly id = 'gemini-translate'
@@ -79,7 +97,8 @@ export class GeminiTranslator implements TranslatorEngine {
       },
       timeoutMs: this.timeoutMs,
       serviceName: 'Gemini API',
-      errorMappings: ERROR_MAPPINGS
+      errorMappings: ERROR_MAPPINGS,
+      classifyErrorBody: classifyGeminiError
     })
 
     return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || ''

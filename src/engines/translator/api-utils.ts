@@ -12,6 +12,13 @@ export interface HttpErrorMapping {
   message: string
 }
 
+/**
+ * Body-aware error classifier. Called for non-OK HTTP statuses with the raw
+ * response body. Return a string message to throw, or null to fall through to
+ * the standard errorMappings / generic message.
+ */
+export type ErrorBodyClassifier = (status: number, body: string) => string | null
+
 /** Options for fetchWithTimeout */
 export interface ApiFetchOptions {
   url: string
@@ -21,6 +28,12 @@ export interface ApiFetchOptions {
   serviceName: string
   /** Custom status-to-message mappings, checked before the generic fallback */
   errorMappings?: HttpErrorMapping[]
+  /**
+   * Optional body-aware classifier evaluated before errorMappings. Useful when
+   * a single status code (e.g. 429) needs to be split into multiple semantic
+   * errors based on the response body (e.g. monthly quota vs short rate-limit).
+   */
+  classifyErrorBody?: ErrorBodyClassifier
 }
 
 /**
@@ -28,7 +41,7 @@ export interface ApiFetchOptions {
  * Returns the parsed JSON response body.
  */
 export async function apiFetch<T>(options: ApiFetchOptions): Promise<T> {
-  const { url, init, timeoutMs, serviceName, errorMappings } = options
+  const { url, init, timeoutMs, serviceName, errorMappings, classifyErrorBody } = options
 
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), timeoutMs)
@@ -40,6 +53,18 @@ export async function apiFetch<T>(options: ApiFetchOptions): Promise<T> {
     })
 
     if (!response.ok) {
+      let body = ''
+      if (classifyErrorBody) {
+        try {
+          body = await response.text()
+        } catch {
+          // ignore — fall through to status-only handling
+        }
+        const classified = classifyErrorBody(response.status, body)
+        if (classified) {
+          throw new Error(`${serviceName}: ${classified}`)
+        }
+      }
       throwHttpError(response.status, serviceName, errorMappings)
     }
 

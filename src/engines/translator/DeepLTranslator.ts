@@ -29,9 +29,27 @@ const LANG_MAP: Record<Language, { source: string; target: string }> = {
 
 const ERROR_MAPPINGS = [
   { statuses: [401, 403], message: 'Invalid or expired API key' },
-  { statuses: [429], message: 'Rate limit exceeded' },
-  { statuses: [456], message: 'Quota exceeded' }
+  { statuses: [429], message: 'Rate limit - retry after short cooldown' },
+  { statuses: [456], message: 'Quota exceeded - monthly limit reached' }
 ]
+
+/**
+ * Classify DeepL 429 responses. DeepL primarily signals monthly quota
+ * exhaustion with HTTP 456 (handled by errorMappings), but very high
+ * request volume can also return 429 with a quota-related message body.
+ * Reference: https://developers.deepl.com/api-reference/troubleshooting
+ */
+function classifyDeepLError(status: number, body: string): string | null {
+  if (status === 456) {
+    return 'Quota exceeded - monthly limit reached'
+  }
+  if (status !== 429) return null
+  const lower = body.toLowerCase()
+  if (lower.includes('quota') || lower.includes('character limit')) {
+    return 'Quota exceeded - monthly limit reached'
+  }
+  return 'Rate limit - retry after short cooldown'
+}
 
 export class DeepLTranslator implements TranslatorEngine {
   readonly id = 'deepl-translate'
@@ -89,7 +107,8 @@ export class DeepLTranslator implements TranslatorEngine {
       },
       timeoutMs: this.timeoutMs,
       serviceName: 'DeepL API',
-      errorMappings: ERROR_MAPPINGS
+      errorMappings: ERROR_MAPPINGS,
+      classifyErrorBody: classifyDeepLError
     })
 
     return data.translations[0]?.text || ''

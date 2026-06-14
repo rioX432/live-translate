@@ -8,8 +8,28 @@ const GOOGLE_TRANSLATE_URL = 'https://translation.googleapis.com/language/transl
 
 const ERROR_MAPPINGS = [
   { statuses: [403], message: 'Invalid or expired API key' },
-  { statuses: [429], message: 'Rate limit exceeded' }
+  { statuses: [429], message: 'Rate limit - retry after short cooldown' }
 ]
+
+/**
+ * Classify Google Cloud Translation 429 responses. Daily/monthly quota
+ * exhaustion is reported with reason "quotaExceeded" / "userRateLimitExceeded"
+ * / "dailyLimitExceeded" inside the JSON error body, while transient per-second
+ * limits surface as plain rateLimitExceeded.
+ * Reference: https://cloud.google.com/translate/quotas
+ */
+function classifyGoogleError(status: number, body: string): string | null {
+  if (status !== 429) return null
+  const lower = body.toLowerCase()
+  if (
+    lower.includes('dailylimitexceeded') ||
+    lower.includes('quotaexceeded') ||
+    lower.includes('userratelimitexceeded')
+  ) {
+    return 'Quota exceeded - monthly limit reached'
+  }
+  return 'Rate limit - retry after short cooldown'
+}
 
 export class GoogleTranslator implements TranslatorEngine {
   readonly id = 'google-translate'
@@ -53,7 +73,8 @@ export class GoogleTranslator implements TranslatorEngine {
       init: { method: 'POST' },
       timeoutMs: this.timeoutMs,
       serviceName: 'Google Translation API',
-      errorMappings: ERROR_MAPPINGS
+      errorMappings: ERROR_MAPPINGS,
+      classifyErrorBody: classifyGoogleError
     })
 
     return data.data.translations[0]?.translatedText || ''
