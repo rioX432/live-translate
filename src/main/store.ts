@@ -146,7 +146,7 @@ export const store = new Store<AppSettings>({
   encryptionKey: 'live-translate-v1',
   defaults: {
     hasCompletedSetup: false,
-    translationEngine: 'online',
+    translationEngine: 'auto',
     googleApiKey: '',
     microsoftApiKey: '',
     microsoftRegion: '',

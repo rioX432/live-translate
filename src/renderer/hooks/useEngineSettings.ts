@@ -50,7 +50,7 @@ export interface EngineSettingsInit {
 }
 
 export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState {
-  const [engineMode, setEngineMode] = useState<EngineMode>('online')
+  const [engineMode, setEngineMode] = useState<EngineMode>('auto')
   const [gpuInfo, setGpuInfo] = useState<{ hasGpu: boolean; gpuNames: string[] } | null>(null)
   const [apiKey, setApiKey] = useState('')
   const [deeplApiKey, setDeeplApiKey] = useState('')
@@ -71,7 +71,13 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
   // Load engine-related settings on mount
   useEffect(() => {
     window.api.getSettings().then((s) => {
-      if (s.translationEngine) setEngineMode(str(s.translationEngine, 'offline-hymt15') as EngineMode)
+      // #702: Coerce legacy/unknown engine IDs to 'auto' so the UI never displays a removed option.
+      // The main process also migrates the persisted value on startup.
+      if (s.translationEngine) {
+        const raw = str(s.translationEngine, 'auto')
+        const valid: EngineMode[] = ['auto', 'rotation', 'online', 'online-deepl', 'online-gemini', 'offline-hymt15', 'offline-hunyuan-mt', 'offline-apple']
+        setEngineMode((valid.includes(raw as EngineMode) ? raw : 'auto') as EngineMode)
+      }
       if (s.googleApiKey) setApiKey(str(s.googleApiKey, ''))
       if (s.deeplApiKey) setDeeplApiKey(str(s.deeplApiKey, ''))
       if (s.geminiApiKey) setGeminiApiKey(str(s.geminiApiKey, ''))

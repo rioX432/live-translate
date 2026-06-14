@@ -26,7 +26,16 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
 
 export const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
 
-export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-opus' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-hybrid' | 'offline-lfm2' | 'offline-plamo' | 'offline-apple'
+export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-apple'
+
+/** Legacy engine mode IDs removed from the UI in #702.
+ *  Persisted store values matching these IDs are migrated to 'auto' on startup. */
+export const LEGACY_TRANSLATION_ENGINES: readonly string[] = [
+  'offline-lfm2',
+  'offline-plamo',
+  'offline-hybrid',
+  'offline-opus'
+] as const
 
 export type SttEngineType = 'whisper-local' | 'mlx-whisper' | 'kotoba-whisper' | 'qwen3-asr' | 'sensevoice-sherpa' | 'apple-speech-transcriber'
 export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo' | 'distil-large-v3' | 'base' | 'small'
@@ -148,18 +157,14 @@ export const disclosureArrowStyle = (isOpen: boolean): React.CSSProperties => ({
 export const API_ENGINE_MODES: EngineMode[] = ['rotation', 'online', 'online-deepl', 'online-gemini']
 
 /** LLM-based engine modes that support KV cache / SimulMT options */
-export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hymt15', 'offline-hunyuan-mt', 'offline-hybrid', 'offline-lfm2', 'offline-plamo']
+export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hymt15', 'offline-hunyuan-mt']
 
 /** Display name for each engine mode */
 export function getEngineDisplayName(mode: EngineMode): string {
   switch (mode) {
     case 'offline-apple': return 'Apple Translate (Built-in)'
-    case 'offline-opus': return 'OPUS-MT (Legacy Fallback)'
     case 'offline-hymt15': return 'HY-MT 1.5 (Recommended)'
     case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B (High Quality)'
-    case 'offline-lfm2': return 'LFM2 (Ultra-fast)'
-    case 'offline-plamo': return 'PLaMo-2 10B (Quality)'
-    case 'offline-hybrid': return 'Hybrid (OPUS-MT + TranslateGemma)'
     case 'rotation': return 'API Auto Rotation'
     case 'online': return 'Google Translation'
     case 'online-deepl': return 'DeepL'
@@ -228,20 +233,13 @@ export function buildEngineConfig(
       return { ...base, translatorEngineId: 'deepl-translate', deeplApiKey: apiKeys.deeplApiKey }
     case 'online-gemini':
       return { ...base, translatorEngineId: 'gemini-translate', geminiApiKey: apiKeys.geminiApiKey }
-    case 'offline-lfm2':
-      return { ...base, translatorEngineId: 'lfm2' }
-    case 'offline-plamo':
-      return { ...base, translatorEngineId: 'plamo' }
-    case 'offline-hymt15':
-      return { ...base, translatorEngineId: 'hunyuan-mt-15' }
     case 'offline-hunyuan-mt':
       return { ...base, translatorEngineId: 'hunyuan-mt' }
-    case 'offline-hybrid':
-      return { ...base, translatorEngineId: 'hybrid' }
     case 'offline-apple':
       return { ...base, translatorEngineId: 'apple-translate' }
-    case 'offline-opus':
+    case 'offline-hymt15':
     default:
-      return { ...base, translatorEngineId: 'opus-mt' }
+      // 'offline-hymt15' is the fast offline default; any unknown legacy ID falls back here.
+      return { ...base, translatorEngineId: 'hunyuan-mt-15' }
   }
 }
