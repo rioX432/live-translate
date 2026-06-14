@@ -8,13 +8,20 @@
     "rootDir": ".",
     "declaration": false
   },
-  "include": ["src/**/*.ts", "run.ts", "conversational-ja-en/**/*.ts"],
+  "include": [
+    "src/**/*.ts",
+    "run.ts",
+    "conversational-ja-en/**/*.ts",
+    "gpt-realtime-whisper-eval/**/*.ts"
+  ],
   "exclude": [
     "node_modules",
     "dist",
     "models",
     "results",
     "conversational-ja-en/results",
-    "conversational-ja-en/**/*.test.ts"
+    "conversational-ja-en/**/*.test.ts",
+    "gpt-realtime-whisper-eval/results",
+    "gpt-realtime-whisper-eval/**/*.test.ts"
   ]
 }
