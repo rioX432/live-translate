@@ -128,6 +128,8 @@ export interface ElectronAPI {
     hasManagedApiKey: boolean
     hasManagedDeeplApiKey: boolean
     hasManagedGeminiApiKey: boolean
+    hasManagedMicrosoftApiKey: boolean
+    managedMicrosoftRegion: string | null
     organizationName: string | null
     autoUpdateDisabled: boolean
   }>

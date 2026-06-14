@@ -9,6 +9,8 @@ interface MdmConfig {
   hasManagedApiKey: boolean
   hasManagedDeeplApiKey: boolean
   hasManagedGeminiApiKey: boolean
+  hasManagedMicrosoftApiKey: boolean
+  managedMicrosoftRegion: string | null
   organizationName: string | null
   autoUpdateDisabled: boolean
 }
@@ -101,6 +103,14 @@ export function EnterpriseSettings({ disabled }: Props): React.JSX.Element {
           )}
           {mdmConfig.hasManagedGeminiApiKey && (
             <div style={infoLineStyle}>Gemini API key provided by organization</div>
+          )}
+          {mdmConfig.hasManagedMicrosoftApiKey && (
+            <div style={infoLineStyle}>
+              Microsoft Translator API key provided by organization
+              {mdmConfig.managedMicrosoftRegion && (
+                <> (region: <strong>{mdmConfig.managedMicrosoftRegion}</strong>)</>
+              )}
+            </div>
           )}
           {mdmConfig.autoUpdateDisabled && (
             <div style={infoLineStyle}>Auto-updates managed by organization</div>

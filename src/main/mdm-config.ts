@@ -17,6 +17,10 @@ export interface MdmConfig {
   managedDeeplApiKey: string | null
   /** Managed Gemini API key */
   managedGeminiApiKey: string | null
+  /** Managed Microsoft (Azure) Translator API key (#704) */
+  managedMicrosoftApiKey: string | null
+  /** Managed Microsoft (Azure) Translator region (e.g. "japaneast") (#704) */
+  managedMicrosoftRegion: string | null
   /** Custom organization name shown in UI */
   organizationName: string | null
   /** Disable auto-update (enterprise may manage updates via MDM) */
@@ -92,6 +96,8 @@ export function loadMdmConfig(): MdmConfig {
     managedApiKey: readManagedPref('managedApiKey'),
     managedDeeplApiKey: readManagedPref('managedDeeplApiKey'),
     managedGeminiApiKey: readManagedPref('managedGeminiApiKey'),
+    managedMicrosoftApiKey: readManagedPref('managedMicrosoftApiKey'),
+    managedMicrosoftRegion: readManagedPref('managedMicrosoftRegion'),
     organizationName: readManagedPref('organizationName'),
     autoUpdateDisabled: readManagedPref('autoUpdateDisabled') === '1'
   }
@@ -104,6 +110,8 @@ export function loadMdmConfig(): MdmConfig {
   if (config.managedApiKey) managed.push('managedApiKey=***')
   if (config.managedDeeplApiKey) managed.push('managedDeeplApiKey=***')
   if (config.managedGeminiApiKey) managed.push('managedGeminiApiKey=***')
+  if (config.managedMicrosoftApiKey) managed.push('managedMicrosoftApiKey=***')
+  if (config.managedMicrosoftRegion) managed.push(`managedMicrosoftRegion=${config.managedMicrosoftRegion}`)
   if (config.organizationName) managed.push(`org=${config.organizationName}`)
   if (config.autoUpdateDisabled) managed.push('autoUpdateDisabled')
 
