@@ -26,6 +26,7 @@ import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { FluidAudioDiarizer } from '../engines/diarization/FluidAudioDiarizer'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { store } from './store'
+import { migrateLegacyTranslationEngine } from './store-migrations'
 import { sanitizeErrorMessage, getErrorHint } from './error-utils'
 import { createMainWindow, createSubtitleWindow, registerDisplayHandlers } from './window-manager'
 import { registerAudioHandlers } from './audio-handlers'
@@ -306,6 +307,12 @@ app.whenReady().then(async () => {
     // Existing users keep their current engine (don't override to 'online')
     log.info('Existing user detected — skipping cloud-first onboarding')
   }
+
+  // #702: Migrate legacy translationEngine IDs trimmed from the UI to 'auto'.
+  migrateLegacyTranslationEngine({
+    get: (key) => store.get(key),
+    set: (key, value) => store.set(key, value)
+  }, log)
 
   await initPipeline()
 

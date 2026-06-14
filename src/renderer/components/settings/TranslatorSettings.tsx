@@ -1,7 +1,7 @@
 import React from 'react'
 import { GlossarySettings } from './GlossarySettings'
 import { Section } from './Section'
-import { API_ENGINE_MODES, LLM_ENGINE_MODES, disclosureArrowStyle, disclosureToggleStyle, inputStyle, radioLabelStyle, selectStyle } from './shared'
+import { LLM_ENGINE_MODES, disclosureArrowStyle, disclosureToggleStyle, inputStyle, radioLabelStyle, selectStyle } from './shared'
 import type { EngineMode } from './shared'
 
 interface TranslatorSettingsProps {
@@ -91,16 +91,28 @@ export function TranslatorSettings({
   onOrgGlossaryTermsChange
 }: TranslatorSettingsProps): React.JSX.Element {
   const showLlmOptions = LLM_ENGINE_MODES.includes(engineMode)
-  const isApiEngine = API_ENGINE_MODES.includes(engineMode)
+
+  // 'rotation' (API auto) requires at least one API key — disabled when none configured
+  const hasAnyApiKey = !!(apiKey || deeplApiKey || geminiApiKey || (microsoftApiKey && microsoftRegion))
 
   return (
     <>
-      <Section label="Translation Engine" helpText="HY-MT 1.5 is recommended for most users. Quality engines need more memory but produce better translations.">
+      <Section label="Translation Engine" helpText="Auto picks the best engine for your setup. HY-MT 1.5 is the recommended offline default.">
         <fieldset style={{ border: 'none', margin: 0, padding: 0 }}>
         <legend style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Translation Engine</legend>
-        <div style={{ fontSize: '11px', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-          Offline
-        </div>
+        <label style={radioLabelStyle}>
+          <input
+            type="radio"
+            name="engine"
+            checked={engineMode === 'auto'}
+            onChange={() => onEngineModeChange('auto')}
+            disabled={disabled}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Auto (Recommended)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Picks the best engine for your hardware and API keys</div>
+          </div>
+        </label>
         <label style={radioLabelStyle}>
           <input
             type="radio"
@@ -110,37 +122,8 @@ export function TranslatorSettings({
             disabled={disabled}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>HY-MT 1.5 (Recommended)</div>
+            <div style={{ fontWeight: 500 }}>HY-MT 1.5 (Offline default)</div>
             <div style={{ fontSize: '12px', color: '#94a3b8' }}>Fast + high quality, 36 languages, ~1GB — surpasses Google/DeepL</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-lfm2'}
-            onChange={() => onEngineModeChange('offline-lfm2')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>LFM2 (Ultra-fast, JA↔EN)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>350M params, ~230MB — GPT-4o-class quality at minimal cost</div>
-          </div>
-        </label>
-        <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '8px', marginBottom: '4px', paddingTop: '8px', borderTop: '1px solid #1e293b' }}>
-          Quality
-        </div>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-plamo'}
-            onChange={() => onEngineModeChange('offline-plamo')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>PLaMo-2 10B (Quality, JA↔EN)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Japan Gov "Gennai" adopted, style-aware, ~5.5GB</div>
           </div>
         </label>
         <label style={radioLabelStyle}>
@@ -152,13 +135,10 @@ export function TranslatorSettings({
             disabled={disabled}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Hunyuan-MT 7B (High Quality)</div>
+            <div style={{ fontWeight: 500 }}>Hunyuan-MT 7B (High Quality, GPU recommended)</div>
             <div style={{ fontSize: '12px', color: '#94a3b8' }}>WMT25 winner, 33 languages, ~4GB — slower but higher quality</div>
           </div>
         </label>
-        <div style={{ fontSize: '10px', fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '8px', marginBottom: '4px', paddingTop: '8px', borderTop: '1px solid #1e293b' }}>
-          Other
-        </div>
         {platform === 'darwin' && (
           <label style={radioLabelStyle}>
             <input
@@ -169,39 +149,30 @@ export function TranslatorSettings({
               disabled={disabled}
             />
             <div>
-              <div style={{ fontWeight: 500 }}>Apple Translate (Built-in)</div>
-              <div style={{ fontSize: '12px', color: '#94a3b8' }}>macOS 15+, zero config, on-device, ANE-optimized — no model download</div>
+              <div style={{ fontWeight: 500 }}>Apple Translate (Built-in, macOS 15+)</div>
+              <div style={{ fontSize: '12px', color: '#94a3b8' }}>Zero config, on-device, ANE-optimized — no model download</div>
             </div>
           </label>
         )}
-        <label style={radioLabelStyle}>
+        <label style={{ ...radioLabelStyle, opacity: hasAnyApiKey ? 1 : 0.5 }}>
           <input
             type="radio"
             name="engine"
-            checked={engineMode === 'offline-hybrid'}
-            onChange={() => onEngineModeChange('offline-hybrid')}
-            disabled={disabled}
+            checked={engineMode === 'rotation'}
+            onChange={() => onEngineModeChange('rotation')}
+            disabled={disabled || !hasAnyApiKey}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Hybrid (OPUS-MT + TranslateGemma)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Instant draft + LLM refinement — best offline quality</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-opus'}
-            onChange={() => onEngineModeChange('offline-opus')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>OPUS-MT (Legacy Fallback)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>~200ms latency, ONNX accelerated — used as fallback while LLM models download</div>
+            <div style={{ fontWeight: 500 }}>Online API (Auto Rotation)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+              {hasAnyApiKey
+                ? 'Azure → Google → DeepL → Gemini — up to 4M+ chars/month free'
+                : 'Configure an API key below to enable cloud translation'}
+            </div>
           </div>
         </label>
 
-        {/* LLM sub-options for Hunyuan-MT and Hybrid */}
+        {/* LLM sub-options for HY-MT 1.5 and Hunyuan-MT 7B */}
         {showLlmOptions && (
           <>
             {gpuInfo && !gpuInfo.hasGpu && (
@@ -345,7 +316,7 @@ export function TranslatorSettings({
           </div>
         )}
 
-        {/* API Translation — collapsed by default */}
+        {/* API Keys — collapsed by default. Enables 'Online API' option above. */}
         <div style={{ marginTop: '12px' }}>
           <button
             onClick={() => onShowApiOptionsChange(!showApiOptions)}
@@ -355,115 +326,56 @@ export function TranslatorSettings({
             <span style={disclosureArrowStyle(showApiOptions)}>
               ▶
             </span>
-            API Translation (requires internet)
+            API Keys (optional — enables online translation)
           </button>
 
           {showApiOptions && (
-            <div style={{ marginTop: '4px' }}>
-              <label style={radioLabelStyle}>
-                <input
-                  type="radio"
-                  name="engine"
-                  checked={engineMode === 'rotation'}
-                  onChange={() => onEngineModeChange('rotation')}
-                  disabled={disabled}
-                />
-                <div>
-                  <div style={{ fontWeight: 500 }}>Auto Rotation — up to 4M+ chars/month free</div>
-                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Azure → Google → DeepL → Gemini</div>
-                </div>
-              </label>
-              <label style={radioLabelStyle}>
-                <input
-                  type="radio"
-                  name="engine"
-                  checked={engineMode === 'online'}
-                  onChange={() => onEngineModeChange('online')}
-                  disabled={disabled}
-                />
-                <div style={{ fontWeight: 500 }}>Google Translation</div>
-              </label>
-              <label style={radioLabelStyle}>
-                <input
-                  type="radio"
-                  name="engine"
-                  checked={engineMode === 'online-deepl'}
-                  onChange={() => onEngineModeChange('online-deepl')}
-                  disabled={disabled}
-                />
-                <div style={{ fontWeight: 500 }}>DeepL</div>
-              </label>
-              <label style={radioLabelStyle}>
-                <input
-                  type="radio"
-                  name="engine"
-                  checked={engineMode === 'online-gemini'}
-                  onChange={() => onEngineModeChange('online-gemini')}
-                  disabled={disabled}
-                />
-                <div style={{ fontWeight: 500 }}>Gemini 2.5 Flash</div>
-              </label>
-
-              {/* API Keys */}
-              {isApiEngine && (
-                <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                  {(engineMode === 'rotation' || engineMode === 'online') && (
-                    <input
-                      type="password"
-                      value={apiKey}
-                      onChange={(e) => onApiKeyChange(e.target.value)}
-                      placeholder="Google Cloud Translation key"
-                      aria-label="Google Cloud Translation API key"
-                      style={inputStyle}
-                      disabled={disabled}
-                    />
-                  )}
-                  {(engineMode === 'rotation' || engineMode === 'online-deepl') && (
-                    <input
-                      type="password"
-                      value={deeplApiKey}
-                      onChange={(e) => onDeeplApiKeyChange(e.target.value)}
-                      placeholder="DeepL API key"
-                      aria-label="DeepL API key"
-                      style={inputStyle}
-                      disabled={disabled}
-                    />
-                  )}
-                  {(engineMode === 'rotation' || engineMode === 'online-gemini') && (
-                    <input
-                      type="password"
-                      value={geminiApiKey}
-                      onChange={(e) => onGeminiApiKeyChange(e.target.value)}
-                      placeholder="Gemini API key"
-                      aria-label="Gemini API key"
-                      style={inputStyle}
-                      disabled={disabled}
-                    />
-                  )}
-                  {engineMode === 'rotation' && (
-                    <>
-                      <input
-                        type="password"
-                        value={microsoftApiKey}
-                        onChange={(e) => onMicrosoftApiKeyChange(e.target.value)}
-                        placeholder="Azure Microsoft Translator key"
-                        aria-label="Azure Microsoft Translator key"
-                        style={inputStyle}
-                        disabled={disabled}
-                      />
-                      <input
-                        type="text"
-                        value={microsoftRegion}
-                        onChange={(e) => onMicrosoftRegionChange(e.target.value)}
-                        placeholder="Azure region (e.g. eastus)"
-                        aria-label="Azure region"
-                        style={inputStyle}
-                        disabled={disabled}
-                      />
-                    </>
-                  )}
-                </div>
-              )}
+            <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => onApiKeyChange(e.target.value)}
+                placeholder="Google Cloud Translation key"
+                aria-label="Google Cloud Translation API key"
+                style={inputStyle}
+                disabled={disabled}
+              />
+              <input
+                type="password"
+                value={deeplApiKey}
+                onChange={(e) => onDeeplApiKeyChange(e.target.value)}
+                placeholder="DeepL API key"
+                aria-label="DeepL API key"
+                style={inputStyle}
+                disabled={disabled}
+              />
+              <input
+                type="password"
+                value={geminiApiKey}
+                onChange={(e) => onGeminiApiKeyChange(e.target.value)}
+                placeholder="Gemini API key"
+                aria-label="Gemini API key"
+                style={inputStyle}
+                disabled={disabled}
+              />
+              <input
+                type="password"
+                value={microsoftApiKey}
+                onChange={(e) => onMicrosoftApiKeyChange(e.target.value)}
+                placeholder="Azure Microsoft Translator key"
+                aria-label="Azure Microsoft Translator key"
+                style={inputStyle}
+                disabled={disabled}
+              />
+              <input
+                type="text"
+                value={microsoftRegion}
+                onChange={(e) => onMicrosoftRegionChange(e.target.value)}
+                placeholder="Azure region (e.g. eastus)"
+                aria-label="Azure region"
+                style={inputStyle}
+                disabled={disabled}
+              />
             </div>
           )}
         </div>
