@@ -26,7 +26,11 @@ import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import { FluidAudioDiarizer } from '../engines/diarization/FluidAudioDiarizer'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { store } from './store'
-import { migrateLegacyTranslationEngine } from './store-migrations'
+import {
+  migrateLegacyAdaptiveRoutingQualityEngine,
+  migrateLegacyTranslationEngine,
+  type MigratableKey
+} from './store-migrations'
 import { sanitizeErrorMessage, getErrorHint } from './error-utils'
 import { createMainWindow, createSubtitleWindow, registerDisplayHandlers } from './window-manager'
 import { registerAudioHandlers } from './audio-handlers'
@@ -308,11 +312,13 @@ app.whenReady().then(async () => {
     log.info('Existing user detected — skipping cloud-first onboarding')
   }
 
-  // #702: Migrate legacy translationEngine IDs trimmed from the UI to 'auto'.
-  migrateLegacyTranslationEngine({
-    get: (key) => store.get(key),
-    set: (key, value) => store.set(key, value)
-  }, log)
+  // #702 / #705: Migrate legacy persisted engine IDs trimmed from the UI.
+  const migratableStore = {
+    get: (key: MigratableKey) => store.get(key),
+    set: (key: MigratableKey, value: string) => store.set(key, value)
+  }
+  migrateLegacyTranslationEngine(migratableStore, log)
+  migrateLegacyAdaptiveRoutingQualityEngine(migratableStore, log)
 
   await initPipeline()
 
@@ -413,6 +419,14 @@ app.on('before-quit', (event) => {
       log.error('Cleanup error:', err)
     } finally {
       app.quit()
+    }
+  })()
+})
+
+app.on('window-all-closed', () => {
+  app.quit()
+})
+p.quit()
     }
   })()
 })

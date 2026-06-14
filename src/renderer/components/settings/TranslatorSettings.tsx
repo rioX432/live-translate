@@ -272,8 +272,7 @@ export function TranslatorSettings({
                     disabled={disabled}
                     style={{ ...selectStyle, fontSize: '12px', padding: '6px 8px' }}
                   >
-                    <option value="hunyuan-mt">Hunyuan-MT 7B (~4GB)</option>
-                    <option value="plamo">PLaMo-2 10B (~5.5GB)</option>
+                    <option value="hunyuan-mt">Hunyuan-MT 7B (Quality, ~4GB)</option>
                   </select>
                 </div>
                 <div>
