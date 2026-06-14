@@ -42,6 +42,11 @@ export function registerEnterpriseIpc(_ctx: AppContext): void {
       hasManagedApiKey: config.managedApiKey !== null,
       hasManagedDeeplApiKey: config.managedDeeplApiKey !== null,
       hasManagedGeminiApiKey: config.managedGeminiApiKey !== null,
+      // #704: expose Microsoft (Azure) Translator managed state to renderer.
+      // Key is hidden (boolean only) but region is sent as a non-secret value
+      // so the UI can display the configured Azure region.
+      hasManagedMicrosoftApiKey: config.managedMicrosoftApiKey !== null,
+      managedMicrosoftRegion: config.managedMicrosoftRegion,
       organizationName: config.organizationName,
       autoUpdateDisabled: config.autoUpdateDisabled
     }

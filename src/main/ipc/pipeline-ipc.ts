@@ -74,6 +74,13 @@ export function registerPipelineIpc(ctx: AppContext): void {
       if (mdm.managedGeminiApiKey && !config.geminiApiKey) {
         config.geminiApiKey = mdm.managedGeminiApiKey
       }
+      // #704: inject managed Microsoft (Azure) Translator key+region when present
+      if (mdm.managedMicrosoftApiKey && !config.microsoftApiKey) {
+        config.microsoftApiKey = mdm.managedMicrosoftApiKey
+      }
+      if (mdm.managedMicrosoftRegion && !config.microsoftRegion) {
+        config.microsoftRegion = mdm.managedMicrosoftRegion
+      }
 
       // Register online translators with provided API keys
       if (config.apiKey) {
