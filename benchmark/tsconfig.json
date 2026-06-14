@@ -8,6 +8,13 @@
     "rootDir": ".",
     "declaration": false
   },
-  "include": ["src/**/*.ts", "run.ts"],
-  "exclude": ["node_modules", "dist", "models", "results"]
+  "include": ["src/**/*.ts", "run.ts", "conversational-ja-en/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "models",
+    "results",
+    "conversational-ja-en/results",
+    "conversational-ja-en/**/*.test.ts"
+  ]
 }

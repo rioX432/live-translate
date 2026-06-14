@@ -7,6 +7,7 @@ logs/
 .DS_Store
 src/renderer/public/vad/
 benchmark/results/
+benchmark/conversational-ja-en/results/
 benchmark/models/
 benchmark/mlx_models/
 benchmark/.bin/
