@@ -5,6 +5,7 @@ import { GeminiTranslator } from '../../engines/translator/GeminiTranslator'
 import { MicrosoftTranslator } from '../../engines/translator/MicrosoftTranslator'
 import { ApiRotationController } from '../../engines/translator/ApiRotationController'
 import type { ProviderConfig, QuotaStore } from '../../engines/translator/ApiRotationController'
+import { HunyuanMT15Translator } from '../../engines/translator/HunyuanMT15Translator'
 import { TranscriptLogger } from '../../logger/TranscriptLogger'
 import { store } from '../store'
 import type { AppContext } from '../app-context'
@@ -134,7 +135,15 @@ export function registerPipelineIpc(ctx: AppContext): void {
         }
 
         ctx.pipeline.registerTranslator('rotation-controller', () =>
-          new ApiRotationController(rotationProviders!, persistence, statusFn)
+          new ApiRotationController(rotationProviders!, persistence, statusFn, {
+            // #703: local fallback so exhausted cloud quotas never silently
+            // stop the subtitle stream. HunyuanMT15 is lazy-initialized inside
+            // the controller (only loaded on first exhaustion).
+            fallbackEngine: new HunyuanMT15Translator({
+              onProgress: (msg) =>
+                ctx.mainWindow?.webContents.send('status-update', msg)
+            })
+          })
         )
       }
 
