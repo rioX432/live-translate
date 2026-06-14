@@ -8,6 +8,7 @@ logs/
 src/renderer/public/vad/
 benchmark/results/
 benchmark/conversational-ja-en/results/
+benchmark/gpt-realtime-whisper-eval/results/
 benchmark/models/
 benchmark/mlx_models/
 benchmark/.bin/
