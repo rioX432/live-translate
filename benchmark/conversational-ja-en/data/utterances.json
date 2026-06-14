@@ -1,0 +1,206 @@
+{
+  "$schema_version": "1.0",
+  "description": "Conversational JA<->EN meeting utterances representative of tech conferences (DroidKaigi 2025, RubyKaigi 2025, Kaigi on Rails 2025). See README.md for ethics statement.",
+  "utterances": [
+    {
+      "id": "dk25-001",
+      "source_lang": "ja",
+      "text": "今日はみなさんに、Jetpack Composeのパフォーマンス最適化についてお話しします。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "DroidKaigi 2025 Compose performance talks (https://2025.droidkaigi.jp/)"
+    },
+    {
+      "id": "dk25-002",
+      "source_lang": "ja",
+      "text": "再コンポーズの回数を減らすために、stableアノテーションを正しく付けることが重要です。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "DroidKaigi 2025 Compose performance talks (https://2025.droidkaigi.jp/)"
+    },
+    {
+      "id": "dk25-003",
+      "source_lang": "ja",
+      "text": "ベンチマークの結果、起動時間が約30パーセント改善されました。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "DroidKaigi 2025 baseline profile talks (https://2025.droidkaigi.jp/)"
+    },
+    {
+      "id": "dk25-004",
+      "source_lang": "ja",
+      "text": "質問なんですけど、KMPでiOS側のメモリリークはどう検知していますか？",
+      "domain": "qa",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "DroidKaigi 2025 KMP track Q&A (https://2025.droidkaigi.jp/)"
+    },
+    {
+      "id": "dk25-005",
+      "source_lang": "ja",
+      "text": "デモに進む前に、依存関係グラフを簡単に説明させてください。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "DroidKaigi 2025 architecture talks (https://2025.droidkaigi.jp/)"
+    },
+    {
+      "id": "rk25-001",
+      "source_lang": "ja",
+      "text": "Ruby 3.4の新しいパーサーは、エラーリカバリーが大幅に改善されています。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "RubyKaigi 2025 Prism/parser talks (https://rubykaigi.org/2025/)"
+    },
+    {
+      "id": "rk25-002",
+      "source_lang": "ja",
+      "text": "YJITの最適化によって、Railsアプリのスループットが2倍近くになりました。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "RubyKaigi 2025 YJIT performance talks (https://rubykaigi.org/2025/)"
+    },
+    {
+      "id": "rk25-003",
+      "source_lang": "ja",
+      "text": "それでは、ライブコーディングに移ります。エディタを開いてください。",
+      "domain": "live-coding",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "RubyKaigi 2025 live coding sessions (https://rubykaigi.org/2025/)"
+    },
+    {
+      "id": "rk25-004",
+      "source_lang": "ja",
+      "text": "今のコードはRactor間で共有不可能なオブジェクトを参照しているのでエラーになります。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "RubyKaigi 2025 concurrency talks (https://rubykaigi.org/2025/)"
+    },
+    {
+      "id": "rk25-005",
+      "source_lang": "ja",
+      "text": "発表は以上です。ご清聴ありがとうございました。質疑応答に移ります。",
+      "domain": "closing",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "RubyKaigi 2025 closing remarks (https://rubykaigi.org/2025/)"
+    },
+    {
+      "id": "kor25-001",
+      "source_lang": "ja",
+      "text": "Hotwireを使えば、サーバーサイドレンダリングでもインタラクティブなUIが書けます。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "Kaigi on Rails 2025 Hotwire talks (https://kaigionrails.org/2025/)"
+    },
+    {
+      "id": "kor25-002",
+      "source_lang": "ja",
+      "text": "Solid Queueを導入してから、ジョブキューの可観測性が向上しました。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "Kaigi on Rails 2025 background job talks (https://kaigionrails.org/2025/)"
+    },
+    {
+      "id": "kor25-003",
+      "source_lang": "ja",
+      "text": "テストの実行時間を短縮するために、データベースのトランザクション戦略を見直しました。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "Kaigi on Rails 2025 testing talks (https://kaigionrails.org/2025/)"
+    },
+    {
+      "id": "kor25-004",
+      "source_lang": "ja",
+      "text": "本番環境でN+1クエリが大量に発生していたので、includesで先にロードするようにしました。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "Kaigi on Rails 2025 ActiveRecord optimization talks (https://kaigionrails.org/2025/)"
+    },
+    {
+      "id": "kor25-005",
+      "source_lang": "ja",
+      "text": "デプロイ後、Datadogのダッシュボードでp99レイテンシが半分になっているのを確認しました。",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "Kaigi on Rails 2025 production ops talks (https://kaigionrails.org/2025/)"
+    },
+    {
+      "id": "dk25-en-001",
+      "source_lang": "en",
+      "text": "Let me walk you through how we migrated our app to the new Material 3 design system.",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "DroidKaigi 2025 Material 3 migration talks (https://2025.droidkaigi.jp/)"
+    },
+    {
+      "id": "dk25-en-002",
+      "source_lang": "en",
+      "text": "The most important takeaway is that you should always measure before optimizing.",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "DroidKaigi 2025 performance talks (https://2025.droidkaigi.jp/)"
+    },
+    {
+      "id": "dk25-en-003",
+      "source_lang": "en",
+      "text": "Could you elaborate a bit more on how you handle background work in Kotlin Multiplatform?",
+      "domain": "qa",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "DroidKaigi 2025 KMP Q&A (https://2025.droidkaigi.jp/)"
+    },
+    {
+      "id": "rk25-en-001",
+      "source_lang": "en",
+      "text": "We open-sourced this library last month, so feel free to try it out and send us pull requests.",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "RubyKaigi 2025 OSS talks (https://rubykaigi.org/2025/)"
+    },
+    {
+      "id": "rk25-en-002",
+      "source_lang": "en",
+      "text": "Let's take a quick look at the call stack to see where the bottleneck is.",
+      "domain": "live-coding",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "RubyKaigi 2025 debugging talks (https://rubykaigi.org/2025/)"
+    },
+    {
+      "id": "rk25-en-003",
+      "source_lang": "en",
+      "text": "I'd like to thank the Ruby committers for all the great work they've done this year.",
+      "domain": "closing",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "RubyKaigi 2025 keynote acknowledgements (https://rubykaigi.org/2025/)"
+    },
+    {
+      "id": "kor25-en-001",
+      "source_lang": "en",
+      "text": "We had to roll back the deployment because the migration was taking too long on production.",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "Kaigi on Rails 2025 ops/incident talks (https://kaigionrails.org/2025/)"
+    },
+    {
+      "id": "kor25-en-002",
+      "source_lang": "en",
+      "text": "If you have any questions, please raise your hand or ask through the conference Slack channel.",
+      "domain": "qa",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "Kaigi on Rails 2025 session moderation (https://kaigionrails.org/2025/)"
+    },
+    {
+      "id": "kor25-en-003",
+      "source_lang": "en",
+      "text": "Hotwire really shines when you want to add small bits of interactivity without writing JavaScript.",
+      "domain": "tech-talk",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "Kaigi on Rails 2025 Hotwire talks (https://kaigionrails.org/2025/)"
+    },
+    {
+      "id": "kor25-en-004",
+      "source_lang": "en",
+      "text": "Thanks for staying until the end of the day, I hope you enjoyed the conference.",
+      "domain": "closing",
+      "source_kind": "representative-paraphrase",
+      "source_inspiration": "Kaigi on Rails 2025 closing remarks (https://kaigionrails.org/2025/)"
+    }
+  ]
+}

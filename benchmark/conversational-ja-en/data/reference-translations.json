@@ -1,0 +1,131 @@
+{
+  "$schema_version": "1.0",
+  "description": "Human reference translations for utterances.json. Authored by the live-translate project as quality references for benchmarking.",
+  "references": [
+    {
+      "id": "dk25-001",
+      "target_lang": "en",
+      "text": "Today I'd like to talk to everyone about Jetpack Compose performance optimization."
+    },
+    {
+      "id": "dk25-002",
+      "target_lang": "en",
+      "text": "To reduce the number of recompositions, it's important to apply the @Stable annotation correctly."
+    },
+    {
+      "id": "dk25-003",
+      "target_lang": "en",
+      "text": "According to the benchmark results, startup time improved by about 30 percent."
+    },
+    {
+      "id": "dk25-004",
+      "target_lang": "en",
+      "text": "I have a question — how do you detect memory leaks on the iOS side when using KMP?"
+    },
+    {
+      "id": "dk25-005",
+      "target_lang": "en",
+      "text": "Before moving on to the demo, let me briefly explain the dependency graph."
+    },
+    {
+      "id": "rk25-001",
+      "target_lang": "en",
+      "text": "The new parser in Ruby 3.4 has significantly improved error recovery."
+    },
+    {
+      "id": "rk25-002",
+      "target_lang": "en",
+      "text": "Thanks to YJIT optimizations, throughput in our Rails app nearly doubled."
+    },
+    {
+      "id": "rk25-003",
+      "target_lang": "en",
+      "text": "Now let's move on to live coding. Please open your editor."
+    },
+    {
+      "id": "rk25-004",
+      "target_lang": "en",
+      "text": "The current code references an object that isn't shareable between Ractors, so it raises an error."
+    },
+    {
+      "id": "rk25-005",
+      "target_lang": "en",
+      "text": "That's the end of my presentation. Thank you for listening. Let's move on to Q&A."
+    },
+    {
+      "id": "kor25-001",
+      "target_lang": "en",
+      "text": "With Hotwire, you can build interactive UIs even with server-side rendering."
+    },
+    {
+      "id": "kor25-002",
+      "target_lang": "en",
+      "text": "Since we adopted Solid Queue, observability of our job queue has improved."
+    },
+    {
+      "id": "kor25-003",
+      "target_lang": "en",
+      "text": "To shorten test execution time, we revisited our database transaction strategy."
+    },
+    {
+      "id": "kor25-004",
+      "target_lang": "en",
+      "text": "We were getting a lot of N+1 queries in production, so we made sure to preload with includes."
+    },
+    {
+      "id": "kor25-005",
+      "target_lang": "en",
+      "text": "After deploying, we confirmed on the Datadog dashboard that p99 latency had been cut in half."
+    },
+    {
+      "id": "dk25-en-001",
+      "target_lang": "ja",
+      "text": "私たちのアプリを新しいMaterial 3デザインシステムに移行した方法を、これから説明させてください。"
+    },
+    {
+      "id": "dk25-en-002",
+      "target_lang": "ja",
+      "text": "最も重要なポイントは、最適化する前に必ず計測すべきだということです。"
+    },
+    {
+      "id": "dk25-en-003",
+      "target_lang": "ja",
+      "text": "Kotlin Multiplatformでバックグラウンド処理をどう扱っているか、もう少し詳しく説明していただけますか？"
+    },
+    {
+      "id": "rk25-en-001",
+      "target_lang": "ja",
+      "text": "このライブラリは先月OSSとして公開したので、ぜひ試してプルリクエストを送ってください。"
+    },
+    {
+      "id": "rk25-en-002",
+      "target_lang": "ja",
+      "text": "ボトルネックがどこにあるかを確認するために、コールスタックをちょっと見てみましょう。"
+    },
+    {
+      "id": "rk25-en-003",
+      "target_lang": "ja",
+      "text": "今年も素晴らしい仕事をしてくれたRubyコミッターのみなさんに感謝したいと思います。"
+    },
+    {
+      "id": "kor25-en-001",
+      "target_lang": "ja",
+      "text": "本番環境でマイグレーションに時間がかかりすぎたので、デプロイをロールバックせざるを得ませんでした。"
+    },
+    {
+      "id": "kor25-en-002",
+      "target_lang": "ja",
+      "text": "質問があれば、手を挙げるかカンファレンスのSlackチャンネルで聞いてください。"
+    },
+    {
+      "id": "kor25-en-003",
+      "target_lang": "ja",
+      "text": "Hotwireは、JavaScriptを書かずに少しだけインタラクティブな要素を加えたいときに本領を発揮します。"
+    },
+    {
+      "id": "kor25-en-004",
+      "target_lang": "ja",
+      "text": "最後まで残ってくださってありがとうございました。カンファレンスを楽しんでいただけたなら幸いです。"
+    }
+  ]
+}
