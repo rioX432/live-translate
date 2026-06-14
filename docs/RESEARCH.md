@@ -1,248 +1,257 @@
-# リアルタイム同時翻訳ツール 技術調査レポート
+# Real-time translation tool — technology & market research
 
-調査日: 2026-03-16
+Updated: 2026-06
 
-## 目的
+## Purpose
 
-多言語環境でのプレゼンテーション中に、Mac拡張ディスプレイ上でリアルタイム字幕翻訳を表示する。日本語↔英語の自動切替が必要。文字起こしログも残したい。
+Display real-time bidirectional Japanese↔English subtitles on a Mac extended
+display during presentations, so the audience can follow regardless of which
+language the speaker is using. Transcript logging is required. The tool must
+run on a personal laptop, not a corporate seat license.
 
-## 要件
+## Requirements
 
-- 日本語↔英語のリアルタイム翻訳（レイテンシ2秒以内）
-- 言語の自動検出・自動切替（話者が変わっても対応）
-- Mac拡張ディスプレイ上でスライドに重ねて字幕表示
-- 翻訳精度が高い（ビジネス会議レベル）
-- 文字起こしログ保存
-- なるべくコストをかけない
-
----
-
-## 1. 既存ツール比較
-
-### ビデオ会議プラットフォーム
-
-| ツール | 翻訳機能 | 日本語対応 | 料金 | 備考 |
-|---|---|---|---|---|
-| Google Meet 字幕翻訳 | 69言語字幕翻訳 | ○ | Business Standard以上 + Geminiアドオン | 2025/1以降Gemini必須 |
-| Google Meet 音声翻訳 | 6言語音声翻訳 | ✗ | Business Plus以上 | 日本語未対応 |
-| MS Teams AI Interpreter | 9言語音声同時通訳 | ○ | Copilot($4,500/月/人) | 高額 |
-| Zoom 翻訳字幕 | 35言語字幕 | ○ | 月750円オプション | 安い |
-
-### 専用翻訳ツール
-
-| ツール | 料金 | 日本語 | 特徴 |
-|---|---|---|---|
-| Sentio (ポケトーク) | 月3,300円/500人 | ○ | コスパ最強、無料枠30分/月 |
-| VoicePing | 無料〜月20,000円 | ○ | 日本製、Whisper V2ベース |
-| DeepL Voice | 最低50ライセンス | ○ | 翻訳精度最高、中小には敷居高い |
-| Felo Subtitles (Chrome拡張) | 無料あり | ○ | 即効策として有効 |
-
-### Chrome拡張（Google Meet向け）
-
-| 拡張 | 特徴 | リスク |
-|---|---|---|
-| Felo Subtitles | リアルタイム翻訳、無料 | DOMスクレイピング、UI変更で壊れる |
-| JotMe | 77言語、議事録生成 | 同上 |
-| ELI | 無制限無料 | Google Meet専用 |
+- Bidirectional Japanese↔English translation (end-to-end latency target: <2s)
+- Automatic language detection / switching as speakers alternate
+- Transparent subtitle overlay on a Mac extended display (over slides)
+- Business-meeting quality translation
+- Transcript saved locally
+- Minimal cost (ideally free)
 
 ---
 
-## 2. 音声認識 (STT) 技術比較
+## Why this project (positioning vs. the 2026 alternatives)
 
-### クラウドAPI
-
-| サービス | レイテンシ | 日本語精度 | 料金(/分) | ストリーミング | コードスイッチング |
+| Project / product | License | Cost | Focus | Offline default | Why we still ship our own |
 |---|---|---|---|---|---|
-| Google Cloud STT | ~300ms | 高 (CER 2.7%) | $0.024 | ○ | 最大3言語指定 |
-| Deepgram Nova-3 | <300ms | 中〜高 | $0.0043 | ○ | **10言語ネイティブ対応** |
-| Azure Speech | ~300ms | 高 | $0.017 | ○ | △ |
-| OpenAI Whisper API | バッチのみ | 高 | $0.006 | ✗ | ✗ |
+| **[Sokuji](https://github.com/kizuna-ai-lab/sokuji)** | AGPL-3.0 | Free (self-host) | 40+ languages, 7 AI providers | Partial (provider-dependent) | AGPL copyleft is a non-starter for some closed-source corporate users; UX is generalist, not JA↔EN-tuned. |
+| **[Felo Subtitles](https://felo.ai/)** | Commercial | Freemium / subscription | Browser extension, hosted | No (cloud-only) | Cloud-only; sends audio to a third party; pricing scales per user. |
+| **[DeepL Voice](https://www.deepl.com/en/products/voice)** | Commercial | Enterprise (≥50 seats) | Curated language pairs, hosted | No (cloud-only) | Seat-license minimum locks out individuals and small teams. |
+| **live-translate (this project)** | **MIT** | **Free** | **JA↔EN, overlay-first** | **Yes (default)** | Free, MIT, runs offline by default, with an *optional* Azure F0 cloud boost on top. |
 
-### ローカルモデル
+The differentiator is **(MIT) × (local-first) × (JA↔EN tuned)**. We do not
+chase the multilingual frontier; we chase the two languages our core users
+actually speak and let the cloud be an opt-in accelerator.
 
-| モデル | 速度 | 日本語精度 | コスト | 備考 |
+---
+
+## 1. Existing tools (2026-06 snapshot)
+
+### Video-conferencing platforms
+
+| Tool | Translation feature | Japanese | Price | Notes |
 |---|---|---|---|---|
-| **Kotoba-Whisper v2.0** | large-v3の6.3倍速 | 最高（日本語特化） | ¥0 | 英語混在は非対応 |
-| **Lightning Whisper MLX** | whisper.cppの10倍速 | 高 | ¥0 | Apple Silicon最適化 |
-| Whisper large-v3-turbo | large-v3の2倍速 | 高（v2同等） | ¥0 | 809Mパラメータ |
-| whisper.cpp (medium) | ~2秒/チャンク | 90%以上 | ¥0 | Metal対応 |
-| **VoicePing whisper-ja-en** | large-v3の4倍速 | 高 | ¥0 | **日英双方向翻訳内蔵** |
+| Google Meet caption translation | 69-language caption translation | Yes | Business Standard+ with Gemini add-on | Gemini add-on required since 2025-01 |
+| Google Meet voice translation | 6-language voice translation | No | Business Plus+ | Japanese still unsupported |
+| MS Teams AI Interpreter | 9-language simultaneous voice interpretation | Yes | Copilot (≈¥4,500/user/month) | Costly per seat |
+| Zoom translated captions | 35-language captions | Yes | ~¥750/user/month add-on | Cheapest of the platform options |
 
-### Web Speech API（不採用）
+### Dedicated translation tools
 
-- 60秒タイムアウト、無音7秒で停止
-- 先行事例が「barely working」
-- 音声がGoogleに送信（プライバシー懸念）
-- プロダクション利用には不安定
-
----
-
-## 3. 翻訳技術比較
-
-### 翻訳API
-
-| サービス | 日英品質 | 短文精度 | レイテンシ | 無料枠 | リアルタイム適性 |
-|---|---|---|---|---|---|
-| **Google Translation** | 高い | **良好** | 100-300ms | 月50万文字 | ★★★ |
-| DeepL API | 最高 | やや弱い | ms | 月50万文字(600文字/分制限) | ★★☆ |
-| GPT-4o | 最高 | 良好 | 秒 | なし | ★☆☆ |
-| Claude | 最高(WMT24) | 良好 | 秒 | なし | ★☆☆ |
-
-**重要**: リアルタイム翻訳は短文を連続で翻訳するため、**短文精度とレイテンシ**が重要。DeepLは長文向けに最適化されており短文で誤訳が出やすい。Google Translationのほうがリアルタイム用途に適している。
-
-### ローカル翻訳モデル
-
-| モデル | 品質 | コスト | 備考 |
+| Tool | Price | Japanese | Notes |
 |---|---|---|---|
-| M2M100 | 中 | ¥0 | LocalVocalが採用、MIT |
-| OPUS-MT | 中 | ¥0 | CTranslate2で高速化可能 |
-| LibreTranslate | 低〜中 | ¥0 | プロ用途には不十分 |
-| **VoicePing whisper-ja-en** | 高 | ¥0 | STTと翻訳が一体 |
+| Sentio (Pocketalk) | ~¥3,300/month for 500 users | Yes | Best price/performance, free 30 min/month tier |
+| VoicePing | Free → ¥20,000/month | Yes | Japanese vendor, Whisper V2-based |
+| DeepL Voice | ≥50 seats | Yes | Top translation quality, enterprise-only |
+| Felo Subtitles (Chrome ext.) | Free / paid tiers | Yes | Hosted; useful for quick demos |
 
----
+### Chrome extensions (Google Meet)
 
-## 4. 日本語↔英語の自動言語切替
-
-### 方式比較
-
-| 方式 | 仕組み | 精度 | コスト |
-|---|---|---|---|
-| **VoicePing whisper-ja-en** | VAD分割→言語検出→双方向翻訳 | 高 | ¥0 |
-| **Deepgram Nova-3 multi** | 統一マルチリンガルモデル | 最高 | $26/月 |
-| Whisper VAD分割方式 | セグメント毎にdetect_language() | 中 | ¥0 |
-| Google STT multi | 最大3言語指定 | 中〜高 | 有料 |
-
-### Whisperの言語検出の制限
-
-- 最初の30秒で言語判定、セグメント単位の切替は標準機能にない
-- Kotoba-Whisperは日本語特化で英語が破綻する
-- ワークアラウンド: VADで分割→各セグメントでdetect_language()→言語指定で書き起こし
-
----
-
-## 5. Mac字幕オーバーレイ表示
-
-### ユースケース
-
-```
-発表者のMac → HDMI/拡張ディスプレイ → プロジェクター
-メインディスプレイ: 発表者操作用
-拡張ディスプレイ: スライド + 字幕オーバーレイ（聴衆向け）
-```
-
-### 方式
-
-| 方式 | 透過ウィンドウ | 安定性 | 開発工数 |
-|---|---|---|---|
-| **Electron** | ○ (transparent+frameless) | 高 | 低 |
-| SwiftUI + AppKit | ○ | 最高 | 中 |
-| Tauri v2 | △（バグ報告あり） | 中 | 低 |
-
-### 参考OSS
-
-| プロジェクト | 概要 | 技術 |
+| Extension | Notes | Risk |
 |---|---|---|
-| **[Sokuji](https://github.com/kizuna-ai-lab/sokuji)** | 最も完成度の高いElectron翻訳アプリ | Electron+React, 7AIプロバイダ |
-| [electron-speech-to-speech](https://github.com/Kutalia/electron-speech-to-speech) | 100%ローカル翻訳 | Whisper WebGPU + VITS |
-| [OBS LocalVocal](https://github.com/royshil/obs-localvocal) | OBSプラグイン字幕 | whisper.cpp + M2M100 |
+| Felo Subtitles | Real-time translation, free tier | DOM scraping; breaks on Meet UI changes |
+| JotMe | 77 languages, meeting notes | Same DOM-scraping fragility |
+| ELI | Unlimited free | Google Meet only |
 
 ---
 
-## 6. 推奨アーキテクチャ
+## 2. Speech-to-text (STT) options
 
-### 構成A: VoicePing モデル方式（推奨・無料）
+### Cloud APIs
 
-```
-マイク → VAD → 言語検出 → VoicePing whisper-ja-en モデル → Electron透過ウィンドウ
-                              (STT + 翻訳を1モデルで)
+| Service | Latency | JA accuracy | Price (/min) | Streaming | Code-switching |
+|---|---|---|---|---|---|
+| Google Cloud STT | ~300 ms | High (CER 2.7%) | $0.024 | Yes | Up to 3 languages |
+| Deepgram Nova-3 | <300 ms | Medium-high | $0.0043 | Yes | **Native 10-language multilingual** |
+| Azure Speech | ~300 ms | High | $0.017 | Yes | Limited |
+| OpenAI Whisper API | Batch only | High | $0.006 | No | No |
 
-日本語発話 → 英語テキスト出力
-英語発話 → 日本語テキスト出力
-+ 原文テキストも同時表示
-```
+### Local models
 
-- コスト: ¥0
-- 言語切替: セグメント単位で自動
-- レイテンシ: ~1-2秒
-- VoicePingが商用利用で実績あり
+| Model | Speed | JA accuracy | Cost | Notes |
+|---|---|---|---|---|
+| **Kotoba-Whisper v2.0** | 6.3× large-v3 | Best (JA-specialized) | ¥0 | Cannot handle EN code-switch |
+| **MLX Whisper** | Apple Silicon-tuned | JA CER 8.1% / EN WER 3.8% | ¥0 | ~2.9 s per chunk |
+| **Apple SpeechTranscriber** | Native, macOS 26+ | High | ¥0 | Zero-setup, ANE-native |
+| **whisper.cpp (Whisper Local)** | ~2 s / chunk | ≥90% | ¥0 | Cross-platform default |
+| Lightning Whisper MLX | — | **CER 162% — removed** | — | Failed JA benchmark |
+| Moonshine base | — | **CER 221% — removed** | — | Failed JA benchmark |
+| Moonshine Tiny JA | 845 ms | CER 10.1% | ¥0 | Improved variant; experimental |
 
-### 構成B: Whisper STT + Google Translation（精度重視）
+### Web Speech API (rejected)
 
-```
-マイク → VAD → Whisper large-v3-turbo (言語検出+STT)
-  → 日本語検出 → Google Translation → 英語テキスト
-  → 英語検出 → Google Translation → 日本語テキスト
-→ Electron透過ウィンドウ
-```
-
-- コスト: ¥0（Google Translation月50万文字無料枠内）
-- 翻訳精度: 高い（Google NMT、短文に強い）
-- レイテンシ: ~2秒
-- 言語拡張が容易
-
-### 構成C: OBS LocalVocal（開発ゼロ・検証用）
-
-```
-OBS Studio + LocalVocal プラグイン → 字幕オーバーレイ → プロジェクター
-```
-
-- コスト: ¥0、開発不要
-- 翻訳精度: 中（M2M100）
-- 即日検証可能
+- 60-second hard timeout, drops after 7s of silence.
+- Prior art is "barely working".
+- Audio is sent to Google (privacy concern).
+- Not production-grade.
 
 ---
 
-## 7. コスト比較
+## 3. Translation options
 
-| 構成 | STT | 翻訳 | 月額合計 |
+### Translation APIs
+
+| Service | JA↔EN quality | Short-sentence accuracy | Latency | Free tier | Real-time fit |
+|---|---|---|---|---|---|
+| **Azure Translator (F0)** | High | Good | <300 ms | **2 M chars/month** | ★★★ — **recommended single-key boost** |
+| Google Translation | High | Good | 100-300 ms | 480 K chars/month | ★★★ |
+| DeepL API Free | Top | Slightly weaker on short utterances | ms | 500 K chars/month (≤600 chars/min) | ★★ |
+| GPT-4o / Claude | Top | Good | seconds | None | ★ |
+| Gemini 2.5 Flash | High | Good | Sub-second | Generous | ★★★ |
+
+> Real-time translation runs many short utterances back to back, so
+> **short-sentence accuracy and latency** dominate. DeepL is optimized for
+> long-form text and can mis-translate short utterances; Azure F0 and Google
+> are both strong on short input.
+>
+> live-translate's `ApiRotationController` rotates **Azure → Google → DeepL →
+> Gemini → local fallback** when more than one key is configured. The local
+> fallback was added in [#703](https://github.com/rioX432/live-translate/issues/703)
+> so that exhausting every cloud key never breaks the overlay.
+
+### Local translation models
+
+| Model | Quality | Cost | Notes |
 |---|---|---|---|
-| A: VoicePing モデル | ¥0 | ¥0（内蔵） | **¥0** |
-| B: Whisper + Google | ¥0 | ¥0（50万文字以内） | **¥0** |
-| B: Whisper + Google（超過時） | ¥0 | $20/100万文字 | **~$10-20** |
-| C: OBS LocalVocal | ¥0 | ¥0 | **¥0** |
-| 参考: Deepgram + DeepL Pro | $26/月 | $5.49+従量 | **~$40-60** |
+| **HY-MT1.5 1.8B** | High | ¥0 | ~180 ms / sentence; **current default** (replaces OPUS-MT, #544) |
+| **LFM2** | Medium-high | ¥0 | ~230 MB, ultra-fast |
+| **Hunyuan-MT 7B** | Highest local | ¥0 | 3.7-6.3 s / sentence; quality mode only |
+| OPUS-MT | Medium | ¥0 | 279-462 ms; legacy fallback for low-memory systems |
+| M2M100 | Medium | ¥0 | LocalVocal-style |
+| PLaMo | — | ¥0 | Under evaluation; removed from adaptive routing (#705) |
+
+### Translation benchmark (2026-06)
+
+We added a conversational JA↔EN benchmark in
+[#706](https://github.com/rioX432/live-translate/issues/706) under
+[`benchmark/conversational-ja-en/`](../benchmark/conversational-ja-en/). The
+dataset is 25 representative meeting utterances (15 JA, 10 EN). The metric
+is **chrF** (sacreBLEU defaults: n=6, β=2) — used as a tractable stand-in
+for COMET-22, because the official Unbabel implementation is PyTorch-only
+today and no battle-tested Node.js ONNX path exists yet. The TODO to swap
+in COMET-22 is recorded in `benchmark/conversational-ja-en/metrics.ts` and
+referenced by issue #706.
 
 ---
 
-## 8. 開発ロードマップ
+## 4. Japanese↔English auto language switching
 
-### Step 1: 検証（今日）
-- [ ] OBS LocalVocal をインストールして翻訳精度を体感
-- [ ] Sokuji を動かしてElectron翻訳アプリの動作感を確認
+### Approach comparison
 
-### Step 2: 技術検証（今週）
-- [ ] VoicePing whisper-ja-en モデルの日英翻訳精度を検証
-- [ ] Apple Silicon Mac でのリアルタイム推論速度を計測
-- [ ] Whisper large-v3-turbo の言語自動検出精度を検証
+| Approach | Mechanism | Accuracy | Cost |
+|---|---|---|---|
+| **VoicePing whisper-ja-en** | VAD split → language detect → bi-directional translation | High | ¥0 |
+| **Deepgram Nova-3 multi** | Unified multilingual model | Highest | $26/month |
+| Whisper VAD split | Run `detect_language()` per segment | Medium | ¥0 |
+| Google STT multi | Specify up to 3 languages | Medium-high | Paid |
 
-### Step 3: MVP開発（1-2週間）
-- [ ] Electron + React プロジェクト作成
-- [ ] マイク音声取得 + VAD
-- [ ] VoicePing モデル統合（or Whisper + Google Translation）
-- [ ] 透過字幕ウィンドウ（拡張ディスプレイ配置）
-- [ ] 文字起こしログ保存
+### Whisper limitations
 
-### Step 4: 改善
-- [ ] 字幕UI調整（フォント、位置、フェードアウト）
-- [ ] 精度が不足なら構成B（Google Translation）に切替
-- [ ] Notion API連携（議事録保存）
-- [ ] Claudeで議事録要約（各自のサブスクで手動）
+- The 30-second language probe runs once; per-segment switching is not a
+  built-in feature.
+- Kotoba-Whisper is JA-specialized and degrades on English.
+- Workaround: VAD-segment → `detect_language()` → re-decode with the
+  detected language.
 
 ---
 
-## 参考リンク
+## 5. Mac subtitle overlay
+
+### Use case
+
+```
+Presenter Mac → HDMI / extended display → projector
+Primary display:  presenter notes / controls
+Extended display: slides + subtitle overlay (audience view)
+```
+
+### Implementation options
+
+| Approach | Transparent window | Stability | Effort |
+|---|---|---|---|
+| **Electron** | Yes (transparent + frameless) | High | Low |
+| SwiftUI + AppKit | Yes | Highest | Medium |
+| Tauri v2 | Partial (bugs reported) | Medium | Low |
+
+### Reference OSS
+
+| Project | Notes | Tech |
+|---|---|---|
+| **[Sokuji](https://github.com/kizuna-ai-lab/sokuji)** | Most polished Electron translator (AGPL) | Electron + React, 7 AI providers |
+| [electron-speech-to-speech](https://github.com/Kutalia/electron-speech-to-speech) | 100% local | Whisper WebGPU + VITS |
+| [OBS LocalVocal](https://github.com/royshil/obs-localvocal) | OBS subtitle plugin | whisper.cpp + M2M100 |
+
+---
+
+## 6. Architecture decision
+
+We adopted **Whisper STT + (HY-MT1.5 local | Azure F0 cloud boost)** for the
+following reasons:
+
+- HY-MT1.5 1.8B is ~180 ms per sentence on Apple Silicon — the best
+  latency/quality trade-off for a fully-offline default.
+- Azure F0 gives us a single optional cloud key with the largest free
+  quota (2 M chars/month) — bigger than Google or DeepL Free combined.
+- `ApiRotationController` provides a graceful local fallback when the
+  cloud quota is gone or the network is down (#703).
+- Electron lets us reuse the existing subtitle overlay and the cross-platform
+  CI without rewriting in Swift.
+
+This supersedes the 2026-03 recommendation of "VoicePing-only" — VoicePing
+remains a viable alternative but is not the default because HY-MT1.5
+benchmarks better on the conversational dataset (#706) and is easier to
+upgrade in a Node.js pipeline.
+
+---
+
+## 7. Cost comparison
+
+| Configuration | STT | Translation | Monthly cost |
+|---|---|---|---|
+| **A: HY-MT1.5 local only** | ¥0 | ¥0 | **¥0** |
+| **B: HY-MT1.5 + Azure F0 boost** | ¥0 | ¥0 (≤2 M chars) | **¥0** |
+| B (over Azure F0 quota) | ¥0 | local fallback or ~$10/M chars | ¥0 (fallback) or ~$10-20 |
+| C: Stacked rotation (Azure + Google + DeepL + Gemini) | ¥0 | ¥0 (≤4 M chars combined) | **¥0** |
+| Ref: Deepgram + DeepL Pro | $26/month | $5.49 + usage | **~$40-60** |
+
+---
+
+## 8. Open items
+
+- **COMET-22 swap-in** — Replace chrF in
+  `benchmark/conversational-ja-en/metrics.ts` once a stable Node.js ONNX
+  COMET inference path exists. Tracked via the TODO in that file and #706.
+- **PLaMo re-evaluation** — Removed from adaptive routing (#705); revisit
+  when a smaller / faster checkpoint lands.
+- **GPT-Realtime + Whisper** — Evaluate as a future STT path (#698).
+
+---
+
+## References
 
 ### OSS
-- [Sokuji](https://github.com/kizuna-ai-lab/sokuji) - Electron翻訳アプリ
-- [VoicePing whisper-ja-en](https://github.com/voiceping-ai/whisper-ja-en-speech-translation) - 日英双方向翻訳モデル
-- [OBS LocalVocal](https://github.com/royshil/obs-localvocal) - OBS字幕プラグイン
-- [whisper-node-addon](https://github.com/Kutalia/whisper-node-addon) - Electron用Whisperネイティブアドオン
-- [Lightning Whisper MLX](https://github.com/mustafaaljadery/lightning-whisper-mlx) - Apple Silicon最適化
-- [Kotoba-Whisper v2.0](https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0) - 日本語特化Whisper
-- [WhisperLive](https://github.com/collabora/WhisperLive) - リアルタイムWhisper
-- [Meta SeamlessStreaming](https://github.com/facebookresearch/seamless_communication) - E2E翻訳
 
-### 商用サービス
-- [Deepgram Nova-3](https://deepgram.com/) - 多言語コードスイッチング
-- [Google Cloud Translation](https://cloud.google.com/translate) - 月50万文字無料
-- [DeepL API](https://www.deepl.com/pro-api) - 翻訳品質最高
+- [Sokuji](https://github.com/kizuna-ai-lab/sokuji) — Electron translator
+- [VoicePing whisper-ja-en](https://github.com/voiceping-ai/whisper-ja-en-speech-translation) — JA↔EN bi-directional model
+- [OBS LocalVocal](https://github.com/royshil/obs-localvocal) — OBS subtitle plugin
+- [whisper-node-addon](https://github.com/Kutalia/whisper-node-addon) — Electron Whisper native addon
+- [Lightning Whisper MLX](https://github.com/mustafaaljadery/lightning-whisper-mlx) — Apple Silicon-tuned (failed JA benchmark)
+- [Kotoba-Whisper v2.0](https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0) — JA-specialized Whisper
+- [WhisperLive](https://github.com/collabora/WhisperLive) — Real-time Whisper
+
+### Commercial
+
+- [Azure Translator pricing](https://azure.microsoft.com/en-us/pricing/details/cognitive-services/translator/)
+- [Google Cloud Translation](https://cloud.google.com/translate)
+- [DeepL API](https://www.deepl.com/pro-api)
+- [Deepgram Nova-3](https://deepgram.com/)
