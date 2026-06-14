@@ -64,16 +64,17 @@ In short: Sokuji is the right pick if you need 40+ languages and don't mind AGPL
 - **Real-time translation** — Whisper STT + pluggable translation engines
 - **Local-first** — Runs entirely offline with HY-MT1.5 1.8B (~180ms default), OPUS-MT (legacy fallback), or Hunyuan-MT 7B (quality mode)
 - **API rotation** — Combine free tiers of Azure, Google, DeepL, and Gemini (4M+ chars/month)
+- **Progressive onboarding** — Three-step wizard: Quick Start (Tier 1, ~371 MB) → Quality Upgrade (Tier 2, ~1.6 GB background) → optional Cloud Boost (Azure F0)
+- **Adaptive routing** — Per-segment complexity scoring routes simple utterances to the fast engine and rare/long ones to the quality engine
+- **Generative Error Correction (GER)** — Asynchronous SLM post-edit that fixes proper nouns, numbers, and glossary terms without blocking the streaming pipeline
 - **Subtitle overlay** — Transparent, always-on-top subtitles on any display
 - **Customizable subtitles** — Font size, colors, opacity, position
 - **Translation cache** — LRU cache for repeated phrases, instant re-translation
-- **Meeting summaries** — Generate summaries via local LLM after sessions
-- **Multiple STT engines** — Whisper Local (whisper.cpp), MLX Whisper (Apple Silicon optimized)
+- **Multiple STT engines** — Whisper Local (whisper.cpp), MLX Whisper (Apple Silicon), Kotoba-Whisper (JA-tuned), Qwen3-ASR, SenseVoice, Apple SpeechTranscriber (macOS 26+)
 - **Streaming display** — Local Agreement algorithm for flicker-free interim results
 - **GPU auto-detection** — Automatically selects best engine for your hardware
 - **Global keyboard shortcuts** — Ctrl+Shift based shortcuts for overlay control
 - **Accessibility** — High contrast mode, dyslexia-friendly font, letter/word spacing, WCAG compliance
-- **Enterprise features** — MDM configuration, admin lock, usage analytics, telemetry consent
 - **Cross-platform** — macOS and Windows support with CI
 - **Plugin system** — Extensible engine architecture with manifest-based plugins
 
@@ -226,6 +227,15 @@ export class MyTranslator implements TranslatorEngine {
 - [docs/mdm-config.md](docs/mdm-config.md) — Enterprise MDM-managed configuration
 - [docs/RESEARCH.md](docs/RESEARCH.md) — Market and technology research
 - [benchmark/conversational-ja-en/README.md](benchmark/conversational-ja-en/README.md) — Conversational JA↔EN benchmark
+- [ARCHITECTURE.md](ARCHITECTURE.md) — System diagram, directory layout, IPC channels
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for the list of changes since the last release.
+
+## Security
+
+For security issues, see [SECURITY.md](SECURITY.md). Please do not file public Issues for vulnerabilities.
 
 ## License
 
