@@ -426,11 +426,3 @@ app.on('before-quit', (event) => {
 app.on('window-all-closed', () => {
   app.quit()
 })
-p.quit()
-    }
-  })()
-})
-
-app.on('window-all-closed', () => {
-  app.quit()
-})
