@@ -180,8 +180,80 @@ export interface E2ETranslationEngine {
    */
   processAudio(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null>
 
+  /**
+   * Optional: create a streaming session for continuous, low-latency
+   * translation of a live audio stream (cloud realtime / local e2e).
+   * Engines that only support single-shot batch translation omit this.
+   */
+  createStreamingSession?(): E2EStreamingSession
+
   /** Release resources */
   dispose(): Promise<void>
+}
+
+/**
+ * Backpressure signal returned by {@link E2EStreamingSession.pushAudio} when the
+ * session's input buffer is full. Callers should await `drained` before pushing more.
+ */
+export interface Backpressure {
+  /** Resolves when the session is ready to accept more audio. */
+  drained: Promise<void>
+}
+
+/**
+ * Sink that receives streaming output from an E2E session.
+ * The pipeline supplies the sink; the session pushes interim/final results into it.
+ * Implementations must ignore emissions once their owning session is aborted.
+ */
+export interface E2EStreamingSink {
+  /** Emit an interim (unconfirmed) result. */
+  interim(result: TranslationResult): void
+  /** Emit a final (confirmed) result. */
+  final(result: TranslationResult): void
+  /** Report a non-fatal error. */
+  error(error: Error): void
+}
+
+/** Options passed to {@link E2EStreamingSession.start}. */
+export interface E2EStreamingStartOptions {
+  /** Sink that receives interim/final results. */
+  sink: E2EStreamingSink
+  /**
+   * Abort signal for the session generation. When aborted, the session must stop
+   * pushing to the sink and release resources. This replaces bare EventEmitter
+   * wiring to avoid post-dispose emits, listener leaks, and cross-session mixing.
+   */
+  signal: AbortSignal
+}
+
+/** Options passed to {@link E2EStreamingSession.stop}. */
+export interface E2EStreamingStopOptions {
+  /** When true, flush any buffered audio and emit a final result before closing. */
+  flush?: boolean
+}
+
+/**
+ * End-to-end streaming session performing continuous STT + translation on a live
+ * audio stream, pushing interim/final results into a sink.
+ *
+ * Lifecycle: start() → pushAudio()* [→ flushSegment()]* → stop().
+ * Generation isolation is enforced via the AbortSignal passed to start(): once
+ * aborted, no further sink emissions are permitted. This is the streaming
+ * counterpart to the single-shot {@link E2ETranslationEngine}, which remains for
+ * backward compatibility.
+ */
+export interface E2EStreamingSession {
+  /** Begin the session with the given sink and abort signal. */
+  start(options: E2EStreamingStartOptions): Promise<void>
+  /**
+   * Push an audio chunk into the session. Returns a {@link Backpressure} signal
+   * when the input buffer is full; returns void when there is capacity.
+   */
+  pushAudio(chunk: Float32Array): Promise<void | Backpressure>
+  /** Optional: force a segment boundary (e.g. on a detected speech pause). */
+  flushSegment?(): Promise<void>
+  /** Stop the session, optionally flushing buffered audio first. */
+  stop(options?: E2EStreamingStopOptions): Promise<void>
 }
 
 /** A glossary entry mapping a source term to its fixed translation */
