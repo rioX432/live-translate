@@ -13,6 +13,7 @@ import type { EngineConfig } from '../../engines/types'
 import { sanitizeErrorMessage } from '../error-utils'
 import { createLogger } from '../logger'
 import { getMdmConfig } from '../mdm-config'
+import { resetRealtimeAudioDispatcher } from '../realtime-audio'
 import { recordSessionEnd } from '../../logger/UsageAnalytics'
 import type { LiveSessionMetrics } from '../../logger/UsageAnalytics'
 
@@ -52,6 +53,8 @@ export function registerPipelineIpc(ctx: AppContext): void {
     if (ctx.pipeline.active) {
       await ctx.pipeline.stop() // Auto-stop before restart
     }
+    // #721: new session generation — invalidate any realtime chunks queued from a prior run
+    resetRealtimeAudioDispatcher()
 
     try {
       // #519: Apply MDM admin locks — override user-selected engine if locked
@@ -269,6 +272,8 @@ export function registerPipelineIpc(ctx: AppContext): void {
     }
 
     await ctx.pipeline?.stop()
+    // #721: drop any realtime chunks still queued for the stopped session
+    resetRealtimeAudioDispatcher()
     ctx.logger?.endSession()
     const logPath = ctx.logger?.getLogPath()
     ctx.logger = null
