@@ -2,6 +2,7 @@ import { MessageChannelMain } from 'electron'
 import { createLogger } from './logger'
 import { SAMPLE_RATE } from './constants'
 import { MIN_AUDIO_CHUNK_SAMPLES, SILENCE_THRESHOLD } from './audio-constants'
+import { getRealtimeAudioDispatcher } from './realtime-audio'
 import type { AppContext } from './app-context'
 
 const log = createLogger('audio-port')
@@ -31,6 +32,10 @@ export function setupAudioPort(ctx: AppContext): void {
     let processingAudio = false
     let processingStreaming = false
     let processingFinalize = false
+    // #721: realtime chunks are serialized through the shared dispatcher, the
+    // same instance the IPC transport uses, so audio and turn-boundary hints
+    // keep a single global order regardless of which transport carries them.
+    const realtime = getRealtimeAudioDispatcher()
 
     // Main process receives audio on port1
     port1.on('message', (event) => {
@@ -47,6 +52,13 @@ export function setupAudioPort(ctx: AppContext): void {
         )
       } else {
         log.error('Unexpected audio data type on MessagePort:', typeof audio)
+        return
+      }
+
+      // #721: realtime chunks bypass the 0.5s minimum and silence gate —
+      // continuity matters and silence is part of the provider's turn detection.
+      if (type === 'push-realtime-audio') {
+        realtime.pushAudio(ctx, chunk)
         return
       }
 

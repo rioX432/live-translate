@@ -4,6 +4,8 @@ export interface ElectronAPI {
   processAudio: (audioData: number[]) => Promise<unknown>
   processAudioStreaming: (audioData: number[]) => Promise<unknown>
   finalizeStreaming: (audioData: number[]) => Promise<unknown>
+  pushRealtimeAudio: (audioData: number[]) => Promise<unknown>
+  speechBoundary: (boundary: 'start' | 'end') => Promise<unknown>
   onTranslationResult: (callback: (data: unknown) => void) => (() => void)
   onInterimResult: (callback: (data: unknown) => void) => (() => void)
   onDraftResult: (callback: (data: unknown) => void) => (() => void)

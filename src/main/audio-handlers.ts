@@ -3,6 +3,7 @@ import { sanitizeErrorMessage } from './error-utils'
 import { createLogger } from './logger'
 import { SAMPLE_RATE } from './constants'
 import { MIN_AUDIO_CHUNK_SAMPLES, SILENCE_THRESHOLD } from './audio-constants'
+import { getRealtimeAudioDispatcher } from './realtime-audio'
 import type { AppContext } from './app-context'
 
 const log = createLogger('audio')
@@ -45,6 +46,20 @@ function toValidAudioChunk(audioData: unknown): Float32Array | null {
   const chunk = toFloat32Array(audioData)
   if (!chunk || chunk.length < MIN_AUDIO_CHUNK_SAMPLES) return null
   return chunk
+}
+
+/**
+ * Convert realtime IPC audio data to Float32Array (#721). IPC always delivers a
+ * plain number[]; unlike {@link toValidAudioChunk} this applies neither the 0.5s
+ * minimum nor silence gating, since cloud realtime APIs expect a continuous
+ * stream where 100ms chunks and silence are part of the provider's own turn
+ * detection.
+ */
+function toRealtimeChunk(audioData: unknown): Float32Array | null {
+  if (audioData instanceof Float32Array) return audioData
+  if (Array.isArray(audioData)) return new Float32Array(audioData)
+  log.error('Unknown realtime audio data type:', typeof audioData)
+  return null
 }
 
 /** Register audio processing IPC handlers */
@@ -103,6 +118,18 @@ export function registerAudioHandlers(ctx: AppContext): void {
     } finally {
       processingStreaming = false
     }
+  })
+
+  // #721: Realtime cloud e2e — continuous 100ms PCM chunks and VAD turn-boundary
+  // hints are serialized through the shared dispatcher (ordering, bounded
+  // backpressure, and session isolation live there — see realtime-audio.ts).
+  const realtime = getRealtimeAudioDispatcher()
+  ipcMain.handle('push-realtime-audio', (_event, audioData: unknown) => {
+    const chunk = toRealtimeChunk(audioData)
+    if (chunk) realtime.pushAudio(ctx, chunk)
+  })
+  ipcMain.handle('speech-boundary', (_event, boundary: unknown) => {
+    realtime.signalBoundary(ctx, boundary)
   })
 
   // Finalize streaming (speech segment ended)

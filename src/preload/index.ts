@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld('api', {
   processAudio: (audioData: number[]) => ipcRenderer.invoke('process-audio', audioData),
   processAudioStreaming: (audioData: number[]) => ipcRenderer.invoke('process-audio-streaming', audioData),
   finalizeStreaming: (audioData: number[]) => ipcRenderer.invoke('finalize-streaming', audioData),
+  // Cloud realtime e2e streaming (#721)
+  pushRealtimeAudio: (audioData: number[]) => ipcRenderer.invoke('push-realtime-audio', audioData),
+  speechBoundary: (boundary: 'start' | 'end') => ipcRenderer.invoke('speech-boundary', boundary),
 
   // Translation results
   onTranslationResult: (callback: (data: unknown) => void) => {
