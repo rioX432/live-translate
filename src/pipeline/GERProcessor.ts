@@ -33,6 +33,8 @@ export interface GERDeps {
   readonly emitter: EventEmitter
   getTranslator(): TranslatorEngine | null
   getGlossary(): GlossaryEntry[]
+  /** Current pipeline session generation — used to drop stale async emits (#719) */
+  getGeneration?(): number
 }
 
 /**
@@ -129,6 +131,7 @@ export class GERProcessor {
     timestamp: number
   ): Promise<void> {
     const t0 = performance.now()
+    const gen = this.deps.getGeneration?.()
 
     const glossaryEntries = this.deps.getGlossary()
     const glossary = glossaryEntries.length > 0
@@ -200,6 +203,12 @@ export class GERProcessor {
       timestamp,
       isInterim: false,
       translationStage: 'ger-corrected'
+    }
+
+    // Drop the correction if the engine was switched/stopped while it was in flight (#719)
+    if (gen !== undefined && this.deps.getGeneration?.() !== gen) {
+      log.info('GER: generation changed during correction, dropping stale result')
+      return
     }
 
     log.info(`GER corrected: "${trimmedOriginal}" → "${trimmedCorrected}" → "${translatedText}"`)

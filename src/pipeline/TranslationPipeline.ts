@@ -4,12 +4,14 @@ import type {
   STTEngine,
   TranslatorEngine,
   E2ETranslationEngine,
+  E2EStreamingSession,
   SpeakerDiarizer,
   TranslationResult,
   Language,
   SourceLanguage,
   GlossaryEntry
 } from '../engines/types'
+import { E2EStreamingAdapter } from './E2EStreamingAdapter'
 import { LocalAgreement } from './LocalAgreement'
 import { ContextBuffer } from './ContextBuffer'
 import { TranslationCache } from './TranslationCache'
@@ -103,6 +105,15 @@ export class TranslationPipeline extends EventEmitter {
   // Auto-recovery state
   private consecutiveErrors = 0
 
+  // Session generation counter (#719). Bumped on every engine switch / stop so
+  // async results scheduled under a previous engine are dropped instead of emitted.
+  private generation = 0
+
+  // E2E streaming session state (#719)
+  private streamingSession: E2EStreamingSession | null = null
+  private sessionAbort: AbortController | null = null
+  private sessionStartPromise: Promise<E2EStreamingSession | null> | null = null
+
   // Glossary terms for context-aware translation
   private glossary: GlossaryEntry[] = []
 
@@ -137,12 +148,14 @@ export class TranslationPipeline extends EventEmitter {
       },
       getGER: () => this.ger,
       getDraftSTTEngine: () => this.draftSttEnabled ? this.engineManager.draftSttEngine : null,
-      getDiarizer: () => this.diarizationEnabled ? this.engineManager.diarizer : null
+      getDiarizer: () => this.diarizationEnabled ? this.engineManager.diarizer : null,
+      getGeneration: () => this.generation
     })
     this.ger = new GERProcessor({
       emitter: this,
       getTranslator: () => this.engineManager.translator,
-      getGlossary: () => this.glossary
+      getGlossary: () => this.glossary,
+      getGeneration: () => this.generation
     })
   }
 
@@ -289,6 +302,15 @@ export class TranslationPipeline extends EventEmitter {
 
     try {
       await this.waitForProcessing()
+      // stop()-equivalent reset (#719): bump the generation and clear all streaming
+      // state so results scheduled under the previous engine are never emitted after
+      // the switch (stale LocalAgreement / ContextBuffer / SimulMT / GER / e2e output).
+      this.generation++
+      await this.teardownStreamingSession(false)
+      this.agreement.reset()
+      this.contextBuffer.reset()
+      this.streaming.reset()
+      this.ger.reset()
       this.translationCache.clear()
       await this.engineManager.disposeEngines()
       await this.engineManager.initializeEngines(config, this)
@@ -370,6 +392,10 @@ export class TranslationPipeline extends EventEmitter {
   async stop(): Promise<void> {
     this.memoryMonitor.stop()
     this.setState(PipelineState.IDLE)
+    // Bump generation and tear down the e2e session so no stale async result is
+    // emitted after stop (#719).
+    this.generation++
+    await this.teardownStreamingSession(false)
     this.streaming.reset()
     this.ger.reset()
     this.agreement.reset()
@@ -554,6 +580,107 @@ export class TranslationPipeline extends EventEmitter {
     if (!this.running || !this.engineManager.config) return null
     if (this.engineManager.config.mode !== 'cascade') return null
     return this.streaming.finalizeStreaming(audioChunk, sampleRate)
+  }
+
+  // --- E2E streaming (#719) ---
+
+  /**
+   * Feed a live audio chunk to the e2e streaming session (e2e mode only).
+   * The session emits interim/final results via the existing pipeline events
+   * ('interim-result' / 'result') through {@link E2EStreamingAdapter}.
+   * No-op in cascade mode — use processStreaming/finalizeStreaming there.
+   */
+  async pushRealtimeAudio(chunk: Float32Array): Promise<void> {
+    if (this._state !== PipelineState.RUNNING || !this.engineManager.config) return
+    if (this.engineManager.config.mode !== 'e2e') return
+
+    const session = await this.ensureStreamingSession()
+    if (!session) return
+
+    const backpressure = await session.pushAudio(chunk)
+    if (backpressure) {
+      await backpressure.drained
+    }
+  }
+
+  /**
+   * Signal a speech segment boundary (e.g. VAD pause) to the e2e session so it can
+   * finalize the current segment. No-op in cascade mode or when the session has no
+   * flush capability.
+   */
+  async onSpeechBoundary(): Promise<void> {
+    if (this.engineManager.config?.mode !== 'e2e') return
+    await this.streamingSession?.flushSegment?.()
+  }
+
+  /**
+   * Lazily start the e2e streaming session on first realtime audio. Concurrent
+   * callers share a single in-flight start. Returns null when the active e2e
+   * engine does not support streaming.
+   */
+  private async ensureStreamingSession(): Promise<E2EStreamingSession | null> {
+    if (this.streamingSession) return this.streamingSession
+    if (this.sessionStartPromise) return this.sessionStartPromise
+
+    const engine = this.engineManager.e2eEngine
+    if (!engine || typeof engine.createStreamingSession !== 'function') return null
+
+    const abort = new AbortController()
+    const generation = this.generation
+    const adapter = new E2EStreamingAdapter(
+      this,
+      abort.signal,
+      () => this.generation === generation
+    )
+    const session = engine.createStreamingSession()
+    this.sessionAbort = abort
+
+    const startPromise = (async (): Promise<E2EStreamingSession | null> => {
+      try {
+        await session.start({ sink: adapter, signal: abort.signal })
+        // A switch/stop may have raced ahead while start() was in-flight.
+        if (abort.signal.aborted) {
+          await session.stop({ flush: false }).catch(() => {})
+          return null
+        }
+        this.streamingSession = session
+        return session
+      } catch (err) {
+        log.warn('Failed to start e2e streaming session:', err)
+        await session.stop({ flush: false }).catch(() => {})
+        return null
+      } finally {
+        // Only clear the shared reference if this attempt is still the current one —
+        // a newer switch may have already replaced it while start() was pending.
+        if (this.sessionAbort === abort) {
+          this.sessionStartPromise = null
+        }
+      }
+    })()
+
+    this.sessionStartPromise = startPromise
+    return startPromise
+  }
+
+  /**
+   * Abort and close the current e2e streaming session. Aborting first guarantees
+   * the adapter drops any late results before stop() completes its drain.
+   */
+  private async teardownStreamingSession(flush: boolean): Promise<void> {
+    const session = this.streamingSession
+    const abort = this.sessionAbort
+    this.streamingSession = null
+    this.sessionAbort = null
+    this.sessionStartPromise = null
+
+    abort?.abort()
+    if (session) {
+      try {
+        await session.stop({ flush })
+      } catch (err) {
+        log.warn('Error stopping e2e streaming session:', err)
+      }
+    }
   }
 
   /**

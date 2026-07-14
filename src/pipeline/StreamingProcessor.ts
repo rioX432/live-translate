@@ -39,6 +39,8 @@ export interface StreamingDeps {
   getDraftSTTEngine?(): STTEngine | null
   /** Speaker diarizer for multi-speaker identification (#549) */
   getDiarizer?(): SpeakerDiarizer | null
+  /** Current pipeline session generation — used to drop stale async emits (#719) */
+  getGeneration?(): number
 }
 
 /**
@@ -83,6 +85,14 @@ export class StreamingProcessor {
     return this.streamingLock
   }
 
+  /**
+   * Whether a result scheduled under generation `gen` may still be emitted (#719).
+   * Returns true when generation tracking is unavailable (no getGeneration dep).
+   */
+  private isCurrentGeneration(gen: number | undefined): boolean {
+    return gen === undefined || this.deps.getGeneration?.() === gen
+  }
+
   /** Reset all streaming state */
   reset(): void {
     this.streamingLock = false
@@ -120,6 +130,7 @@ export class StreamingProcessor {
 
     this.deps.incrementProcessing()
     this.streamingLock = true
+    const gen = this.deps.getGeneration?.()
     try {
       // Fire draft STT in parallel for fast interim results (#536)
       const draftSttEngine = this.deps.getDraftSTTEngine?.()
@@ -208,6 +219,9 @@ export class StreamingProcessor {
               : dbTranslator.translate(fullSourceText, sttResult.language, targetLang, ctx)
 
             translatePromise.then((translated) => {
+              // Drop stale results before mutating shared state, so a switch mid-flight
+              // cannot leave a resurfacing translatedText for the next generation (#719).
+              if (!this.isCurrentGeneration(gen)) return
               this.lastTranslatedConfirmed = translated
               const debouncedResult: TranslationResult = {
                 sourceText: fullSourceText,
@@ -407,6 +421,7 @@ export class StreamingProcessor {
     this.simulMtLastBoundaryText = textToTranslate
     this.simulMtInFlight = true
 
+    const gen = this.deps.getGeneration?.()
     const glossaryEntries = this.deps.getGlossary()
     const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
 
@@ -418,6 +433,8 @@ export class StreamingProcessor {
       false, // not a revision — incremental
       this.deps.contextBuffer.getContext(glossary)
     ).then((translated) => {
+      if (!this.isCurrentGeneration(gen)) return
+
       this.simulMtPreviousOutput = translated
       this.lastTranslatedConfirmed = translated
 
@@ -448,6 +465,7 @@ export class StreamingProcessor {
    */
   private runDraftStt(draftEngine: STTEngine, audioBuffer: Float32Array, sampleRate: number): void {
     const t0 = performance.now()
+    const gen = this.deps.getGeneration?.()
     draftEngine.processAudio(audioBuffer, sampleRate)
       .then((draftResult) => {
         const draftMs = (performance.now() - t0).toFixed(0)
@@ -456,6 +474,8 @@ export class StreamingProcessor {
           return
         }
         log.info(`Draft STT: ${draftMs}ms → "${draftResult.text}" [${draftResult.language}]`)
+
+        if (!this.isCurrentGeneration(gen)) return
 
         const targetLang = this.deps.resolveTargetLanguage(draftResult.language)
 
@@ -531,6 +551,7 @@ export class StreamingProcessor {
 
     this.clauseTranslationInFlight = true
 
+    const gen = this.deps.getGeneration?.()
     const glossaryEntries = this.deps.getGlossary()
     const glossary = glossaryEntries.length > 0 ? glossaryEntries : undefined
     const ctx = this.deps.contextBuffer.getContext(glossary)
@@ -554,6 +575,8 @@ export class StreamingProcessor {
     translatePromise.then((translated) => {
       const clauseMs = (performance.now() - t0).toFixed(0)
       log.info(`Clause translation: ${clauseMs}ms → "${translated}" (prefix: "${textToTranslate}")`)
+
+      if (!this.isCurrentGeneration(gen)) return
 
       this.clauseTranslatedPrefix = textToTranslate
       this.clauseTranslation = translated
