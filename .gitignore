@@ -14,6 +14,8 @@ benchmark/mlx_models/
 benchmark/.bin/
 benchmark/testset/stt-audio/
 .claude/worktrees/
+workspace/
+test-results/
 *.tsbuildinfo
 e2e/**/*.js
 scripts/*/.build/
