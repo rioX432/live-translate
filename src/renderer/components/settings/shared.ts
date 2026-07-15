@@ -213,8 +213,21 @@ export function resolveEngineMode(
 export function buildEngineConfig(
   resolvedMode: EngineMode,
   sttEngine: SttEngineType,
-  apiKeys: { apiKey: string; deeplApiKey: string; geminiApiKey: string; microsoftApiKey: string; microsoftRegion: string }
+  apiKeys: { apiKey: string; deeplApiKey: string; geminiApiKey: string; microsoftApiKey: string; microsoftRegion: string; openaiApiKey?: string },
+  cloudRealtimeEnabled = false
 ): Record<string, unknown> {
+  // #722: Cloud realtime interpretation is a separate capability axis, not a 5th
+  // translation engine — when enabled (with a BYOK OpenAI key) it overrides the
+  // cascade engine selection and runs the speech-native e2e path. Default off
+  // keeps the local-first cascade as Core Value ①.
+  if (cloudRealtimeEnabled && apiKeys.openaiApiKey) {
+    return {
+      mode: 'e2e' as const,
+      e2eEngineId: 'cloud-realtime-e2e',
+      openaiApiKey: apiKeys.openaiApiKey
+    }
+  }
+
   const base = { mode: 'cascade' as const, sttEngineId: sttEngine }
 
   switch (resolvedMode) {

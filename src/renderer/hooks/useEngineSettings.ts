@@ -18,6 +18,11 @@ export interface EngineSettingsState {
   setMicrosoftApiKey: (v: string) => void
   microsoftRegion: string
   setMicrosoftRegion: (v: string) => void
+  // Cloud realtime interpretation (#722, BYOK)
+  openaiApiKey: string
+  setOpenaiApiKey: (v: string) => void
+  cloudRealtimeEnabled: boolean
+  setCloudRealtimeEnabled: (v: boolean) => void
 
   slmKvCacheQuant: boolean
   setSlmKvCacheQuant: (v: boolean) => void
@@ -57,6 +62,8 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
   const [geminiApiKey, setGeminiApiKey] = useState('')
   const [microsoftApiKey, setMicrosoftApiKey] = useState('')
   const [microsoftRegion, setMicrosoftRegion] = useState('')
+  const [openaiApiKey, setOpenaiApiKey] = useState('')
+  const [cloudRealtimeEnabled, setCloudRealtimeEnabled] = useState(false)
   const [slmKvCacheQuant, setSlmKvCacheQuant] = useState(true)
   const [slmSpeculativeDecoding, setSlmSpeculativeDecoding] = useState(false)
   const [simulMtEnabled, setSimulMtEnabled] = useState(false)
@@ -83,6 +90,8 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
       if (s.geminiApiKey) setGeminiApiKey(str(s.geminiApiKey, ''))
       if (s.microsoftApiKey) setMicrosoftApiKey(str(s.microsoftApiKey, ''))
       if (s.microsoftRegion) setMicrosoftRegion(str(s.microsoftRegion, ''))
+      if (s.openaiApiKey) setOpenaiApiKey(str(s.openaiApiKey, ''))
+      if (s.cloudRealtimeEnabled !== undefined) setCloudRealtimeEnabled(bool(s.cloudRealtimeEnabled, false))
       if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(bool(s.slmKvCacheQuant, true))
       if (s.slmSpeculativeDecoding !== undefined) setSlmSpeculativeDecoding(bool(s.slmSpeculativeDecoding, false))
       if (s.glossaryTerms) setGlossaryTerms(arr<{ source: string; target: string }>(s.glossaryTerms, []))
@@ -125,6 +134,8 @@ export function useEngineSettings(init: EngineSettingsInit): EngineSettingsState
     geminiApiKey, setGeminiApiKey,
     microsoftApiKey, setMicrosoftApiKey,
     microsoftRegion, setMicrosoftRegion,
+    openaiApiKey, setOpenaiApiKey,
+    cloudRealtimeEnabled, setCloudRealtimeEnabled,
     slmKvCacheQuant, setSlmKvCacheQuant,
     slmSpeculativeDecoding, setSlmSpeculativeDecoding,
     simulMtEnabled, setSimulMtEnabled,

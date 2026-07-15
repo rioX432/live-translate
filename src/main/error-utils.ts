@@ -7,7 +7,8 @@ export function sanitizeErrorMessage(message: string): string {
     settings.googleApiKey,
     settings.deeplApiKey,
     settings.geminiApiKey,
-    settings.microsoftApiKey
+    settings.microsoftApiKey,
+    settings.openaiApiKey
   ].filter((s): s is string => typeof s === 'string' && s.length > 8)
 
   let sanitized = message
@@ -16,6 +17,8 @@ export function sanitizeErrorMessage(message: string): string {
   }
   // Also scrub common API key patterns that may leak from HTTP responses
   sanitized = sanitized.replace(/AIza[0-9A-Za-z\-_]{35}/g, '***')
+  // OpenAI keys (sk-..., including sk-proj-...) for #722 BYOK realtime translation
+  sanitized = sanitized.replace(/sk-[A-Za-z0-9\-_]{20,}/g, '***')
   return sanitized
 }
 
