@@ -1,7 +1,7 @@
 # Shadow measurement harness (dev only) — #730
 
 Runs the JA⇄EN audio testset through the Local-first cascade and the cloud realtime
-e2e path side by side, and writes a `ShadowReport` (latency p50/p95, first-subtitle
+e2e paths side by side, and writes a `ShadowReport` (latency p50/p95, first-subtitle
 latency, cost, offline completeness, revision stability, busy/error rates).
 
 This is the "第0歩" measurement: it exists so the investment decision between
@@ -12,6 +12,7 @@ cascade modernization (#725) and local e2e (#724) rests on measured numbers.
 ```bash
 npm run shadow:ja-en           # cascade only, no API key needed, no cost
 npm run shadow:ja-en:cloud     # + gpt-realtime-translate (BYOK — costs real money)
+npm run shadow:ja-en:cloud-all # + gemini-3.5-live-translate-preview too (#723, BYOK — costs real money)
 ```
 
 The app opens no windows and quits when the report is written.
@@ -19,7 +20,8 @@ The app opens no windows and quits when the report is written.
 | Env var | Default | Meaning |
 |---|---|---|
 | `LT_SHADOW_JA_EN` | — | `1` enables the harness (set by the npm scripts) |
-| `LT_SHADOW_CLOUD` | — | `1` adds the cloud path. Requires `openaiApiKey` in settings |
+| `LT_SHADOW_CLOUD` | — | `1` adds the gpt-realtime-translate path. Requires `openaiApiKey` in settings |
+| `LT_SHADOW_GEMINI_LIVE` | — | `1` adds the Gemini Live path (#723). Requires `geminiLiveApiKey` in settings |
 | `LT_SHADOW_LIMIT` | all | Measure only the first N utterances (smoke runs) |
 | `LT_SHADOW_OUT` | `benchmark/results/shadow-ja-en.json` | Report path |
 

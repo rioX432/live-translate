@@ -53,6 +53,11 @@ export interface SettingsState {
   setOpenaiApiKey: (v: string) => void
   cloudRealtimeEnabled: boolean
   setCloudRealtimeEnabled: (v: boolean) => void
+  // Gemini Live realtime interpretation (#723, BYOK, preview)
+  geminiLiveApiKey: string
+  setGeminiLiveApiKey: (v: string) => void
+  geminiLiveEnabled: boolean
+  setGeminiLiveEnabled: (v: boolean) => void
 
   // Display
   displays: DisplayInfo[]
@@ -183,7 +188,8 @@ export function useSettingsState(): SettingsState {
     geminiApiKey: engine.geminiApiKey,
     microsoftApiKey: engine.microsoftApiKey,
     microsoftRegion: engine.microsoftRegion,
-    openaiApiKey: engine.openaiApiKey
+    openaiApiKey: engine.openaiApiKey,
+    geminiLiveApiKey: engine.geminiLiveApiKey
   }
 
   const handleStart = async (): Promise<void> => {
@@ -202,6 +208,8 @@ export function useSettingsState(): SettingsState {
         microsoftRegion: engine.microsoftRegion,
         openaiApiKey: engine.openaiApiKey,
         cloudRealtimeEnabled: engine.cloudRealtimeEnabled,
+        geminiLiveApiKey: engine.geminiLiveApiKey,
+        geminiLiveEnabled: engine.geminiLiveEnabled,
         selectedMicrophone: session.audio.selectedDevice,
         selectedDisplay: display.selectedDisplay,
         sttEngine: language.sttEngine,
@@ -224,7 +232,10 @@ export function useSettingsState(): SettingsState {
       }), 10_000, 'saveSettings')
 
       const resolvedMode = resolveEngineMode(engine.engineMode, apiKeys, engine.gpuInfo)
-      const config = buildEngineConfig(resolvedMode, language.sttEngine, apiKeys, engine.cloudRealtimeEnabled)
+      const config = buildEngineConfig(resolvedMode, language.sttEngine, apiKeys, {
+        cloudRealtimeEnabled: engine.cloudRealtimeEnabled,
+        geminiLiveEnabled: engine.geminiLiveEnabled
+      })
 
       const result = await withIpcTimeout(window.api.pipelineStart(config), 120_000, 'pipelineStart')
       if (result.error) {
@@ -326,6 +337,8 @@ export function useSettingsState(): SettingsState {
     microsoftRegion: engine.microsoftRegion, setMicrosoftRegion: engine.setMicrosoftRegion,
     openaiApiKey: engine.openaiApiKey, setOpenaiApiKey: engine.setOpenaiApiKey,
     cloudRealtimeEnabled: engine.cloudRealtimeEnabled, setCloudRealtimeEnabled: engine.setCloudRealtimeEnabled,
+    geminiLiveApiKey: engine.geminiLiveApiKey, setGeminiLiveApiKey: engine.setGeminiLiveApiKey,
+    geminiLiveEnabled: engine.geminiLiveEnabled, setGeminiLiveEnabled: engine.setGeminiLiveEnabled,
     slmKvCacheQuant: engine.slmKvCacheQuant, setSlmKvCacheQuant: engine.setSlmKvCacheQuant,
     slmSpeculativeDecoding: engine.slmSpeculativeDecoding, setSlmSpeculativeDecoding: engine.setSlmSpeculativeDecoding,
     simulMtEnabled: engine.simulMtEnabled, setSimulMtEnabled: engine.setSimulMtEnabled,

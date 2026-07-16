@@ -27,6 +27,8 @@ export function registerSettingsIpc(ctx: AppContext): void {
       microsoftRegion: store.get('microsoftRegion'),
       openaiApiKey: store.get('openaiApiKey'),
       cloudRealtimeEnabled: store.get('cloudRealtimeEnabled'),
+      geminiLiveApiKey: store.get('geminiLiveApiKey'),
+      geminiLiveEnabled: store.get('geminiLiveEnabled'),
       sttEngine: store.get('sttEngine'),
       selectedMicrophone: store.get('selectedMicrophone'),
       selectedDisplay: store.get('selectedDisplay'),

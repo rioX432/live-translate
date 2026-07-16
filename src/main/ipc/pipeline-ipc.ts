@@ -7,6 +7,7 @@ import { ApiRotationController } from '../../engines/translator/ApiRotationContr
 import type { ProviderConfig, QuotaStore } from '../../engines/translator/ApiRotationController'
 import { HunyuanMT15Translator } from '../../engines/translator/HunyuanMT15Translator'
 import { CloudRealtimeE2E } from '../../engines/e2e/CloudRealtimeE2E'
+import { GeminiLiveE2E } from '../../engines/e2e/GeminiLiveE2E'
 import { TranscriptLogger } from '../../logger/TranscriptLogger'
 import { store } from '../store'
 import type { AppContext } from '../app-context'
@@ -47,6 +48,8 @@ interface PipelineStartConfig extends EngineConfig {
   microsoftRegion?: string
   /** OpenAI API key for cloud realtime e2e translation (BYOK, #722) */
   openaiApiKey?: string
+  /** Gemini Live API key for the second cloud realtime e2e path (BYOK, #723) */
+  geminiLiveApiKey?: string
 }
 
 /** Register pipeline control IPC handlers */
@@ -91,6 +94,10 @@ export function registerPipelineIpc(ctx: AppContext): void {
       if (mdm.managedOpenaiApiKey && !config.openaiApiKey) {
         config.openaiApiKey = mdm.managedOpenaiApiKey
       }
+      // #723: inject managed Gemini Live key for the second cloud realtime path
+      if (mdm.managedGeminiLiveApiKey && !config.geminiLiveApiKey) {
+        config.geminiLiveApiKey = mdm.managedGeminiLiveApiKey
+      }
 
       // #722: register the cloud realtime e2e engine when selected (BYOK)
       if (config.mode === 'e2e' && config.e2eEngineId === 'cloud-realtime-e2e') {
@@ -101,6 +108,24 @@ export function registerPipelineIpc(ctx: AppContext): void {
         ctx.pipeline.registerE2E('cloud-realtime-e2e', () =>
           new CloudRealtimeE2E({
             apiKey: openaiKey,
+            sourceLanguage: store.get('sourceLanguage'),
+            targetLanguage: store.get('targetLanguage'),
+            // Scrub any BYOK key that might surface in a status/error string before it reaches the renderer
+            onStatus: (msg) => ctx.mainWindow?.webContents.send('status-update', sanitizeErrorMessage(msg))
+          })
+        )
+      }
+
+      // #723: register the Gemini Live e2e engine when selected (BYOK). Second cloud
+      // path; the renderer only selects it when the OpenAI path is not also enabled.
+      if (config.mode === 'e2e' && config.e2eEngineId === 'gemini-live-e2e') {
+        if (!config.geminiLiveApiKey) {
+          return { error: 'Gemini Live translation requires a Gemini Live API key' }
+        }
+        const geminiLiveKey = config.geminiLiveApiKey
+        ctx.pipeline.registerE2E('gemini-live-e2e', () =>
+          new GeminiLiveE2E({
+            apiKey: geminiLiveKey,
             sourceLanguage: store.get('sourceLanguage'),
             targetLanguage: store.get('targetLanguage'),
             // Scrub any BYOK key that might surface in a status/error string before it reaches the renderer

@@ -24,6 +24,7 @@ import { WhisperLocalEngine } from '../../engines/stt/WhisperLocalEngine'
 import type { WhisperVariant } from '../../engines/model-downloader'
 import { HunyuanMT15Translator } from '../../engines/translator/HunyuanMT15Translator'
 import { CloudRealtimeE2E } from '../../engines/e2e/CloudRealtimeE2E'
+import { GeminiLiveE2E } from '../../engines/e2e/GeminiLiveE2E'
 import type { Language } from '../../engines/types'
 import { store } from '../store'
 import { createLogger } from '../logger'
@@ -33,6 +34,17 @@ const log = createLogger('shadow-harness')
 
 /** Published price of gpt-realtime-translate: $0.034 per audio minute. */
 const GPT_REALTIME_TRANSLATE_USD_PER_AUDIO_MINUTE = 0.034
+
+/**
+ * Gemini Live translate meters input and output audio separately ($0.0053/min in,
+ * $0.0315/min out), which does not decompose into ShadowCostModel's single
+ * usdPerAudioMinute. Rather than widen the model for one provider, we bill the
+ * effective blended rate Google itself publishes for this model — $0.0368 per
+ * minute — which already assumes the ~1:1 output-to-input audio ratio that
+ * speech-to-speech translation produces.
+ * https://ai.google.dev/gemini-api/docs/pricing
+ */
+const GEMINI_LIVE_TRANSLATE_USD_PER_AUDIO_MINUTE = 0.0368
 
 const DEFAULT_TESTSET_DIR = 'benchmark/testset'
 const MANIFEST_NAME = 'stt-manifest.jsonl'
@@ -54,8 +66,10 @@ export interface ShadowHarnessOptions {
   outPath?: string
   /** Limit the number of utterances (smoke runs). */
   limit?: number
-  /** Include the cloud path. Requires an OpenAI key; costs real money. */
+  /** Include the OpenAI cloud path. Requires an OpenAI key; costs real money. */
   includeCloud?: boolean
+  /** Include the Gemini Live cloud path (#723). Requires a Gemini Live key; costs real money. */
+  includeGeminiLive?: boolean
   /**
    * Whisper variant for the cascade's STT stage. Must be bilingual: the engine's
    * own default (kotoba-whisper-v2.0) is JA-only and returns nothing for English,
@@ -80,16 +94,26 @@ function loadManifest(testsetDir: string, limit?: number): ManifestEntry[] {
 }
 
 /**
- * The cloud engine fixes its output language per session, so one session cannot
+ * Both cloud engines fix their output language per session, so one session cannot
  * translate both directions. Each direction therefore gets its own path, and JA
  * and EN utterances are submitted in separate passes.
  */
-function buildCloudPath(apiKey: string, sourceLanguage: Language): E2EStreamingShadowPath {
+function buildOpenaiCloudPath(apiKey: string, sourceLanguage: Language): E2EStreamingShadowPath {
   const targetLanguage: Language = sourceLanguage === 'ja' ? 'en' : 'ja'
   return new E2EStreamingShadowPath({
     id: `cloud-realtime-e2e:${sourceLanguage}->${targetLanguage}`,
     engine: new CloudRealtimeE2E({ apiKey, sourceLanguage, targetLanguage }),
     cost: { usdPerAudioMinute: GPT_REALTIME_TRANSLATE_USD_PER_AUDIO_MINUTE }
+  })
+}
+
+/** #723: second cloud path, measured head-to-head against the OpenAI one. */
+function buildGeminiLivePath(apiKey: string, sourceLanguage: Language): E2EStreamingShadowPath {
+  const targetLanguage: Language = sourceLanguage === 'ja' ? 'en' : 'ja'
+  return new E2EStreamingShadowPath({
+    id: `gemini-live-e2e:${sourceLanguage}->${targetLanguage}`,
+    engine: new GeminiLiveE2E({ apiKey, sourceLanguage, targetLanguage }),
+    cost: { usdPerAudioMinute: GEMINI_LIVE_TRANSLATE_USD_PER_AUDIO_MINUTE }
   })
 }
 
@@ -122,6 +146,10 @@ export async function runShadowJaEnHarness(options: ShadowHarnessOptions = {}): 
   if (options.includeCloud && !apiKey) {
     throw new Error('Cloud path requested but no OpenAI API key is stored (BYOK).')
   }
+  const geminiLiveApiKey = options.includeGeminiLive ? store.get('geminiLiveApiKey') : ''
+  if (options.includeGeminiLive && !geminiLiveApiKey) {
+    throw new Error('Gemini Live path requested but no Gemini Live API key is stored (BYOK).')
+  }
 
   const stt = new WhisperLocalEngine({
     onProgress: (msg) => log.info(msg),
@@ -145,17 +173,25 @@ export async function runShadowJaEnHarness(options: ShadowHarnessOptions = {}): 
   // utterance is submitted only after the previous one has drained.
   runner.register(cascade, { enabled: true, samplingInterval: 1, permits: 1 })
 
-  const cloudPaths = new Map<Language, E2EStreamingShadowPath>()
-  if (apiKey) {
-    for (const language of ['ja', 'en'] as Language[]) {
-      const path = buildCloudPath(apiKey, language)
-      cloudPaths.set(language, path)
+  // One path per (cloud engine × direction): a session's output language is fixed,
+  // so the direction is baked in and the submit loop enables only the matching one.
+  // With both cloud engines keyed, each utterance therefore runs through two live
+  // cloud sockets at once — that concurrency is the point (head-to-head comparison
+  // on identical audio), but it also means both vendors are billed for every
+  // utterance in the run.
+  const cloudPaths: Array<{ language: Language; path: E2EStreamingShadowPath }> = []
+  for (const language of ['ja', 'en'] as Language[]) {
+    if (apiKey) cloudPaths.push({ language, path: buildOpenaiCloudPath(apiKey, language) })
+    if (geminiLiveApiKey) cloudPaths.push({ language, path: buildGeminiLivePath(geminiLiveApiKey, language) })
+  }
+  if (cloudPaths.length > 0) {
+    for (const { path } of cloudPaths) {
       runner.register(path, { enabled: true, samplingInterval: 1, permits: 1 })
     }
     // Open the sockets up front so the first measured segment does not carry the
     // WebSocket handshake and skew its first-subtitle number.
-    log.info('Warming up cloud sessions...')
-    await Promise.all([...cloudPaths.values()].map((p) => p.warmup()))
+    log.info(`Warming up ${cloudPaths.length} cloud session(s)...`)
+    await Promise.all(cloudPaths.map(({ path }) => path.warmup()))
   }
 
   // Warm the cascade on a throwaway inference before measuring. Lazy model load
@@ -177,7 +213,7 @@ export async function runShadowJaEnHarness(options: ShadowHarnessOptions = {}): 
       // A cloud session translates into ONE fixed language, so only the path for
       // this utterance's direction may see it. Disable the other one for this
       // submit rather than recording a wrong-direction translation.
-      for (const [language, path] of cloudPaths) {
+      for (const { language, path } of cloudPaths) {
         runner.setPathEnabled(path.id, language === entry.language)
       }
 
@@ -189,7 +225,7 @@ export async function runShadowJaEnHarness(options: ShadowHarnessOptions = {}): 
     }
   } finally {
     await runner.stop()
-    await Promise.all([...cloudPaths.values()].map((p) => p.dispose().catch(() => undefined)))
+    await Promise.all(cloudPaths.map(({ path }) => path.dispose().catch(() => undefined)))
     await translator.dispose().catch(() => undefined)
     await stt.dispose().catch(() => undefined)
   }

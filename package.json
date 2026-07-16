@@ -21,7 +21,8 @@
     "bench:stt:all": "cd benchmark && npm run stt:all",
     "bench:stt:generate": "cd benchmark && npm run stt:generate-testset",
     "shadow:ja-en": "LT_SHADOW_JA_EN=1 electron-vite dev",
-    "shadow:ja-en:cloud": "LT_SHADOW_JA_EN=1 LT_SHADOW_CLOUD=1 electron-vite dev"
+    "shadow:ja-en:cloud": "LT_SHADOW_JA_EN=1 LT_SHADOW_CLOUD=1 electron-vite dev",
+    "shadow:ja-en:cloud-all": "LT_SHADOW_JA_EN=1 LT_SHADOW_CLOUD=1 LT_SHADOW_GEMINI_LIVE=1 electron-vite dev"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^3.0.0",

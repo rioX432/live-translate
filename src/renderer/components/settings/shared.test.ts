@@ -119,3 +119,84 @@ describe('resolveEngineMode (#702)', () => {
     expect(resolveEngineMode('auto', withRegion, { hasGpu: false })).toBe('rotation')
   })
 })
+
+describe('buildEngineConfig realtime e2e precedence (#723)', () => {
+  const OPENAI_KEYS = { ...NO_KEYS, openaiApiKey: 'sk-test' }
+  const GEMINI_LIVE_KEYS = { ...NO_KEYS, geminiLiveApiKey: 'AIza-test' }
+  const BOTH_KEYS = { ...NO_KEYS, openaiApiKey: 'sk-test', geminiLiveApiKey: 'AIza-test' }
+  const CASCADE = { mode: 'cascade', sttEngineId: STT, translatorEngineId: 'hunyuan-mt-15' }
+
+  it('selects the OpenAI realtime path when only cloud realtime is enabled', () => {
+    expect(
+      buildEngineConfig('offline-hymt15', STT, OPENAI_KEYS, { cloudRealtimeEnabled: true })
+    ).toEqual({
+      mode: 'e2e',
+      e2eEngineId: 'cloud-realtime-e2e',
+      openaiApiKey: 'sk-test'
+    })
+  })
+
+  it('selects the Gemini Live path when only Gemini Live is enabled', () => {
+    expect(
+      buildEngineConfig('offline-hymt15', STT, GEMINI_LIVE_KEYS, { geminiLiveEnabled: true })
+    ).toEqual({
+      mode: 'e2e',
+      e2eEngineId: 'gemini-live-e2e',
+      geminiLiveApiKey: 'AIza-test'
+    })
+  })
+
+  it('prefers gpt-realtime-translate over the Gemini Live preview when both are enabled', () => {
+    expect(
+      buildEngineConfig('offline-hymt15', STT, BOTH_KEYS, {
+        cloudRealtimeEnabled: true,
+        geminiLiveEnabled: true
+      })
+    ).toEqual({
+      mode: 'e2e',
+      e2eEngineId: 'cloud-realtime-e2e',
+      openaiApiKey: 'sk-test'
+    })
+  })
+
+  // Privacy: a misconfigured OpenAI path must never redirect the user's audio to
+  // Google. "Enabled but keyless" falls back to local, never sideways to the other
+  // vendor — even though the Gemini toggle is on and its key is present.
+  it('falls back to the local cascade — not to Gemini — when cloud realtime is enabled without an OpenAI key', () => {
+    expect(
+      buildEngineConfig('offline-hymt15', STT, GEMINI_LIVE_KEYS, {
+        cloudRealtimeEnabled: true,
+        geminiLiveEnabled: true
+      })
+    ).toEqual(CASCADE)
+  })
+
+  it("never leaks the other path's key into the selected e2e config", () => {
+    const openai = buildEngineConfig('offline-hymt15', STT, BOTH_KEYS, { cloudRealtimeEnabled: true })
+    expect(openai).not.toHaveProperty('geminiLiveApiKey')
+    const gemini = buildEngineConfig('offline-hymt15', STT, BOTH_KEYS, { geminiLiveEnabled: true })
+    expect(gemini).not.toHaveProperty('openaiApiKey')
+  })
+
+  it('stays on the local-first cascade when a toggle is on but its key is missing', () => {
+    expect(
+      buildEngineConfig('offline-hymt15', STT, NO_KEYS, {
+        cloudRealtimeEnabled: true,
+        geminiLiveEnabled: true
+      })
+    ).toEqual(CASCADE)
+  })
+
+  it('stays on the local-first cascade when both toggles are off despite keys present', () => {
+    expect(
+      buildEngineConfig('offline-hymt15', STT, BOTH_KEYS, {
+        cloudRealtimeEnabled: false,
+        geminiLiveEnabled: false
+      })
+    ).toEqual(CASCADE)
+  })
+
+  it('stays on the local-first cascade when no realtime options are passed at all', () => {
+    expect(buildEngineConfig('offline-hymt15', STT, BOTH_KEYS)).toEqual(CASCADE)
+  })
+})

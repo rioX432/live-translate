@@ -213,18 +213,46 @@ export function resolveEngineMode(
 export function buildEngineConfig(
   resolvedMode: EngineMode,
   sttEngine: SttEngineType,
-  apiKeys: { apiKey: string; deeplApiKey: string; geminiApiKey: string; microsoftApiKey: string; microsoftRegion: string; openaiApiKey?: string },
-  cloudRealtimeEnabled = false
+  apiKeys: {
+    apiKey: string
+    deeplApiKey: string
+    geminiApiKey: string
+    microsoftApiKey: string
+    microsoftRegion: string
+    openaiApiKey?: string
+    geminiLiveApiKey?: string
+  },
+  /**
+   * Realtime cloud toggles. An object rather than positional booleans: these route
+   * where a user's audio is sent, and two adjacent same-typed flags are swappable
+   * at a call site without any type error.
+   */
+  realtime: { cloudRealtimeEnabled?: boolean; geminiLiveEnabled?: boolean } = {}
 ): Record<string, unknown> {
-  // #722: Cloud realtime interpretation is a separate capability axis, not a 5th
-  // translation engine — when enabled (with a BYOK OpenAI key) it overrides the
-  // cascade engine selection and runs the speech-native e2e path. Default off
-  // keeps the local-first cascade as Core Value ①.
-  if (cloudRealtimeEnabled && apiKeys.openaiApiKey) {
+  // #722/#723: Cloud realtime interpretation is a separate capability axis, not an
+  // extra translation engine — when enabled (with the matching BYOK key) it
+  // overrides the cascade engine selection and runs a speech-native e2e path.
+  // Both default off, keeping the local-first cascade as Core Value ①.
+  //
+  // Only ONE e2e path can own a session. gpt-realtime-translate outranks Gemini
+  // Live, whose model is Preview and may change or break without notice, so its
+  // toggle is checked first and owns the decision outright: a cloudRealtime user
+  // whose OpenAI key is missing falls back to the LOCAL cascade, never sideways to
+  // the other vendor. "Enabled but unusable" is a misconfiguration, not consent to
+  // ship audio to a cloud the user did not choose.
+  if (realtime.cloudRealtimeEnabled) {
+    if (apiKeys.openaiApiKey) {
+      return {
+        mode: 'e2e' as const,
+        e2eEngineId: 'cloud-realtime-e2e',
+        openaiApiKey: apiKeys.openaiApiKey
+      }
+    }
+  } else if (realtime.geminiLiveEnabled && apiKeys.geminiLiveApiKey) {
     return {
       mode: 'e2e' as const,
-      e2eEngineId: 'cloud-realtime-e2e',
-      openaiApiKey: apiKeys.openaiApiKey
+      e2eEngineId: 'gemini-live-e2e',
+      geminiLiveApiKey: apiKeys.geminiLiveApiKey
     }
   }
 
