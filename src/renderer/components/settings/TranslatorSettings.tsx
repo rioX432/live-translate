@@ -110,7 +110,7 @@ export function TranslatorSettings({
   return (
     <>
       <Section label="Translation Engine" helpText="Auto picks the best engine for your setup. HY-MT 1.5 is the recommended offline default.">
-        <fieldset style={{ border: 'none', margin: 0, padding: 0 }}>
+        <fieldset role="radiogroup" aria-label="Translation Engine" style={{ border: 'none', margin: 0, padding: 0 }}>
         <legend style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Translation Engine</legend>
         <label style={radioLabelStyle}>
           <input
