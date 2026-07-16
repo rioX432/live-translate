@@ -157,6 +157,28 @@ describe('GeminiLiveSession setup handshake', () => {
     expect(cfg.echoTargetLanguage).toBe(true)
   })
 
+  it('opens no socket at all when start() is given an already-aborted signal', async () => {
+    const h = makeHarness()
+    h.controller.abort()
+    await h.session.start({ sink: h.sink as unknown as E2EStreamingSink, signal: h.controller.signal })
+    // An already-aborted signal never fires 'abort', so nothing would tear a socket
+    // down — the key and setup handshake must never leave the process.
+    expect(h.sockets.length).toBe(0)
+    await h.session.pushAudio(new Float32Array(1600))
+    expect(h.sockets.length).toBe(0)
+  })
+
+  it('redacts the API key from socket error messages before logging or status', async () => {
+    const statuses: string[] = []
+    const h = makeHarness({ apiKey: 'AIza-super-secret', onStatus: (m: string) => statuses.push(m) })
+    await h.session.start({ sink: h.sink as unknown as E2EStreamingSink, signal: h.controller.signal })
+    // A ws error that echoes the request target carries the ?key= query verbatim.
+    h.sockets[0].emitError('connect ECONNREFUSED wss://host/path?key=AIza-super-secret')
+    // The error status is followed by a reconnect notice; no status may carry the key.
+    expect(statuses.some((s) => s.includes('AIza-super-secret'))).toBe(false)
+    expect(statuses[0]).toContain('***')
+  })
+
   it('passes the key to the factory separately and keeps it out of the endpoint URL', async () => {
     const h = makeHarness({ apiKey: 'secret-key' })
     await h.session.start({ sink: h.sink as unknown as E2EStreamingSink, signal: h.controller.signal })

@@ -497,7 +497,9 @@ export function TranslatorSettings({
         </label>
         {geminiLiveEnabled && hasGeminiLiveKey && geminiLiveSupersededByOpenai && (
           <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 0 24px' }}>
-            Inactive — &quot;Realtime Interpretation (Cloud)&quot; takes precedence. Turn that off to run Gemini Live.
+            {hasOpenaiKey
+              ? 'Inactive — "Realtime Interpretation (Cloud)" takes precedence. Turn that off to run Gemini Live.'
+              : 'Inactive — "Realtime Interpretation (Cloud)" is on but has no API key, so the offline engine is translating. Turn that off to run Gemini Live.'}
           </div>
         )}
         {geminiLiveEnabled && hasGeminiLiveKey && !geminiLiveSupersededByOpenai && (

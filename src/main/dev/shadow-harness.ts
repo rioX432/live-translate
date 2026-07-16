@@ -175,6 +175,10 @@ export async function runShadowJaEnHarness(options: ShadowHarnessOptions = {}): 
 
   // One path per (cloud engine × direction): a session's output language is fixed,
   // so the direction is baked in and the submit loop enables only the matching one.
+  // With both cloud engines keyed, each utterance therefore runs through two live
+  // cloud sockets at once — that concurrency is the point (head-to-head comparison
+  // on identical audio), but it also means both vendors are billed for every
+  // utterance in the run.
   const cloudPaths: Array<{ language: Language; path: E2EStreamingShadowPath }> = []
   for (const language of ['ja', 'en'] as Language[]) {
     if (apiKey) cloudPaths.push({ language, path: buildOpenaiCloudPath(apiKey, language) })

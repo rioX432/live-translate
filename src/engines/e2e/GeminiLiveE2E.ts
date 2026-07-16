@@ -207,6 +207,13 @@ export class GeminiLiveSession implements E2EStreamingSession {
     this.sink = options.sink
     this.signal = options.signal
     this.closedByUs = false
+    // An already-aborted signal never fires 'abort', so the listener below would
+    // never run: opening a socket here would send the key and the setup handshake
+    // for a session that was cancelled before it began.
+    if (this.signal.aborted) {
+      this.closedByUs = true
+      return
+    }
     this.signal.addEventListener('abort', () => this.teardown(), { once: true })
     this.connect()
   }
@@ -274,8 +281,9 @@ export class GeminiLiveSession implements E2EStreamingSession {
     socket.onOpen(() => this.sendSetup())
     socket.onMessage((data) => this.handleMessage(data))
     socket.onError((err) => {
-      log.warn('Gemini Live socket error:', err.message)
-      this.options.onStatus?.(`Gemini Live error: ${err.message}`)
+      const message = this.redactKey(err.message)
+      log.warn('Gemini Live socket error:', message)
+      this.options.onStatus?.(`Gemini Live error: ${message}`)
       terminate()
     })
     socket.onClose(() => terminate())
@@ -338,8 +346,19 @@ export class GeminiLiveSession implements E2EStreamingSession {
     try {
       this.socket?.send(data)
     } catch (err) {
-      log.warn('Gemini Live send failed:', err instanceof Error ? err.message : String(err))
+      log.warn('Gemini Live send failed:', this.redactKey(err instanceof Error ? err.message : String(err)))
     }
+  }
+
+  /**
+   * Because this endpoint authenticates via a `?key=` query parameter, a socket
+   * error that echoes the request target (redirects, proxy and TLS failures) can
+   * carry the raw key. Scrub it locally before it reaches a log file or the
+   * renderer — the main process sanitizer only covers the onStatus path.
+   */
+  private redactKey(message: string): string {
+    if (!this.options.apiKey) return message
+    return message.split(this.options.apiKey).join('***')
   }
 
   private flushPendingAudio(): void {
@@ -363,6 +382,9 @@ export class GeminiLiveSession implements E2EStreamingSession {
     // rather than betting the subtitle path on one of them.
     if (event.setupComplete ?? event.setup_complete) {
       this.ready = true
+      // Reset on setupComplete rather than on socket open: a socket that opens and
+      // then dies mid-handshake has not proven the connection usable, and must not
+      // refund the reconnect budget that bounds a failing endpoint.
       this.reconnectAttempts = 0
       this.flushPendingAudio()
       return
