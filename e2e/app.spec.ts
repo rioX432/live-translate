@@ -94,7 +94,12 @@ test.describe('Engine selection', () => {
     // Select the always-present Hunyuan-MT 7B radio by its unique label text.
     const engineGroup = settingsWindow.locator('[role="radiogroup"]')
     const qualityRadio = engineGroup.locator('label').filter({ hasText: 'Hunyuan-MT 7B' }).locator('input[type="radio"]')
-    await qualityRadio.click()
+    // dispatchEvent instead of click(): selecting this engine mounts the LLM
+    // sub-options subtree, and on the slow GPU-disabled CI runner Playwright's
+    // post-click navigation/stability wait can hang for the full action timeout.
+    // Dispatching the click directly checks the radio and fires React's onChange
+    // without that wait.
+    await qualityRadio.dispatchEvent('click')
     await expect(qualityRadio).toBeChecked()
   })
 
