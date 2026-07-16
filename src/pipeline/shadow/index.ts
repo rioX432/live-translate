@@ -2,7 +2,11 @@
 export { ShadowRunner } from './ShadowRunner'
 export { Semaphore } from './Semaphore'
 export { summarize, percentile, estimateCostUsd } from './metrics'
-export type { ShadowReport, PathSummary, LatencyStats } from './metrics'
+export type { ShadowReport, PathSummary, LatencyStats, CostBasis } from './metrics'
+export { CascadeShadowPath } from './paths/CascadeShadowPath'
+export type { CascadeShadowPathOptions } from './paths/CascadeShadowPath'
+export { E2EStreamingShadowPath } from './paths/E2EStreamingShadowPath'
+export type { E2EStreamingShadowPathOptions } from './paths/E2EStreamingShadowPath'
 export {
   DEFAULT_PATH_CONFIG,
   DEFAULT_LOCAL_LLM_PATH_CONFIG,

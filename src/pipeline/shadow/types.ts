@@ -10,12 +10,25 @@
 export type ShadowPathKind = 'cascade' | 'e2e' | 'e2e-streaming'
 
 /**
- * Cost model for a path (BYOK metered). Offline paths have zero marginal cost;
- * cloud paths are billed per source character.
+ * Cost model for a path (BYOK metered). Offline paths have zero marginal cost.
+ *
+ * Dimensions are ADDITIVE and independent, not mutually exclusive: a text MT API
+ * bills per source character, a realtime speech API bills per audio minute, and
+ * a future engine may well do both. An omitted dimension contributes nothing, so
+ * `{}` is a valid zero-cost (offline) model.
+ *
+ * This is a normalized variable-cost estimate. It deliberately ignores per-request
+ * minimum billing increments and idle connection time — the shadow harness bills
+ * a path for the audio it actually measured.
  */
 export interface ShadowCostModel {
-  /** USD per 1,000,000 source characters. 0 for fully offline paths. */
-  usdPerMillionChars: number
+  /** USD per 1,000,000 source characters (text-metered APIs). */
+  usdPerMillionChars?: number
+  /**
+   * USD per minute of source AUDIO duration (speech-metered APIs) — not wall-clock
+   * session time, which the harness never bills.
+   */
+  usdPerAudioMinute?: number
 }
 
 /** Static description of a measurable path. */
@@ -127,8 +140,10 @@ export interface ShadowSample {
   firstSubtitleMs: number | null
   /** Interim revision count (stability proxy). */
   revisionCount: number
-  /** Source character count (drives cost metering). */
+  /** Source character count (drives text-metered cost). */
   sourceChars: number
+  /** Source audio duration in ms (drives speech-metered cost). */
+  audioDurationMs: number
   /** Estimated marginal cost for this sample in USD. */
   costUsd: number
   /** Whether the path stayed fully offline for this sample (privacy). */

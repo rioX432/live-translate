@@ -4,6 +4,8 @@ import type { ShadowPath, PathSampleResult, ShadowCostModel } from './types'
 
 const OFFLINE_COST: ShadowCostModel = { usdPerMillionChars: 0 }
 const CLOUD_COST: ShadowCostModel = { usdPerMillionChars: 20 }
+/** gpt-realtime-translate is billed per audio minute, not per character. */
+const REALTIME_COST: ShadowCostModel = { usdPerAudioMinute: 0.034 }
 
 /** Deferred promise helper for controlling when a path resolves. */
 function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void; reject: (e: unknown) => void } {
@@ -278,5 +280,53 @@ describe('ShadowRunner', () => {
     expect(cloudSummary.offlineCompleteness).toBe(0)
     expect(cloudSummary.totalCostUsd).toBeCloseTo((5 / 1_000_000) * 20, 12)
     expect(cloudSummary.latency.p50).toBeGreaterThanOrEqual(0)
+  })
+
+  it('setPathEnabled gates a path mid-run and records the skips as policy drops, not saturation', async () => {
+    const both = new MockPath('both')
+    const gated = new MockPath('gated')
+    runner.register(both)
+    runner.register(gated)
+    runner.start()
+
+    runner.submit(new Float32Array([1]), 16000)
+    await runner.whenIdle()
+    runner.setPathEnabled('gated', false)
+    runner.submit(new Float32Array([1]), 16000)
+    await runner.whenIdle()
+    runner.setPathEnabled('gated', true)
+    runner.submit(new Float32Array([1]), 16000)
+    await runner.whenIdle()
+
+    const summary = runner.getReport().paths.find((p) => p.pathId === 'gated')!
+    expect(summary.processedCount).toBe(2)
+    expect(summary.droppedCount).toBe(1)
+    // A path that sat out by policy is not a saturated path.
+    expect(summary.busyDropRate).toBe(0)
+    expect(runner.getDrops()).toEqual([
+      expect.objectContaining({ pathId: 'gated', reason: 'disabled' })
+    ])
+  })
+
+  it('setPathEnabled ignores an unknown path id', () => {
+    expect(() => runner.setPathEnabled('nope', false)).not.toThrow()
+  })
+
+  it('bills a speech-metered path by submitted audio duration, not by transcript length', async () => {
+    const realtime = new MockPath('realtime', false, false, REALTIME_COST, async () => ({
+      sourceText: 'a very long transcript that would dominate a per-character bill',
+      translatedText: 'x',
+      firstSubtitleMs: 30,
+      revisionCount: 1
+    }))
+    runner.register(realtime)
+    runner.start()
+    // 48000 samples @ 16kHz = 3s = 0.05 min * $0.034/min.
+    runner.submit(new Float32Array(48000), 16000)
+    await runner.whenIdle()
+
+    const summary = runner.getReport().paths.find((p) => p.pathId === 'realtime')!
+    expect(summary.totalCostUsd).toBeCloseTo((3 / 60) * 0.034, 12)
+    expect(runner.getSamples()[0]!.audioDurationMs).toBeCloseTo(3000, 6)
   })
 })

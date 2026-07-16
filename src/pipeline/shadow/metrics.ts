@@ -9,6 +9,7 @@
  */
 
 import type {
+  ShadowCostModel,
   ShadowSample,
   ShadowDrop,
   ShadowError,
@@ -145,9 +146,30 @@ export function summarize(
   }
 }
 
-/** Estimate BYOK-metered cost in USD for a sample of `sourceChars` characters. */
-export function estimateCostUsd(sourceChars: number, usdPerMillionChars: number): number {
-  if (!Number.isFinite(sourceChars) || !Number.isFinite(usdPerMillionChars)) return 0
-  if (sourceChars <= 0 || usdPerMillionChars <= 0) return 0
-  return (sourceChars / 1_000_000) * usdPerMillionChars
+/** Billable quantities of one measured sample. */
+export interface CostBasis {
+  /** Source character count (drives text-metered pricing). */
+  sourceChars: number
+  /** Source audio duration in ms (drives speech-metered pricing). */
+  audioDurationMs: number
+  cost: ShadowCostModel
+}
+
+/**
+ * Estimate BYOK-metered cost in USD for one sample. Dimensions are summed: a path
+ * metered on both characters and audio minutes pays both. Non-finite or negative
+ * quantities contribute zero rather than poisoning the total with NaN.
+ */
+export function estimateCostUsd({ sourceChars, audioDurationMs, cost }: CostBasis): number {
+  const perChar = component(sourceChars, cost.usdPerMillionChars, 1_000_000)
+  const perMinute = component(audioDurationMs, cost.usdPerAudioMinute, 60_000)
+  return perChar + perMinute
+}
+
+/** One additive cost dimension: `quantity / unitSize * usdPerUnit`, guarded. */
+function component(quantity: number, usdPerUnit: number | undefined, unitSize: number): number {
+  if (usdPerUnit === undefined) return 0
+  if (!Number.isFinite(quantity) || !Number.isFinite(usdPerUnit)) return 0
+  if (quantity <= 0 || usdPerUnit <= 0) return 0
+  return (quantity / unitSize) * usdPerUnit
 }

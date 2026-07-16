@@ -320,6 +320,25 @@ app.whenReady().then(async () => {
   migrateLegacyTranslationEngine(migratableStore, log)
   migrateLegacyAdaptiveRoutingQualityEngine(migratableStore, log)
 
+  // #730: dev-only shadow measurement run. Builds its own engines, opens no
+  // windows, and quits when the report is written — the production pipeline and
+  // UI are never involved.
+  if (process.env.LT_SHADOW_JA_EN === '1') {
+    const { runShadowJaEnHarness } = await import('./dev/shadow-harness')
+    try {
+      await runShadowJaEnHarness({
+        includeCloud: process.env.LT_SHADOW_CLOUD === '1',
+        limit: process.env.LT_SHADOW_LIMIT ? Number(process.env.LT_SHADOW_LIMIT) : undefined,
+        outPath: process.env.LT_SHADOW_OUT
+      })
+    } catch (err) {
+      log.error('Shadow harness failed:', err)
+      process.exitCode = 1
+    }
+    app.quit()
+    return
+  }
+
   await initPipeline()
 
   // Initialize TTS manager (#508)

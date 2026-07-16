@@ -90,6 +90,20 @@ export class ShadowRunner {
     })
   }
 
+  /**
+   * Enable or disable a registered path mid-run. Segments submitted while a path
+   * is disabled are recorded as 'disabled' drops (policy, not saturation), so the
+   * path's busy-drop rate stays honest.
+   *
+   * Used when a path can only handle a subset of segments — a cloud realtime
+   * session fixes its output language, so the JA→EN path must sit out EN audio.
+   */
+  setPathEnabled(pathId: string, enabled: boolean): void {
+    const registered = this.paths.get(pathId)
+    if (!registered) return
+    registered.config.enabled = enabled
+  }
+
   /** Descriptors of all registered paths (for reporting on zero-sample paths). */
   get descriptors(): ShadowPathDescriptor[] {
     return [...this.paths.values()].map((r) => r.path)
@@ -234,6 +248,9 @@ export class ShadowRunner {
       if (signal.aborted || generation !== this.generation || !this.running) return
 
       const sourceChars = result.sourceText.length
+      // Bill speech-metered paths by the audio actually measured, not by how long
+      // the path took to process it.
+      const audioDurationMs = sampleRate > 0 ? (audio.length / sampleRate) * 1000 : 0
       this.recordSample({
         pathId: path.id,
         segmentId,
@@ -242,7 +259,8 @@ export class ShadowRunner {
         firstSubtitleMs: result.firstSubtitleMs,
         revisionCount: result.revisionCount,
         sourceChars,
-        costUsd: estimateCostUsd(sourceChars, path.cost.usdPerMillionChars),
+        audioDurationMs,
+        costUsd: estimateCostUsd({ sourceChars, audioDurationMs, cost: path.cost }),
         isOffline: path.isOffline
       })
     } catch (err) {
