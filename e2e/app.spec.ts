@@ -47,10 +47,13 @@ test.afterAll(async () => {
 // Helper: ensure Advanced Settings is expanded
 async function expandAdvancedSettings(): Promise<void> {
   const sttSelect = settingsWindow.locator('[aria-label="STT engine"]')
-  if (!(await sttSelect.isVisible().catch(() => false))) {
-    await settingsWindow.locator('button', { hasText: 'Advanced Settings' }).click()
-    await sttSelect.waitFor({ state: 'visible', timeout: 5000 })
-  }
+  if (await sttSelect.isVisible().catch(() => false)) return
+  const advancedButton = settingsWindow.locator('button', { hasText: 'Advanced Settings' })
+  await advancedButton.waitFor({ state: 'visible', timeout: 15000 })
+  await advancedButton.click()
+  // First expansion cold-renders the whole advanced panel; under GPU-disabled
+  // CI Electron this can take well over 5s, so allow generous headroom.
+  await sttSelect.waitFor({ state: 'visible', timeout: 15000 })
 }
 
 test.describe('App launch', () => {
