@@ -328,6 +328,7 @@ app.whenReady().then(async () => {
     try {
       await runShadowJaEnHarness({
         includeCloud: process.env.LT_SHADOW_CLOUD === '1',
+        includeGeminiLive: process.env.LT_SHADOW_GEMINI_LIVE === '1',
         limit: process.env.LT_SHADOW_LIMIT ? Number(process.env.LT_SHADOW_LIMIT) : undefined,
         outPath: process.env.LT_SHADOW_OUT
       })

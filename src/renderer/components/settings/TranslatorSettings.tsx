@@ -45,6 +45,11 @@ interface TranslatorSettingsProps {
   onOpenaiApiKeyChange: (v: string) => void
   cloudRealtimeEnabled: boolean
   onCloudRealtimeEnabledChange: (v: boolean) => void
+  // Gemini Live realtime interpretation (#723, BYOK, preview)
+  geminiLiveApiKey: string
+  onGeminiLiveApiKeyChange: (v: string) => void
+  geminiLiveEnabled: boolean
+  onGeminiLiveEnabledChange: (v: boolean) => void
   // API options visibility (controlled by parent for settings restore)
   showApiOptions: boolean
   onShowApiOptionsChange: (v: boolean) => void
@@ -92,6 +97,10 @@ export function TranslatorSettings({
   onOpenaiApiKeyChange,
   cloudRealtimeEnabled,
   onCloudRealtimeEnabledChange,
+  geminiLiveApiKey,
+  onGeminiLiveApiKeyChange,
+  geminiLiveEnabled,
+  onGeminiLiveEnabledChange,
   showApiOptions,
   onShowApiOptionsChange,
   glossaryTerms,
@@ -106,6 +115,13 @@ export function TranslatorSettings({
 
   // #722: cloud realtime interpretation needs an OpenAI key (BYOK)
   const hasOpenaiKey = !!openaiApiKey
+
+  // #723: the Gemini Live path needs its own Live-enabled key (BYOK)
+  const hasGeminiLiveKey = !!geminiLiveApiKey
+  // Only one e2e path can own a session and gpt-realtime-translate wins, so when
+  // that path is live the preview toggle is inert — mirror buildEngineConfig's
+  // precedence in the UI rather than letting the checkbox imply it has an effect.
+  const geminiLiveSupersededByOpenai = cloudRealtimeEnabled && hasOpenaiKey
 
   return (
     <>
@@ -396,6 +412,15 @@ export function TranslatorSettings({
                 style={inputStyle}
                 disabled={disabled}
               />
+              <input
+                type="password"
+                value={geminiLiveApiKey}
+                onChange={(e) => onGeminiLiveApiKeyChange(e.target.value)}
+                placeholder="Gemini Live API key (realtime interpretation)"
+                aria-label="Gemini Live API key"
+                style={inputStyle}
+                disabled={disabled}
+              />
             </div>
           )}
         </div>
@@ -428,6 +453,55 @@ export function TranslatorSettings({
         {cloudRealtimeEnabled && hasOpenaiKey && (
           <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 0 24px' }}>
             Cloud mode active — the offline engine selection above is bypassed while this is on.
+          </div>
+        )}
+      </Section>
+
+      {/* #723: second cloud realtime path, for comparison against gpt-realtime-translate.
+          Preview model — flagged experimental and never a default. */}
+      <Section
+        label="Realtime Interpretation (Gemini Live)"
+        helpText="Experimental second cloud path via Google's gemini-3.5-live-translate-preview. Preview models can change or break without notice, so this is for comparison — not for production meetings. Requires a Gemini Live API key and sends audio to the cloud."
+      >
+        <div
+          style={{
+            display: 'inline-block',
+            fontSize: '10px',
+            fontWeight: 700,
+            letterSpacing: '0.5px',
+            color: '#f59e0b',
+            border: '1px solid #f59e0b',
+            borderRadius: '3px',
+            padding: '1px 5px',
+            marginBottom: '6px'
+          }}
+        >
+          EXPERIMENTAL · PREVIEW
+        </div>
+        <label style={{ ...radioLabelStyle, opacity: hasGeminiLiveKey ? 1 : 0.5 }}>
+          <input
+            type="checkbox"
+            checked={geminiLiveEnabled}
+            onChange={(e) => onGeminiLiveEnabledChange(e.target.checked)}
+            disabled={disabled || !hasGeminiLiveKey}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Enable Gemini Live interpretation (BYOK, preview)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+              {hasGeminiLiveKey
+                ? 'Preview model — quality and availability may change without notice. Cloud — audio leaves your device. ~$0.0368/min. Output language follows your target-language setting.'
+                : 'Add a Gemini Live API key in "API Keys" above to enable this experimental path.'}
+            </div>
+          </div>
+        </label>
+        {geminiLiveEnabled && hasGeminiLiveKey && geminiLiveSupersededByOpenai && (
+          <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 0 24px' }}>
+            Inactive — &quot;Realtime Interpretation (Cloud)&quot; takes precedence. Turn that off to run Gemini Live.
+          </div>
+        )}
+        {geminiLiveEnabled && hasGeminiLiveKey && !geminiLiveSupersededByOpenai && (
+          <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 0 24px' }}>
+            Preview cloud mode active — the offline engine selection above is bypassed while this is on.
           </div>
         )}
       </Section>

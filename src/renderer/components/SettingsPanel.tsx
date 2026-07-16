@@ -199,6 +199,10 @@ function SettingsPanel(): React.JSX.Element {
             onOpenaiApiKeyChange={s.setOpenaiApiKey}
             cloudRealtimeEnabled={s.cloudRealtimeEnabled}
             onCloudRealtimeEnabledChange={s.setCloudRealtimeEnabled}
+            geminiLiveApiKey={s.geminiLiveApiKey}
+            onGeminiLiveApiKeyChange={s.setGeminiLiveApiKey}
+            geminiLiveEnabled={s.geminiLiveEnabled}
+            onGeminiLiveEnabledChange={s.setGeminiLiveEnabled}
             showApiOptions={s.showApiOptions}
             onShowApiOptionsChange={s.setShowApiOptions}
             glossaryTerms={s.glossaryTerms}

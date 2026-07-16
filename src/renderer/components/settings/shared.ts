@@ -213,18 +213,42 @@ export function resolveEngineMode(
 export function buildEngineConfig(
   resolvedMode: EngineMode,
   sttEngine: SttEngineType,
-  apiKeys: { apiKey: string; deeplApiKey: string; geminiApiKey: string; microsoftApiKey: string; microsoftRegion: string; openaiApiKey?: string },
-  cloudRealtimeEnabled = false
+  apiKeys: {
+    apiKey: string
+    deeplApiKey: string
+    geminiApiKey: string
+    microsoftApiKey: string
+    microsoftRegion: string
+    openaiApiKey?: string
+    geminiLiveApiKey?: string
+  },
+  cloudRealtimeEnabled = false,
+  geminiLiveEnabled = false
 ): Record<string, unknown> {
-  // #722: Cloud realtime interpretation is a separate capability axis, not a 5th
-  // translation engine — when enabled (with a BYOK OpenAI key) it overrides the
-  // cascade engine selection and runs the speech-native e2e path. Default off
-  // keeps the local-first cascade as Core Value ①.
+  // #722/#723: Cloud realtime interpretation is a separate capability axis, not an
+  // extra translation engine — when enabled (with the matching BYOK key) it
+  // overrides the cascade engine selection and runs a speech-native e2e path.
+  // Both default off, keeping the local-first cascade as Core Value ①.
+  //
+  // Only ONE e2e path can own a session, so the precedence below is deliberate and
+  // fixed by tests rather than left to declaration order: gpt-realtime-translate
+  // wins whenever both toggles are on, because Gemini Live is a Preview model whose
+  // spec and SLA may change without notice (#723). The Gemini branch therefore
+  // requires cloudRealtime to be off OR unusable (no OpenAI key), so a user who
+  // enables both never silently lands on the preview path.
   if (cloudRealtimeEnabled && apiKeys.openaiApiKey) {
     return {
       mode: 'e2e' as const,
       e2eEngineId: 'cloud-realtime-e2e',
       openaiApiKey: apiKeys.openaiApiKey
+    }
+  }
+
+  if (geminiLiveEnabled && apiKeys.geminiLiveApiKey) {
+    return {
+      mode: 'e2e' as const,
+      e2eEngineId: 'gemini-live-e2e',
+      geminiLiveApiKey: apiKeys.geminiLiveApiKey
     }
   }
 

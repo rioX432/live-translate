@@ -8,7 +8,8 @@ export function sanitizeErrorMessage(message: string): string {
     settings.deeplApiKey,
     settings.geminiApiKey,
     settings.microsoftApiKey,
-    settings.openaiApiKey
+    settings.openaiApiKey,
+    settings.geminiLiveApiKey
   ].filter((s): s is string => typeof s === 'string' && s.length > 8)
 
   let sanitized = message

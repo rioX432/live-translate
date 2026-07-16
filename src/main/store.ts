@@ -59,8 +59,19 @@ export interface AppSettings {
   geminiApiKey: string
   /** OpenAI API key for cloud realtime speech translation (BYOK, #722) */
   openaiApiKey: string
+  /**
+   * Google AI key for the Gemini Live API (BYOK, #723). Separate from geminiApiKey:
+   * the Live API is separately billed and gated, so a key that works for the
+   * cascade Gemini translator can still 403 on Live.
+   */
+  geminiLiveApiKey: string
   /** Opt-in cloud realtime interpretation via gpt-realtime-translate (#722). Off = local-first default. */
   cloudRealtimeEnabled: boolean
+  /**
+   * Opt-in Gemini Live realtime interpretation (#723). Preview model — never a
+   * default, and yields to cloudRealtimeEnabled when both are on.
+   */
+  geminiLiveEnabled: boolean
   selectedMicrophone: string
   sttEngine: string
   selectedDisplay: number
@@ -157,7 +168,9 @@ export const store = new Store<AppSettings>({
     deeplApiKey: '',
     geminiApiKey: '',
     openaiApiKey: '',
+    geminiLiveApiKey: '',
     cloudRealtimeEnabled: false,
+    geminiLiveEnabled: false,
     sttEngine: 'mlx-whisper',
     selectedMicrophone: '',
     selectedDisplay: 0,
