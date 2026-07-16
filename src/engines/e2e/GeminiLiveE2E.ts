@@ -398,7 +398,9 @@ export class GeminiLiveSession implements E2EStreamingSession {
     }
 
     if (event.error) {
-      this.emitError(new Error(event.error.message ?? 'Gemini Live translation error'))
+      this.emitError(
+        new Error(this.redactKey(event.error.message ?? 'Gemini Live translation error'))
+      )
       return
     }
 

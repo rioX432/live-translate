@@ -322,6 +322,16 @@ describe('GeminiLiveSession transcript mapping', () => {
     expect(h.sink.error.mock.calls[0][0].message).toBe('boom')
   })
 
+  it('redacts the API key from server-sent error events before they reach the sink', async () => {
+    const h = makeHarness({ apiKey: 'AIza-super-secret' })
+    const socket = await startReady(h)
+    socket.emitJson({
+      error: { message: 'invalid request to /ws?key=AIza-super-secret' }
+    })
+    expect(h.sink.error.mock.calls[0][0].message).not.toContain('AIza-super-secret')
+    expect(h.sink.error.mock.calls[0][0].message).toContain('***')
+  })
+
   it('surfaces goAway as a status notice without erroring the sink', async () => {
     const statuses: string[] = []
     const h = makeHarness({ onStatus: (m: string) => statuses.push(m) })
