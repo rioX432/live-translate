@@ -6,6 +6,7 @@ import { MicrosoftTranslator } from '../../engines/translator/MicrosoftTranslato
 import { ApiRotationController } from '../../engines/translator/ApiRotationController'
 import type { ProviderConfig, QuotaStore } from '../../engines/translator/ApiRotationController'
 import { HunyuanMT15Translator } from '../../engines/translator/HunyuanMT15Translator'
+import { CloudRealtimeE2E } from '../../engines/e2e/CloudRealtimeE2E'
 import { TranscriptLogger } from '../../logger/TranscriptLogger'
 import { store } from '../store'
 import type { AppContext } from '../app-context'
@@ -44,6 +45,8 @@ interface PipelineStartConfig extends EngineConfig {
   geminiApiKey?: string
   microsoftApiKey?: string
   microsoftRegion?: string
+  /** OpenAI API key for cloud realtime e2e translation (BYOK, #722) */
+  openaiApiKey?: string
 }
 
 /** Register pipeline control IPC handlers */
@@ -83,6 +86,27 @@ export function registerPipelineIpc(ctx: AppContext): void {
       }
       if (mdm.managedMicrosoftRegion && !config.microsoftRegion) {
         config.microsoftRegion = mdm.managedMicrosoftRegion
+      }
+      // #722: inject managed OpenAI key for cloud realtime translation
+      if (mdm.managedOpenaiApiKey && !config.openaiApiKey) {
+        config.openaiApiKey = mdm.managedOpenaiApiKey
+      }
+
+      // #722: register the cloud realtime e2e engine when selected (BYOK)
+      if (config.mode === 'e2e' && config.e2eEngineId === 'cloud-realtime-e2e') {
+        if (!config.openaiApiKey) {
+          return { error: 'Cloud realtime translation requires an OpenAI API key' }
+        }
+        const openaiKey = config.openaiApiKey
+        ctx.pipeline.registerE2E('cloud-realtime-e2e', () =>
+          new CloudRealtimeE2E({
+            apiKey: openaiKey,
+            sourceLanguage: store.get('sourceLanguage'),
+            targetLanguage: store.get('targetLanguage'),
+            // Scrub any BYOK key that might surface in a status/error string before it reaches the renderer
+            onStatus: (msg) => ctx.mainWindow?.webContents.send('status-update', sanitizeErrorMessage(msg))
+          })
+        )
       }
 
       // Register online translators with provided API keys
@@ -219,7 +243,9 @@ export function registerPipelineIpc(ctx: AppContext): void {
       // Start logger
       ctx.logger = new TranscriptLogger((msg) => ctx.mainWindow?.webContents.send('status-update', msg))
       const sessionLabel = config.mode === 'e2e'
-        ? 'Offline (Whisper Translate)'
+        ? config.e2eEngineId === 'cloud-realtime-e2e'
+          ? 'Cloud Realtime (gpt-realtime-translate)'
+          : 'Offline (Whisper Translate)'
         : `Cascade (Whisper + ${config.translatorEngineId})`
       ctx.logger.startSession(sessionLabel)
 

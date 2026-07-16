@@ -40,6 +40,11 @@ interface TranslatorSettingsProps {
   onMicrosoftApiKeyChange: (v: string) => void
   microsoftRegion: string
   onMicrosoftRegionChange: (v: string) => void
+  // Cloud realtime interpretation (#722, BYOK)
+  openaiApiKey: string
+  onOpenaiApiKeyChange: (v: string) => void
+  cloudRealtimeEnabled: boolean
+  onCloudRealtimeEnabledChange: (v: boolean) => void
   // API options visibility (controlled by parent for settings restore)
   showApiOptions: boolean
   onShowApiOptionsChange: (v: boolean) => void
@@ -83,6 +88,10 @@ export function TranslatorSettings({
   onMicrosoftApiKeyChange,
   microsoftRegion,
   onMicrosoftRegionChange,
+  openaiApiKey,
+  onOpenaiApiKeyChange,
+  cloudRealtimeEnabled,
+  onCloudRealtimeEnabledChange,
   showApiOptions,
   onShowApiOptionsChange,
   glossaryTerms,
@@ -95,10 +104,13 @@ export function TranslatorSettings({
   // 'rotation' (API auto) requires at least one API key — disabled when none configured
   const hasAnyApiKey = !!(apiKey || deeplApiKey || geminiApiKey || (microsoftApiKey && microsoftRegion))
 
+  // #722: cloud realtime interpretation needs an OpenAI key (BYOK)
+  const hasOpenaiKey = !!openaiApiKey
+
   return (
     <>
       <Section label="Translation Engine" helpText="Auto picks the best engine for your setup. HY-MT 1.5 is the recommended offline default.">
-        <fieldset style={{ border: 'none', margin: 0, padding: 0 }}>
+        <fieldset role="radiogroup" aria-label="Translation Engine" style={{ border: 'none', margin: 0, padding: 0 }}>
         <legend style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Translation Engine</legend>
         <label style={radioLabelStyle}>
           <input
@@ -375,10 +387,49 @@ export function TranslatorSettings({
                 style={inputStyle}
                 disabled={disabled}
               />
+              <input
+                type="password"
+                value={openaiApiKey}
+                onChange={(e) => onOpenaiApiKeyChange(e.target.value)}
+                placeholder="OpenAI API key (realtime interpretation)"
+                aria-label="OpenAI API key"
+                style={inputStyle}
+                disabled={disabled}
+              />
             </div>
           )}
         </div>
         </fieldset>
+      </Section>
+
+      {/* #722: Cloud realtime interpretation — a separate capability axis from the
+          engine radios above, so the 4-engine UI cap is respected. Opt-in, BYOK,
+          off by default (local-first stays Core Value ①). */}
+      <Section
+        label="Realtime Interpretation (Cloud)"
+        helpText="Speech-native low-latency translation via OpenAI gpt-realtime-translate. Requires an OpenAI API key and sends audio to the cloud — off by default to keep the offline local-first engines as the default."
+      >
+        <label style={{ ...radioLabelStyle, opacity: hasOpenaiKey ? 1 : 0.5 }}>
+          <input
+            type="checkbox"
+            checked={cloudRealtimeEnabled}
+            onChange={(e) => onCloudRealtimeEnabledChange(e.target.checked)}
+            disabled={disabled || !hasOpenaiKey}
+          />
+          <div>
+            <div style={{ fontWeight: 500 }}>Enable cloud realtime interpretation (BYOK)</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
+              {hasOpenaiKey
+                ? 'Overrides the engine above while active. Cloud — audio leaves your device. ~$0.034/min. Output language follows your target-language setting.'
+                : 'Add an OpenAI API key in "API Keys" above to enable cloud realtime interpretation.'}
+            </div>
+          </div>
+        </label>
+        {cloudRealtimeEnabled && hasOpenaiKey && (
+          <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 0 24px' }}>
+            Cloud mode active — the offline engine selection above is bypassed while this is on.
+          </div>
+        )}
       </Section>
 
       <GlossarySettings

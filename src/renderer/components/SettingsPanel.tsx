@@ -195,6 +195,10 @@ function SettingsPanel(): React.JSX.Element {
             onMicrosoftApiKeyChange={s.setMicrosoftApiKey}
             microsoftRegion={s.microsoftRegion}
             onMicrosoftRegionChange={s.setMicrosoftRegion}
+            openaiApiKey={s.openaiApiKey}
+            onOpenaiApiKeyChange={s.setOpenaiApiKey}
+            cloudRealtimeEnabled={s.cloudRealtimeEnabled}
+            onCloudRealtimeEnabledChange={s.setCloudRealtimeEnabled}
             showApiOptions={s.showApiOptions}
             onShowApiOptionsChange={s.setShowApiOptions}
             glossaryTerms={s.glossaryTerms}

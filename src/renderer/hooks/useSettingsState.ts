@@ -48,6 +48,11 @@ export interface SettingsState {
   setMicrosoftApiKey: (v: string) => void
   microsoftRegion: string
   setMicrosoftRegion: (v: string) => void
+  // Cloud realtime interpretation (#722, BYOK)
+  openaiApiKey: string
+  setOpenaiApiKey: (v: string) => void
+  cloudRealtimeEnabled: boolean
+  setCloudRealtimeEnabled: (v: boolean) => void
 
   // Display
   displays: DisplayInfo[]
@@ -177,7 +182,8 @@ export function useSettingsState(): SettingsState {
     deeplApiKey: engine.deeplApiKey,
     geminiApiKey: engine.geminiApiKey,
     microsoftApiKey: engine.microsoftApiKey,
-    microsoftRegion: engine.microsoftRegion
+    microsoftRegion: engine.microsoftRegion,
+    openaiApiKey: engine.openaiApiKey
   }
 
   const handleStart = async (): Promise<void> => {
@@ -194,6 +200,8 @@ export function useSettingsState(): SettingsState {
         geminiApiKey: engine.geminiApiKey,
         microsoftApiKey: engine.microsoftApiKey,
         microsoftRegion: engine.microsoftRegion,
+        openaiApiKey: engine.openaiApiKey,
+        cloudRealtimeEnabled: engine.cloudRealtimeEnabled,
         selectedMicrophone: session.audio.selectedDevice,
         selectedDisplay: display.selectedDisplay,
         sttEngine: language.sttEngine,
@@ -216,7 +224,7 @@ export function useSettingsState(): SettingsState {
       }), 10_000, 'saveSettings')
 
       const resolvedMode = resolveEngineMode(engine.engineMode, apiKeys, engine.gpuInfo)
-      const config = buildEngineConfig(resolvedMode, language.sttEngine, apiKeys)
+      const config = buildEngineConfig(resolvedMode, language.sttEngine, apiKeys, engine.cloudRealtimeEnabled)
 
       const result = await withIpcTimeout(window.api.pipelineStart(config), 120_000, 'pipelineStart')
       if (result.error) {
@@ -316,6 +324,8 @@ export function useSettingsState(): SettingsState {
     geminiApiKey: engine.geminiApiKey, setGeminiApiKey: engine.setGeminiApiKey,
     microsoftApiKey: engine.microsoftApiKey, setMicrosoftApiKey: engine.setMicrosoftApiKey,
     microsoftRegion: engine.microsoftRegion, setMicrosoftRegion: engine.setMicrosoftRegion,
+    openaiApiKey: engine.openaiApiKey, setOpenaiApiKey: engine.setOpenaiApiKey,
+    cloudRealtimeEnabled: engine.cloudRealtimeEnabled, setCloudRealtimeEnabled: engine.setCloudRealtimeEnabled,
     slmKvCacheQuant: engine.slmKvCacheQuant, setSlmKvCacheQuant: engine.setSlmKvCacheQuant,
     slmSpeculativeDecoding: engine.slmSpeculativeDecoding, setSlmSpeculativeDecoding: engine.setSlmSpeculativeDecoding,
     simulMtEnabled: engine.simulMtEnabled, setSimulMtEnabled: engine.setSimulMtEnabled,

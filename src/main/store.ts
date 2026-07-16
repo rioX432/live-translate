@@ -57,6 +57,10 @@ export interface AppSettings {
   microsoftRegion: string
   deeplApiKey: string
   geminiApiKey: string
+  /** OpenAI API key for cloud realtime speech translation (BYOK, #722) */
+  openaiApiKey: string
+  /** Opt-in cloud realtime interpretation via gpt-realtime-translate (#722). Off = local-first default. */
+  cloudRealtimeEnabled: boolean
   selectedMicrophone: string
   sttEngine: string
   selectedDisplay: number
@@ -152,6 +156,8 @@ export const store = new Store<AppSettings>({
     microsoftRegion: '',
     deeplApiKey: '',
     geminiApiKey: '',
+    openaiApiKey: '',
+    cloudRealtimeEnabled: false,
     sttEngine: 'mlx-whisper',
     selectedMicrophone: '',
     selectedDisplay: 0,
