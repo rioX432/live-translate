@@ -118,10 +118,11 @@ export function TranslatorSettings({
 
   // #723: the Gemini Live path needs its own Live-enabled key (BYOK)
   const hasGeminiLiveKey = !!geminiLiveApiKey
-  // Only one e2e path can own a session and gpt-realtime-translate wins, so when
-  // that path is live the preview toggle is inert — mirror buildEngineConfig's
-  // precedence in the UI rather than letting the checkbox imply it has an effect.
-  const geminiLiveSupersededByOpenai = cloudRealtimeEnabled && hasOpenaiKey
+  // Only one e2e path can own a session and the cloud realtime toggle owns the
+  // decision outright when set (see buildEngineConfig), so the preview toggle is
+  // inert while it is on — mirror that here rather than letting the checkbox imply
+  // it has an effect.
+  const geminiLiveSupersededByOpenai = cloudRealtimeEnabled
 
   return (
     <>

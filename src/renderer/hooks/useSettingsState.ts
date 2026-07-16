@@ -232,13 +232,10 @@ export function useSettingsState(): SettingsState {
       }), 10_000, 'saveSettings')
 
       const resolvedMode = resolveEngineMode(engine.engineMode, apiKeys, engine.gpuInfo)
-      const config = buildEngineConfig(
-      resolvedMode,
-      language.sttEngine,
-      apiKeys,
-      engine.cloudRealtimeEnabled,
-      engine.geminiLiveEnabled
-    )
+      const config = buildEngineConfig(resolvedMode, language.sttEngine, apiKeys, {
+        cloudRealtimeEnabled: engine.cloudRealtimeEnabled,
+        geminiLiveEnabled: engine.geminiLiveEnabled
+      })
 
       const result = await withIpcTimeout(window.api.pipelineStart(config), 120_000, 'pipelineStart')
       if (result.error) {
