@@ -33,6 +33,7 @@
     "ai-ops.md",
     "behavior.md",
     "coding-conventions.md",
+    "standalone-orchestration.md",
     "web-conventions.md"
   ],
   "adapters": [
