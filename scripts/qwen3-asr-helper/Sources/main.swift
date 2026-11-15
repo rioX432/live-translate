@@ -4,7 +4,8 @@
 //
 // stdout carries one JSON object per line and nothing else:
 //   startup:  {"ready":true}  or  {"fatal":"..."} followed by exit 1
-//   request:  {"id":<int>,"pcm_f32_b64":"<16 kHz mono float32 little-endian>"} on stdin
+//   request:  {"id":<int>,"pcm_f32_b64":"<16 kHz mono float32 little-endian>","context":"..."} on stdin
+//             context is optional: glossary terms the model is biased towards
 //   reply:    {"id":<int>,"text":"...","language":"Japanese","ms":<number>}
 //             {"id":<int>,"error":"..."}
 // Transcripts never go to stderr: meeting audio may be confidential.
@@ -66,9 +67,13 @@ while let line = readLine(strippingNewline: true) {
         continue
     }
 
+    // Qwen3-ASR places this text in the system turn, the same slot the official
+    // qwen_asr `context` argument uses, so terms bias recognition without forcing them.
+    let context = request["context"] as? String ?? ""
+
     let start = Date()
     // Greedy decoding, and no forced language so the model reports the language it heard.
-    let output = model.generate(audio: MLXArray(samples), temperature: 0.0)
+    let output = model.generate(audio: MLXArray(samples), temperature: 0.0, context: context)
     let ms = Date().timeIntervalSince(start) * 1000
     emit([
         "id": id,

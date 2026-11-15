@@ -105,9 +105,9 @@ contextBridge.exposeInMainWorld('api', {
   },
 
   // Glossary management (#240, #517)
-  saveGlossary: (terms: Array<{ source: string; target: string }>) =>
+  saveGlossary: (terms: Array<{ source: string; target: string; aliases?: string[] }>) =>
     ipcRenderer.invoke('save-glossary', terms),
-  saveOrgGlossary: (terms: Array<{ source: string; target: string }>) =>
+  saveOrgGlossary: (terms: Array<{ source: string; target: string; aliases?: string[] }>) =>
     ipcRenderer.invoke('save-org-glossary', terms),
   importGlossary: (target: 'personal' | 'org') =>
     ipcRenderer.invoke('import-glossary', target),
@@ -153,11 +153,6 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('edit-mode-changed', handler)
     return () => ipcRenderer.off('edit-mode-changed', handler)
   },
-  // Translation corrections (#590)
-  saveCorrection: (correction: { sourceText: string; originalTranslation: string; correctedTranslation: string }) =>
-    ipcRenderer.invoke('save-correction', correction),
-  getCorrectionHistory: () => ipcRenderer.invoke('get-correction-history'),
-  clearCorrectionHistory: () => ipcRenderer.invoke('clear-correction-history'),
   moveSubtitleByDelta: (dx: number, dy: number) =>
     ipcRenderer.send('move-subtitle-by-delta', dx, dy),
   saveSubtitlePosition: () => ipcRenderer.invoke('save-subtitle-position'),

@@ -124,3 +124,88 @@ describe('TranslationPipeline engine switching (#719)', () => {
     }
   })
 })
+
+class RecordingSTT implements STTEngine {
+  readonly isOffline = true
+  readonly id = 'stt'
+  readonly name = 'stt'
+  contexts: string[] = []
+  constructor(private readonly text: string) {}
+  async initialize(): Promise<void> {}
+  setContext(context: string): void {
+    this.contexts.push(context)
+  }
+  async processAudio(): Promise<STTResult | null> {
+    return { text: this.text, language: 'ja', isFinal: true, timestamp: Date.now() }
+  }
+  async dispose(): Promise<void> {}
+}
+
+describe('TranslationPipeline glossary at the ASR stage', () => {
+  const speech = new Float32Array(16000).map((_, i) => 0.1 * Math.sin((2 * Math.PI * 220 * i) / 16000))
+
+  async function startWith(stt: RecordingSTT, translator: MockTranslator): Promise<TranslationPipeline> {
+    const pipeline = new TranslationPipeline()
+    pipeline.registerSTT('stt', () => stt)
+    pipeline.registerTranslator('tr', () => translator)
+    await pipeline.switchEngine({ mode: 'cascade', sttEngineId: 'stt', translatorEngineId: 'tr' })
+    pipeline.start()
+    return pipeline
+  }
+
+  it('gives the terms to STT and corrects aliases before translation', async () => {
+    const stt = new RecordingSTT('アビーの新機能です')
+    const translator = new MockTranslator('tr')
+    const pipeline = await startWith(stt, translator)
+    pipeline.setGlossary([{ source: 'アビィ', target: 'Avvy', aliases: ['アビー'] }])
+
+    const result = await pipeline.finalizeStreaming(speech, 16000, 's1')
+
+    expect(stt.contexts.at(-1)).toBe('アビィ, Avvy')
+    expect(result?.sourceText).toBe('アビィの新機能です')
+    expect(translator.translateCalls.at(-1)).toBe('アビィの新機能です')
+    await pipeline.dispose()
+  })
+
+  it('applies a glossary edit from the next utterance without a restart', async () => {
+    const stt = new RecordingSTT('アビーの新機能です')
+    const translator = new MockTranslator('tr')
+    const pipeline = await startWith(stt, translator)
+
+    const before = await pipeline.finalizeStreaming(speech, 16000, 's1')
+    pipeline.setGlossary([{ source: 'アビィ', target: 'Avvy', aliases: ['アビー'] }])
+    const after = await pipeline.finalizeStreaming(speech, 16000, 's2')
+
+    expect(before?.sourceText).toBe('アビーの新機能です')
+    expect(stt.contexts[0]).toBe('')
+    expect(after?.sourceText).toBe('アビィの新機能です')
+    expect(stt.contexts.at(-1)).toBe('アビィ, Avvy')
+    await pipeline.dispose()
+  })
+
+  it('does not cache a translation made under a glossary replaced meanwhile', async () => {
+    const stt = new RecordingSTT('新機能です')
+    const translator = new MockTranslator('tr', 'deferred')
+    const pipeline = await startWith(stt, translator)
+    const translateOnce = async (value: string): Promise<void> => {
+      await vi.waitFor(() => expect(translator.pending).not.toBeNull())
+      const pending = translator.pending
+      translator.pending = null
+      pending?.resolve(value)
+    }
+    pipeline.setGlossary([{ source: 'アビィ', target: 'Avvy' }])
+
+    const first = pipeline.finalizeStreaming(speech, 16000, 's1')
+    await vi.waitFor(() => expect(translator.pending).not.toBeNull())
+    pipeline.setGlossary([{ source: 'アビィ', target: 'Abby' }])
+    await translateOnce('old')
+    await first
+
+    const second = pipeline.finalizeStreaming(speech, 16000, 's2')
+    await translateOnce('new')
+
+    expect((await second)?.translatedText).toBe('new')
+    expect(translator.translateCalls).toHaveLength(2)
+    await pipeline.dispose()
+  })
+})

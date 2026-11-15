@@ -105,6 +105,19 @@ describe('Qwen3ASREngine', () => {
     await engine.dispose()
   })
 
+  it('sends the glossary context only once one is set, and the latest one', async () => {
+    const { engine, requests } = engineWith(() => ({ text: 'hi', language: 'English' }))
+    await engine.initialize()
+    await engine.processAudio(new Float32Array(4), 16_000)
+    engine.setContext('アビィ, Avvy')
+    await engine.processAudio(new Float32Array(4), 16_000)
+    engine.setContext('')
+    await engine.processAudio(new Float32Array(4), 16_000)
+
+    expect(requests.map((r) => r.context)).toEqual([undefined, 'アビィ, Avvy', undefined])
+    await engine.dispose()
+  })
+
   it('returns null for empty text and empty audio', async () => {
     const { engine, requests } = engineWith(() => ({ text: '   ', language: 'English' }))
     await engine.initialize()

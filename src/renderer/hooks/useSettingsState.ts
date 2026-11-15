@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { GlossaryTerm } from '../components/settings/glossary-terms'
 
 function friendlyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err)
@@ -81,10 +82,10 @@ export interface SettingsState {
   setSimulMtWaitK: (v: number) => void
 
   // Glossary
-  glossaryTerms: Array<{ source: string; target: string }>
-  setGlossaryTerms: (v: Array<{ source: string; target: string }>) => void
-  orgGlossaryTerms: Array<{ source: string; target: string }>
-  setOrgGlossaryTerms: (v: Array<{ source: string; target: string }>) => void
+  glossaryTerms: GlossaryTerm[]
+  setGlossaryTerms: (v: GlossaryTerm[]) => void
+  orgGlossaryTerms: GlossaryTerm[]
+  setOrgGlossaryTerms: (v: GlossaryTerm[]) => void
 
 
   // Platform

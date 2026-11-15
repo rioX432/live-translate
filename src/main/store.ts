@@ -36,18 +36,6 @@ export interface SessionLog {
   errorCount: number
 }
 
-/** A user correction of a mistranslation, stored as glossary + audit trail */
-export interface CorrectionEntry {
-  /** Original source text that was translated */
-  sourceText: string
-  /** The incorrect translation produced by the engine */
-  originalTranslation: string
-  /** The corrected translation provided by the user */
-  correctedTranslation: string
-  /** Unix timestamp in ms when the correction was made */
-  timestamp: number
-}
-
 export interface AppSettings {
   translationEngine: string
   selectedMicrophone: string
@@ -106,8 +94,6 @@ export interface AppSettings {
   telemetryConsentShown: boolean
   /** Enable speaker diarization via FluidAudio for multi-speaker identification (#549) */
   speakerDiarizationEnabled: boolean
-  /** History of user corrections for mistranslations (#590) */
-  correctionHistory: CorrectionEntry[]
   /** Whether this is a fresh install (never completed first pipeline start) (#575) */
   isFirstRun: boolean
   /** Background model download status for onboarding (#575) */
@@ -173,7 +159,6 @@ export const store = new Store<AppSettings>({
     telemetryConsent: false,
     telemetryConsentShown: false,
     speakerDiarizationEnabled: false,
-    correctionHistory: [],
     isFirstRun: true,
     onboardingModelStatus: 'idle',
     onboardingDownloadProgress: 0,

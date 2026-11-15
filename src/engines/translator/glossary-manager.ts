@@ -1,32 +1,61 @@
 import type { GlossaryEntry } from '../types'
 
+/** Separates aliases inside the third CSV column. */
+const CSV_ALIAS_SEPARATOR = '|'
+
+/** Trimmed, non-empty, de-duplicated aliases that differ from the source; undefined when none remain. */
+export function cleanAliases(source: string, aliases: readonly unknown[] | undefined): string[] | undefined {
+  if (!aliases?.length) return undefined
+  const result: string[] = []
+  for (const alias of aliases) {
+    if (typeof alias !== 'string') continue
+    const a = alias.trim()
+    if (a && a !== source && !result.includes(a)) result.push(a)
+  }
+  return result.length > 0 ? result : undefined
+}
+
+function entry(source: string, target: string, aliases?: readonly unknown[]): GlossaryEntry {
+  const cleaned = cleanAliases(source, aliases)
+  return cleaned ? { source, target, aliases: cleaned } : { source, target }
+}
+
+/** Keep well-formed { source, target, aliases? } entries, trimmed, from untrusted input (a file or the renderer). */
+export function sanitizeGlossaryEntries(data: readonly unknown[]): GlossaryEntry[] {
+  return data
+    .filter(
+      (raw): raw is Record<string, unknown> =>
+        typeof raw === 'object' &&
+        raw !== null &&
+        typeof (raw as Record<string, unknown>).source === 'string' &&
+        typeof (raw as Record<string, unknown>).target === 'string'
+    )
+    .map((raw) =>
+      entry(
+        String(raw.source).trim(),
+        String(raw.target).trim(),
+        Array.isArray(raw.aliases) ? raw.aliases : undefined
+      )
+    )
+    .filter((e) => e.source.length > 0 && e.target.length > 0)
+}
+
 /**
  * Parse a JSON glossary file.
- * Expected format: array of { source, target, context? }
+ * Expected format: array of { source, target, aliases? }
  */
 export function parseJsonGlossary(content: string): GlossaryEntry[] {
   const data = JSON.parse(content)
   if (!Array.isArray(data)) {
     throw new Error('JSON glossary must be an array')
   }
-  return data
-    .filter(
-      (entry: unknown) =>
-        typeof entry === 'object' &&
-        entry !== null &&
-        typeof (entry as Record<string, unknown>).source === 'string' &&
-        typeof (entry as Record<string, unknown>).target === 'string'
-    )
-    .map((entry: Record<string, unknown>) => ({
-      source: String(entry.source).trim(),
-      target: String(entry.target).trim()
-    }))
-    .filter((entry) => entry.source.length > 0 && entry.target.length > 0)
+  return sanitizeGlossaryEntries(data)
 }
 
 /**
  * Parse a CSV glossary file.
- * Expected format: source,target,context (header row required)
+ * Expected format: source,target[,aliases] (header row required); aliases are
+ * separated by "|".
  * Handles quoted fields with commas inside.
  */
 export function parseCsvGlossary(content: string): GlossaryEntry[] {
@@ -41,7 +70,7 @@ export function parseCsvGlossary(content: string): GlossaryEntry[] {
       const source = fields[0].trim()
       const target = fields[1].trim()
       if (source.length > 0 && target.length > 0) {
-        entries.push({ source, target })
+        entries.push(entry(source, target, fields[2]?.split(CSV_ALIAS_SEPARATOR)))
       }
     }
   }
@@ -90,7 +119,7 @@ function parseCsvLine(line: string): string[] {
  */
 export function exportJsonGlossary(entries: GlossaryEntry[]): string {
   return JSON.stringify(
-    entries.map((e) => ({ source: e.source, target: e.target })),
+    entries.map((e) => entry(e.source, e.target, e.aliases)),
     null,
     2
   )
@@ -100,8 +129,14 @@ export function exportJsonGlossary(entries: GlossaryEntry[]): string {
  * Export glossary entries to CSV format with header row.
  */
 export function exportCsvGlossary(entries: GlossaryEntry[]): string {
-  const header = 'source,target'
-  const rows = entries.map((e) => `${escapeCsvField(e.source)},${escapeCsvField(e.target)}`)
+  // The aliases column appears only when needed, so files without aliases keep the two-column format.
+  const withAliases = entries.some((e) => e.aliases?.length)
+  const header = withAliases ? 'source,target,aliases' : 'source,target'
+  const rows = entries.map((e) => {
+    const fields = [e.source, e.target]
+    if (withAliases) fields.push((e.aliases ?? []).join(CSV_ALIAS_SEPARATOR))
+    return fields.map(escapeCsvField).join(',')
+  })
   return [header, ...rows].join('\n')
 }
 
