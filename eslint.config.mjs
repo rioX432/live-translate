@@ -5,7 +5,7 @@ export default tseslint.config(
   eslint.configs.recommended,
   tseslint.configs.recommended,
   {
-    ignores: ['dist/', 'out/', 'node_modules/', 'chrome-extension/', 'benchmark/', 'src/renderer/public/vad/**']
+    ignores: ['dist/', 'out/', 'node_modules/', 'benchmark/', 'src/renderer/public/vad/**']
   },
   // Preload scripts are compiled to CommonJS — allow exports/require globals
   {

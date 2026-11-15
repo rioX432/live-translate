@@ -5,7 +5,6 @@ import type { AppContext } from '../app-context'
 import type { EngineConfig } from '../../engines/types'
 import { sanitizeErrorMessage } from '../error-utils'
 import { createLogger } from '../logger'
-import { getMdmConfig } from '../mdm-config'
 import { recordSessionEnd } from '../../logger/UsageAnalytics'
 import type { LiveSessionMetrics } from '../../logger/UsageAnalytics'
 
@@ -36,17 +35,6 @@ export function registerPipelineIpc(ctx: AppContext): void {
     }
 
     try {
-      // #519: Apply MDM admin locks — override user-selected engine if locked
-      const mdm = getMdmConfig()
-      if (mdm.lockedEngine && config.translatorEngineId) {
-        log.info(`MDM: Overriding translator engine from ${config.translatorEngineId} to ${mdm.lockedEngine}`)
-        config.translatorEngineId = mdm.lockedEngine
-      }
-      if (mdm.lockedSttEngine && config.sttEngineId) {
-        log.info(`MDM: Overriding STT engine from ${config.sttEngineId} to ${mdm.lockedSttEngine}`)
-        config.sttEngineId = mdm.lockedSttEngine
-      }
-
       await ctx.pipeline.switchEngine(config)
 
       // Load merged glossary (personal + org) from store (#517)

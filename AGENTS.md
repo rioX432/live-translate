@@ -43,24 +43,18 @@ live-translate/
 │   │   ├── index.ts             # App entry, pipeline init, lifecycle orchestration
 │   │   ├── app-context.ts       # Shared mutable state interface (AppContext)
 │   │   ├── window-manager.ts    # Window creation, display handlers
-│   │   ├── ipc-handlers.ts      # IPC handlers (pipeline, settings, sessions, ws-audio)
+│   │   ├── ipc-handlers.ts      # IPC handlers (pipeline, settings, sessions)
 │   │   ├── ipc/                 # Modular IPC handlers
-│   │   │   ├── audio-ipc.ts, pipeline-ipc.ts, settings-ipc.ts, ...
-│   │   │   ├── enterprise-ipc.ts   # Enterprise features IPC
-│   │   │   ├── shortcut-ipc.ts     # Keyboard shortcut IPC
-│   │   │   └── tts-ipc.ts          # TTS IPC
+│   │   │   ├── pipeline-ipc.ts, settings-ipc.ts, ...
+│   │   │   └── shortcut-ipc.ts     # Keyboard shortcut IPC
 │   │   ├── ipc-validators.ts    # IPC input validation (path traversal, types)
 │   │   ├── audio-handlers.ts    # Audio processing IPC (process, streaming, finalize)
 │   │   ├── shortcut-manager.ts  # Global keyboard shortcuts (Ctrl+Shift based)
-│   │   ├── mdm-config.ts       # MDM/enterprise configuration reader
-│   │   ├── tts-manager.ts      # Text-to-speech manager
-│   │   ├── virtual-mic-manager.ts # Virtual microphone manager
 │   │   ├── error-utils.ts       # Error sanitization and hint mapping
 │   │   ├── logger.ts            # Structured logger (levels, module prefixes)
-│   │   ├── constants.ts         # Shared constants (WS port, sample rate)
+│   │   ├── constants.ts         # Shared constants (sample rate)
 │   │   ├── store.ts             # electron-store (encrypted, settings, quota)
 │   │   ├── auto-updater.ts      # electron-updater auto-update lifecycle
-│   │   ├── ws-audio-server.ts   # WebSocket server for Chrome extension audio
 │   │   ├── worker-pool.ts       # Shared UtilityProcess pool for slm-worker
 │   │   └── slm-worker.ts        # UtilityProcess: LLM translation + summarization
 │   ├── preload/                 # Context bridge (renderer ↔ main IPC)
@@ -71,9 +65,6 @@ live-translate/
 │   │   │   └── settings/           # Modular settings panels
 │   │   │       ├── AccessibilitySettings.tsx  # High contrast, dyslexia font, WCAG
 │   │   │       ├── KeyboardShortcuts.tsx      # Shortcut configuration UI
-│   │   │       ├── EnterpriseSettings.tsx     # MDM config, admin lock, telemetry
-│   │   │       ├── TTSSettings.tsx            # Text-to-speech settings
-│   │   │       ├── VirtualMicSettings.tsx     # Virtual microphone settings
 │   │   │       └── ...                        # Audio, Language, STT, Subtitle, etc.
 │   │   └── hooks/
 │   │       ├── useAudioCapture.ts      # Mic/virtual audio capture via Silero VAD

@@ -33,9 +33,3 @@ globs: src/main/**/*.ts, src/preload/**/*.ts
 - Native addons: whisper-node-addon has separate Windows binaries
 - CUDA recommended for GPU acceleration on Windows (auto-detected via `gpu-detector.ts`)
 - CI builds for both macOS and Windows via GitHub Actions
-
-## Enterprise / MDM
-- `mdm-config.ts` reads MDM-managed configuration (e.g., macOS managed preferences, Windows registry)
-- Admin lock prevents users from changing certain settings
-- `enterprise-ipc.ts` exposes enterprise config to renderer
-- Usage analytics and telemetry consent tracked via electron-store

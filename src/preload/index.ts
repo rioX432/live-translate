@@ -134,16 +134,6 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('displays-changed', handler)
   },
 
-  // WebSocket audio server for Chrome extension (#264)
-  wsAudioStart: (port?: number) => ipcRenderer.invoke('ws-audio-start', port),
-  wsAudioStop: () => ipcRenderer.invoke('ws-audio-stop'),
-  wsAudioGetStatus: () => ipcRenderer.invoke('ws-audio-get-status'),
-  onWsAudioStatus: (callback: (status: { running: boolean; connected: boolean; port: number | null }) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, status: { running: boolean; connected: boolean; port: number | null }): void => callback(status)
-    ipcRenderer.on('ws-audio-status', handler)
-    return () => ipcRenderer.off('ws-audio-status', handler)
-  },
-
   // System audio loopback (#501)
   enableLoopbackAudio: () => ipcRenderer.invoke('enable-loopback-audio'),
   disableLoopbackAudio: () => ipcRenderer.invoke('disable-loopback-audio'),
@@ -174,24 +164,6 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('drag-mode-changed', handler)
   },
 
-  // TTS (#508)
-  ttsSetEnabled: (enabled: boolean) => ipcRenderer.invoke('tts-set-enabled', enabled),
-  ttsSetVoice: (voiceId: string) => ipcRenderer.invoke('tts-set-voice', voiceId),
-  ttsSetVolume: (volume: number) => ipcRenderer.invoke('tts-set-volume', volume),
-  ttsSetOutputDevice: (deviceId: string) => ipcRenderer.invoke('tts-set-output-device', deviceId),
-  ttsGetSettings: () => ipcRenderer.invoke('tts-get-settings'),
-  onTtsAudio: (callback: (data: { audio: number[]; sampleRate: number; volume: number }) => void) => {
-    const handler = (_event: Electron.IpcRendererEvent, data: { audio: number[]; sampleRate: number; volume: number }): void => callback(data)
-    ipcRenderer.on('tts-audio', handler)
-    return () => ipcRenderer.off('tts-audio', handler)
-  },
-
-  // Virtual Mic (#515)
-  virtualMicGetStatus: () => ipcRenderer.invoke('virtual-mic-get-status'),
-  virtualMicEnable: (deviceId: number) => ipcRenderer.invoke('virtual-mic-enable', deviceId),
-  virtualMicDisable: () => ipcRenderer.invoke('virtual-mic-disable'),
-  virtualMicRefreshDevices: () => ipcRenderer.invoke('virtual-mic-refresh-devices'),
-
   // Quick Start onboarding (#510)
   quickStartRecommend: () => ipcRenderer.invoke('quick-start-recommend'),
   quickStartApply: (options: { sourceLanguage: string; targetLanguage: string; recommendation: unknown }) =>
@@ -199,13 +171,6 @@ contextBridge.exposeInMainWorld('api', {
   quickStartIsCompleted: () => ipcRenderer.invoke('quick-start-is-completed'),
   quickStartSkip: () => ipcRenderer.invoke('quick-start-skip'),
   quickStartSystemInfo: () => ipcRenderer.invoke('quick-start-system-info'),
-
-  // Enterprise features (#519)
-  enterpriseGetUsageSummary: (days?: number) => ipcRenderer.invoke('enterprise-get-usage-summary', days),
-  enterpriseGetQuickStats: () => ipcRenderer.invoke('enterprise-get-quick-stats'),
-  enterpriseGetMdmConfig: () => ipcRenderer.invoke('enterprise-get-mdm-config'),
-  enterpriseGetTelemetryConsent: () => ipcRenderer.invoke('enterprise-get-telemetry-consent'),
-  enterpriseSetTelemetryConsent: (consent: boolean) => ipcRenderer.invoke('enterprise-set-telemetry-consent', consent),
 
   // Audio MessagePort for zero-copy transfer (#553): the port arrives as a
   // window 'message' event of type audioPortMessageType after this request.

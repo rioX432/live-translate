@@ -1,9 +1,6 @@
 import type { BrowserWindow } from 'electron'
 import type { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import type { TranscriptLogger } from '../logger/TranscriptLogger'
-import type { WsAudioServer } from './ws-audio-server'
-import type { TTSManager } from './tts-manager'
-import type { VirtualMicManager } from './virtual-mic-manager'
 
 /**
  * Shared application state accessed by all main-process modules.
@@ -17,9 +14,6 @@ export interface AppContext {
   subtitleWindow: BrowserWindow | null
   pipeline: TranslationPipeline | null
   logger: TranscriptLogger | null
-  wsAudioServer: WsAudioServer | null
-  ttsManager: TTSManager | null
-  virtualMicManager: VirtualMicManager | null
 }
 
 /** Backing store for AppContext getter/setter properties */
@@ -28,9 +22,6 @@ interface AppContextStore {
   subtitleWindow: BrowserWindow | null
   pipeline: TranslationPipeline | null
   logger: TranscriptLogger | null
-  wsAudioServer: WsAudioServer | null
-  ttsManager: TTSManager | null
-  virtualMicManager: VirtualMicManager | null
 }
 
 /**
@@ -43,10 +34,7 @@ export function createAppContext(): AppContext {
     mainWindow: null,
     subtitleWindow: null,
     pipeline: null,
-    logger: null,
-    wsAudioServer: null,
-    ttsManager: null,
-    virtualMicManager: null
+    logger: null
   }
 
   return Object.defineProperties({} as AppContext, {
@@ -71,24 +59,6 @@ export function createAppContext(): AppContext {
     logger: {
       get: () => store.logger,
       set: (v: TranscriptLogger | null) => { store.logger = v },
-      enumerable: true,
-      configurable: false
-    },
-    wsAudioServer: {
-      get: () => store.wsAudioServer,
-      set: (v: WsAudioServer | null) => { store.wsAudioServer = v },
-      enumerable: true,
-      configurable: false
-    },
-    ttsManager: {
-      get: () => store.ttsManager,
-      set: (v: TTSManager | null) => { store.ttsManager = v },
-      enumerable: true,
-      configurable: false
-    },
-    virtualMicManager: {
-      get: () => store.virtualMicManager,
-      set: (v: VirtualMicManager | null) => { store.virtualMicManager = v },
       enumerable: true,
       configurable: false
     }

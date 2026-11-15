@@ -32,7 +32,3 @@ globs: src/renderer/**/*.tsx, src/renderer/**/*.ts
 - `KeyboardShortcuts.tsx` — shortcut configuration UI
 - Shortcuts registered globally via `shortcut-manager.ts` in main process
 - Ctrl+Shift based default bindings for overlay control (toggle, position, etc.)
-
-## Enterprise Settings
-- `EnterpriseSettings.tsx` — MDM configuration display, admin lock, telemetry consent
-- Admin-locked settings are read-only in UI

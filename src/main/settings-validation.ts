@@ -1,7 +1,7 @@
 /**
  * Allowlist and type validation for settings written by the renderer through `save-settings`.
  *
- * Keys not listed here (activeSession, wsAudioPort, isFirstRun, onboarding state, glossaries, ...)
+ * Keys not listed here (activeSession, isFirstRun, onboarding state, glossaries, ...)
  * have dedicated handlers or are owned by the main process, so the generic writer must not touch them.
  */
 
@@ -42,16 +42,8 @@ export const SAVEABLE_SETTINGS: Readonly<Record<string, Validator>> = {
   showConfidenceIndicator: isBool,
   audioSource: oneOf('microphone', 'system', 'both'),
   hasCompletedSetup: isBool,
-  ttsEnabled: isBool,
-  ttsVoice: isString,
-  ttsOutputDevice: isString,
-  ttsVolume: (v) => typeof v === 'number' && v >= 0 && v <= 1,
-  virtualMicEnabled: isBool,
-  virtualMicDeviceId: isInt(-1, 4096),
   draftSttEnabled: isBool,
   speakerDiarizationEnabled: isBool,
-  telemetryConsent: isBool,
-  telemetryConsentShown: isBool,
   preferredLocalEngine: isString
 }
 

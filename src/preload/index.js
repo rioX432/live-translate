@@ -92,15 +92,6 @@ electron_1.contextBridge.exposeInMainWorld('api', {
         electron_1.ipcRenderer.on('displays-changed', handler);
         return function () { return electron_1.ipcRenderer.off('displays-changed', handler); };
     },
-    // WebSocket audio server for Chrome extension (#264)
-    wsAudioStart: function (port) { return electron_1.ipcRenderer.invoke('ws-audio-start', port); },
-    wsAudioStop: function () { return electron_1.ipcRenderer.invoke('ws-audio-stop'); },
-    wsAudioGetStatus: function () { return electron_1.ipcRenderer.invoke('ws-audio-get-status'); },
-    onWsAudioStatus: function (callback) {
-        var handler = function (_event, status) { return callback(status); };
-        electron_1.ipcRenderer.on('ws-audio-status', handler);
-        return function () { return electron_1.ipcRenderer.off('ws-audio-status', handler); };
-    },
     // Global keyboard shortcuts (#551)
     getShortcutLabels: function () { return electron_1.ipcRenderer.invoke('get-shortcut-labels'); },
     onShortcutAction: function (callback) {

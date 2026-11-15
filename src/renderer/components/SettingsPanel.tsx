@@ -7,13 +7,10 @@ import {
   STTSettings,
   TranslatorSettings,
   SubtitleSettings,
-  TTSSettings,
-  VirtualMicSettings,
   SessionControls,
   UpdateStatus,
   CrashRecoveryBanner,
   ConfigSummary,
-  EnterpriseSettings,
   KeyboardShortcuts,
   AccessibilitySettings,
   SpeakerSettings,
@@ -228,13 +225,7 @@ function SettingsPanel(): React.JSX.Element {
             disabled={disabled}
           />
 
-          <TTSSettings disabled={disabled} />
-
-          <VirtualMicSettings disabled={disabled} />
-
           <PrivacySettings disabled={disabled} />
-
-          <EnterpriseSettings disabled={disabled} />
 
           <KeyboardShortcuts />
 
