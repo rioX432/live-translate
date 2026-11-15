@@ -46,14 +46,14 @@ test.afterAll(async () => {
 
 // Helper: ensure Advanced Settings is expanded
 async function expandAdvancedSettings(): Promise<void> {
-  const sttSelect = settingsWindow.locator('[aria-label="STT engine"]')
-  if (await sttSelect.isVisible().catch(() => false)) return
+  const sourceSelect = settingsWindow.locator('[aria-label="Source language"]')
+  if (await sourceSelect.isVisible().catch(() => false)) return
   const advancedButton = settingsWindow.locator('button', { hasText: 'Advanced Settings' })
   await advancedButton.waitFor({ state: 'visible', timeout: 15000 })
   await advancedButton.click()
   // First expansion cold-renders the whole advanced panel; under GPU-disabled
   // CI Electron this can take well over 5s, so allow generous headroom.
-  await sttSelect.waitFor({ state: 'visible', timeout: 15000 })
+  await sourceSelect.waitFor({ state: 'visible', timeout: 15000 })
 }
 
 test.describe('App launch', () => {
@@ -74,45 +74,12 @@ test.describe('App launch', () => {
 })
 
 test.describe('Engine selection', () => {
-  test('should display translation engine radio options', async () => {
+  test('should not offer an engine picker', async () => {
     await expandAdvancedSettings()
 
-    // Use the radiogroup to scope selectors and avoid strict mode violations
-    const engineGroup = settingsWindow.locator('[role="radiogroup"]')
-    await expect(engineGroup).toBeVisible()
-
-    // Verify key engine radio inputs exist. Post-#702 the UI is capped at
-    // Auto / HY-MT 1.5 / Hunyuan-MT 7B / Online (+ Apple Translate on macOS).
-    const radios = engineGroup.locator('input[name="engine"]')
-    const count = await radios.count()
-    expect(count).toBeGreaterThanOrEqual(4)
-  })
-
-  test('should allow selecting a different translation engine', async () => {
-    await expandAdvancedSettings()
-
-    // Select the always-present Hunyuan-MT 7B radio by its unique label text.
-    const engineGroup = settingsWindow.locator('[role="radiogroup"]')
-    const qualityRadio = engineGroup.locator('label').filter({ hasText: 'Hunyuan-MT 7B' }).locator('input[type="radio"]')
-    // dispatchEvent instead of click(): selecting this engine mounts the LLM
-    // sub-options subtree, and on the slow GPU-disabled CI runner Playwright's
-    // post-click navigation/stability wait can hang for the full action timeout.
-    // Dispatching the click directly checks the radio and fires React's onChange
-    // without that wait.
-    await qualityRadio.dispatchEvent('click')
-    await expect(qualityRadio).toBeChecked()
-  })
-
-  test('should show STT engine selector', async () => {
-    await expandAdvancedSettings()
-
-    const sttSelect = settingsWindow.locator('[aria-label="STT engine"]')
-    await expect(sttSelect).toBeVisible()
-
-    // Should have at least whisper-local and moonshine options
-    const options = sttSelect.locator('option')
-    const count = await options.count()
-    expect(count).toBeGreaterThanOrEqual(2)
+    // Main picks one engine per role by platform, so the UI must not offer a choice.
+    await expect(settingsWindow.locator('input[name="engine"]')).toHaveCount(0)
+    await expect(settingsWindow.locator('[aria-label="STT engine"]')).toHaveCount(0)
   })
 })
 
