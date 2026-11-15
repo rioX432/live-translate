@@ -29,7 +29,7 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 - Lightning Whisper MLX — JA CER 162%
 - Moonshine base — JA CER 221% (note: Moonshine Tiny JA is a different, improved variant)
 
-### Translation Engines (7 primary + 5 experimental)
+### Translation Engines (4 primary + 5 experimental)
 
 **Primary (shown in UI):**
 | Engine | File | JA→EN | EN→JA | Memory | Offline |
@@ -38,9 +38,6 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 | LFM2 (ultra-fast) | `LFM2Translator.ts` | Fast | Fast | ~230MB | Yes |
 | PLaMo-2 10B (quality) | `PLaMoTranslator.ts` | — | — | ~5.5GB | Yes |
 | Hunyuan-MT 7B (quality) | `HunyuanMTTranslator.ts` | 3.7s | 6.3s | 4GB | Yes |
-| Google Translate | `GoogleTranslator.ts` | Fast | Fast | — | No |
-| DeepL | `DeepLTranslator.ts` | Fast | Fast | — | No |
-| Gemini | `GeminiTranslator.ts` | Fast | Fast | — | No |
 
 **Legacy (shown in UI as fallback):**
 | Engine | File | Notes |
@@ -55,6 +52,7 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 
 **Removed (benchmark failures):**
 - ALMA-Ja, Gemma-2-JPN
+- Google Translate, DeepL, Gemini, Microsoft Translator, API rotation, cloud realtime E2E — removed with the local-only migration (see `docs/research/local-only-removed-cloud.md`)
 
 ## Adding New Engines
 1. Create a new file in `src/engines/stt/` or `src/engines/translator/`

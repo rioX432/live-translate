@@ -27,7 +27,12 @@ export const LEGACY_TRANSLATION_ENGINES: readonly string[] = [
   'offline-lfm2',
   'offline-plamo',
   'offline-hybrid',
-  'offline-opus'
+  'offline-opus',
+  // Cloud modes removed in the local-only migration
+  'rotation',
+  'online',
+  'online-deepl',
+  'online-gemini'
 ] as const
 
 /**

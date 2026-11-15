@@ -139,7 +139,7 @@ export class OnnxWebTranslator implements TranslatorEngine {
       log.info(`translate ${from}→${to} backend=${this.activeBackend} inputLen=${trimmed.length} outputLen=${translated.length} time=${ms.toFixed(0)}ms`)
 
       if (isHallucination(trimmed, translated, from, to)) {
-        log.warn(`Hallucination detected: "${trimmed}" → "${translated.substring(0, 80)}..." (filtered)`)
+        log.warn(`Hallucination detected: inputLen=${trimmed.length} outputLen=${translated.length} (filtered)`)
         return ''
       }
 

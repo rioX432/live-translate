@@ -37,14 +37,14 @@ export function filterWhisperHallucination(text: string): string | null {
   const lower = trimmed.toLowerCase()
   for (const phrase of hallucinationPhrases) {
     if (lower === phrase || lower === `${phrase}.` || lower === `${phrase}!`) {
-      console.debug(`[whisper-filter] Filtered hallucination: "${trimmed}"`)
+      console.debug(`[whisper-filter] Filtered hallucination (${trimmed.length} chars)`)
       return null
     }
   }
 
   // Filter repetitive patterns (same word/phrase repeated 3+ times)
   if (hasRepetitivePattern(trimmed)) {
-    console.debug(`[whisper-filter] Filtered repetitive: "${trimmed}"`)
+    console.debug(`[whisper-filter] Filtered repetitive (${trimmed.length} chars)`)
     return null
   }
 
@@ -54,13 +54,13 @@ export function filterWhisperHallucination(text: string): string | null {
   // Filter single-kana or nonsensical short Japanese fragments (common STT garbage)
   // These are typically misheard syllables that produce hallucinations in OPUS-MT
   if (isGarbageJapanese(trimmed)) {
-    console.debug(`[whisper-filter] Filtered garbage Japanese: "${trimmed}"`)
+    console.debug(`[whisper-filter] Filtered garbage Japanese (${trimmed.length} chars)`)
     return null
   }
 
   // Filter text that is mostly non-linguistic characters
   if (isMostlyNonLinguistic(trimmed)) {
-    console.debug(`[whisper-filter] Filtered non-linguistic: "${trimmed}"`)
+    console.debug(`[whisper-filter] Filtered non-linguistic (${trimmed.length} chars)`)
     return null
   }
 

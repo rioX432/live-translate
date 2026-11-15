@@ -11,20 +11,6 @@ export interface MdmConfig {
   lockedSttEngine: string | null
   /** Force-disable telemetry regardless of user preference */
   telemetryDisabled: boolean
-  /** Managed API key (set by admin, hidden from user) */
-  managedApiKey: string | null
-  /** Managed DeepL API key */
-  managedDeeplApiKey: string | null
-  /** Managed Gemini API key */
-  managedGeminiApiKey: string | null
-  /** Managed Microsoft (Azure) Translator API key (#704) */
-  managedMicrosoftApiKey: string | null
-  /** Managed Microsoft (Azure) Translator region (e.g. "japaneast") (#704) */
-  managedMicrosoftRegion: string | null
-  /** Managed OpenAI API key for cloud realtime translation (#722) */
-  managedOpenaiApiKey: string | null
-  /** Managed Gemini Live API key for realtime translation (#723) */
-  managedGeminiLiveApiKey: string | null
   /** Custom organization name shown in UI */
   organizationName: string | null
   /** Disable auto-update (enterprise may manage updates via MDM) */
@@ -97,13 +83,6 @@ export function loadMdmConfig(): MdmConfig {
     lockedEngine: readManagedPref('lockedEngine'),
     lockedSttEngine: readManagedPref('lockedSttEngine'),
     telemetryDisabled: readManagedPref('telemetryDisabled') === '1',
-    managedApiKey: readManagedPref('managedApiKey'),
-    managedDeeplApiKey: readManagedPref('managedDeeplApiKey'),
-    managedGeminiApiKey: readManagedPref('managedGeminiApiKey'),
-    managedMicrosoftApiKey: readManagedPref('managedMicrosoftApiKey'),
-    managedMicrosoftRegion: readManagedPref('managedMicrosoftRegion'),
-    managedOpenaiApiKey: readManagedPref('managedOpenaiApiKey'),
-    managedGeminiLiveApiKey: readManagedPref('managedGeminiLiveApiKey'),
     organizationName: readManagedPref('organizationName'),
     autoUpdateDisabled: readManagedPref('autoUpdateDisabled') === '1'
   }
@@ -113,13 +92,6 @@ export function loadMdmConfig(): MdmConfig {
   if (config.lockedEngine) managed.push(`lockedEngine=${config.lockedEngine}`)
   if (config.lockedSttEngine) managed.push(`lockedSttEngine=${config.lockedSttEngine}`)
   if (config.telemetryDisabled) managed.push('telemetryDisabled')
-  if (config.managedApiKey) managed.push('managedApiKey=***')
-  if (config.managedDeeplApiKey) managed.push('managedDeeplApiKey=***')
-  if (config.managedGeminiApiKey) managed.push('managedGeminiApiKey=***')
-  if (config.managedMicrosoftApiKey) managed.push('managedMicrosoftApiKey=***')
-  if (config.managedMicrosoftRegion) managed.push(`managedMicrosoftRegion=${config.managedMicrosoftRegion}`)
-  if (config.managedOpenaiApiKey) managed.push('managedOpenaiApiKey=***')
-  if (config.managedGeminiLiveApiKey) managed.push('managedGeminiLiveApiKey=***')
   if (config.organizationName) managed.push(`org=${config.organizationName}`)
   if (config.autoUpdateDisabled) managed.push('autoUpdateDisabled')
 

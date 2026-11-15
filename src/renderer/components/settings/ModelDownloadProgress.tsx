@@ -243,7 +243,7 @@ export function ModelDownloadProgress({
               color: '#94a3b8'
             }}
           >
-            Keep cloud
+            Not now
           </button>
         </div>
       </div>
@@ -338,7 +338,7 @@ export function ModelDownloadProgress({
                 color: '#94a3b8'
               }}
             >
-              Keep cloud
+              Not now
             </button>
           </div>
         </div>
@@ -357,7 +357,7 @@ export function ModelDownloadProgress({
           Model download failed
         </div>
         <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '10px' }}>
-          Failed to download offline models. You can retry or continue with cloud translation.
+          Failed to download offline models. You can retry once you are back online.
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
           <button
@@ -397,7 +397,7 @@ export function ModelDownloadProgress({
           </span>
         </div>
         <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-          Small models (~371MB) for instant offline translation. Cloud translation works while downloading.
+          Small models (~371MB) for instant offline translation.
         </div>
         <div style={progressBarContainerStyle}>
           <div
@@ -430,7 +430,6 @@ export function ModelDownloadProgress({
       <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '10px' }}>
         Download fast-start models (~371MB) for instant offline translation.
         Full quality models download automatically in background.
-        Cloud translation continues to work while downloading.
       </div>
       <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
         <button

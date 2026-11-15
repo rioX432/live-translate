@@ -56,11 +56,11 @@ describe('mdm-config', () => {
       setPlatform('linux')
     })
 
-    it('returns null for all managed Microsoft fields', async () => {
+    it('returns an unmanaged config', async () => {
       const { loadMdmConfig } = await import('./mdm-config')
       const cfg = loadMdmConfig()
-      expect(cfg.managedMicrosoftApiKey).toBeNull()
-      expect(cfg.managedMicrosoftRegion).toBeNull()
+      expect(cfg.lockedEngine).toBeNull()
+      expect(cfg.organizationName).toBeNull()
     })
   })
 
@@ -69,46 +69,40 @@ describe('mdm-config', () => {
       setPlatform('darwin')
     })
 
-    it('#704: loads managedMicrosoftApiKey + managedMicrosoftRegion from managed prefs', async () => {
-      prefFixture = {
-        managedMicrosoftApiKey: 'azure-secret-key-abc123',
-        managedMicrosoftRegion: 'japaneast'
-      }
+    it('loads locked engines from managed prefs', async () => {
+      prefFixture = { lockedEngine: 'offline-hymt15', lockedSttEngine: 'whisper-local' }
 
       const { loadMdmConfig } = await import('./mdm-config')
       const cfg = loadMdmConfig()
 
-      expect(cfg.managedMicrosoftApiKey).toBe('azure-secret-key-abc123')
-      expect(cfg.managedMicrosoftRegion).toBe('japaneast')
+      expect(cfg.lockedEngine).toBe('offline-hymt15')
+      expect(cfg.lockedSttEngine).toBe('whisper-local')
     })
 
-    it('#704: leaves Microsoft fields null when MDM does not set them', async () => {
+    it('never exposes API keys, even when an old profile still sets them', async () => {
       prefFixture = {
         managedApiKey: 'google-key',
-        managedDeeplApiKey: 'deepl-key'
+        managedMicrosoftApiKey: 'azure-key',
+        lockedEngine: 'auto'
       }
 
       const { loadMdmConfig } = await import('./mdm-config')
       const cfg = loadMdmConfig()
 
-      expect(cfg.managedApiKey).toBe('google-key')
-      expect(cfg.managedDeeplApiKey).toBe('deepl-key')
-      expect(cfg.managedMicrosoftApiKey).toBeNull()
-      expect(cfg.managedMicrosoftRegion).toBeNull()
+      expect(JSON.stringify(cfg)).not.toContain('google-key')
+      expect(JSON.stringify(cfg)).not.toContain('azure-key')
     })
 
-    it('#704: caches config so repeat calls do not re-read prefs', async () => {
-      prefFixture = { managedMicrosoftApiKey: 'first-key', managedMicrosoftRegion: 'eastus' }
+    it('caches config so repeat calls do not re-read prefs', async () => {
+      prefFixture = { lockedEngine: 'first' }
       const { loadMdmConfig, getMdmConfig } = await import('./mdm-config')
 
       const a = loadMdmConfig()
-      // Mutate fixture; cached config should not change because of caching
-      prefFixture = { managedMicrosoftApiKey: 'second-key', managedMicrosoftRegion: 'westus' }
+      prefFixture = { lockedEngine: 'second' }
       const b = getMdmConfig()
 
       expect(a).toBe(b)
-      expect(b.managedMicrosoftApiKey).toBe('first-key')
-      expect(b.managedMicrosoftRegion).toBe('eastus')
+      expect(b.lockedEngine).toBe('first')
     })
   })
 })

@@ -30,6 +30,25 @@ function serveOrtWasm(): Plugin {
   }
 }
 
+// The strict CSP in index.html cannot run Vite's dev client (inline React Refresh preamble, HMR websocket),
+// so the dev server swaps in a relaxed policy. Production builds keep the strict one.
+function devCsp(): Plugin {
+  const relaxed =
+    "default-src 'self' ws: http://localhost:*; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' vad-asset:; " +
+    "worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; " +
+    "connect-src 'self' ws: http://localhost:* vad-asset: data:; object-src 'none'"
+  return {
+    name: 'dev-csp',
+    apply: 'serve',
+    transformIndexHtml(html) {
+      return html.replace(
+        /(http-equiv="Content-Security-Policy"\s+content=")[^"]*(")/,
+        (_m, a: string, b: string) => a + relaxed + b
+      )
+    }
+  }
+}
+
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin({ exclude: ['electron-store'] })],
@@ -57,6 +76,7 @@ export default defineConfig({
     root: resolve(__dirname, 'src/renderer'),
     plugins: [
       serveOrtWasm(),
+      devCsp(),
       react()
     ],
     build: {
