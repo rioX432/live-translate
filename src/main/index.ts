@@ -45,6 +45,8 @@ import { VirtualMicManager } from './virtual-mic-manager'
 import { loadMdmConfig } from './mdm-config'
 import { trackTranslatedCharacters } from './ipc/pipeline-ipc'
 import { startOnboardingDownload, isTier1Ready, isTier2Ready } from './onboarding-downloader'
+import { CharacterController } from './character/character-controller'
+import { registerCharacterIpc } from './character/character-ipc'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
 import type { WhisperVariant } from '../engines/model-downloader'
 
@@ -270,6 +272,8 @@ async function initPipeline(): Promise<void> {
   ctx.pipeline.on('engine-ready', () => {
     ctx.mainWindow?.webContents.send('status-update', 'Engine ready')
   })
+
+  characterController?.attachPipeline(ctx.pipeline)
 }
 
 // --- Register all IPC handlers ---
@@ -371,6 +375,12 @@ app.whenReady().then(async () => {
   createMainWindow(ctx)
   createSubtitleWindow(ctx)
 
+  characterController = new CharacterController(() => ctx.mainWindow, () => ctx.subtitleWindow)
+  registerCharacterIpc(characterController, () => ctx.mainWindow)
+  if (ctx.pipeline) characterController.attachPipeline(ctx.pipeline)
+  characterController.start()
+  ctx.mainWindow?.on('closed', () => characterController?.dispose())
+
   // Set up MessagePort for zero-copy audio transfer after renderer loads (#553)
   if (ctx.mainWindow) {
     ctx.mainWindow.webContents.on('did-finish-load', () => {
@@ -384,7 +394,10 @@ app.whenReady().then(async () => {
 
   // #694: Start progressive model download for instant offline start
   // Tier 1 (fast-start ~371MB) downloads first, Tier 2 (full-quality) follows
-  if (store.get('isFirstRun') && !isTier1Ready()) {
+  const skipOnboarding = process.env.SKIP_ONBOARDING === '1'
+  if (skipOnboarding) {
+    log.info('SKIP_ONBOARDING=1: progressive model download skipped')
+  } else if (store.get('isFirstRun') && !isTier1Ready()) {
     // Delay to avoid competing with app startup I/O
     setTimeout(() => {
       startOnboardingDownload(ctx.mainWindow).then((engineMode) => {
@@ -406,6 +419,7 @@ app.whenReady().then(async () => {
 })
 
 let cleanupDisplayHandlers: (() => void) | null = null
+let characterController: CharacterController | null = null
 let cleanupShortcuts: (() => void) | null = null
 let isQuitting = false
 app.on('before-quit', (event) => {
@@ -420,6 +434,8 @@ app.on('before-quit', (event) => {
       cleanupDisplayHandlers = null
       cleanupShortcuts?.()
       cleanupShortcuts = null
+      characterController?.dispose()
+      characterController = null
       disposeAutoUpdater()
       ctx.logger?.endSession()
       ctx.logger = null

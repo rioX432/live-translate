@@ -18,7 +18,8 @@ import {
   AccessibilitySettings,
   SpeakerSettings,
   CorrectionHistory,
-  ModelDownloadProgress
+  ModelDownloadProgress,
+  CharacterSettings
 } from './settings'
 
 function SettingsPanel(): React.JSX.Element {
@@ -125,6 +126,9 @@ function SettingsPanel(): React.JSX.Element {
         }}
         disabled={disabled}
       />
+
+      {/* Character settings stay editable while running; they never touch the pipeline */}
+      <CharacterSettings />
 
       {/* Advanced Settings toggle */}
       <button

@@ -1,3 +1,5 @@
+import type { CharacterSettings, CharacterState, CharacterStatus } from '../shared/character/types'
+
 export interface ElectronAPI {
   pipelineStart: (config: unknown) => Promise<{ success?: boolean; error?: string }>
   pipelineStop: () => Promise<{ logPath?: string }>
@@ -206,6 +208,21 @@ export interface ElectronAPI {
   updateInstall: () => Promise<{ success?: boolean; deferred?: boolean }>
   updateGetStatus: () => Promise<{ state: string; version?: string; progress?: number; error?: string }>
   onUpdateStatus: (callback: (status: { state: string; version?: string; progress?: number; error?: string }) => void) => (() => void)
+  characterGetSettings: () => Promise<CharacterSettings>
+  characterSaveSettings: (settings: CharacterSettings) => Promise<CharacterSettings>
+  characterImportImage: (request: { profileId?: string; state?: CharacterState }) => Promise<{ settings?: CharacterSettings; canceled?: boolean; error?: string }>
+  characterDelete: (profileId: string) => Promise<{ settings?: CharacterSettings; error?: string }>
+  characterGetAssets: (profileId: string) => Promise<Partial<Record<CharacterState, string>>>
+  characterGetStatus: () => Promise<CharacterStatus>
+  characterResetPosition: () => Promise<CharacterSettings>
+  onCharacterSettingsChanged: (callback: (settings: CharacterSettings) => void) => (() => void)
+  onCharacterStatus: (callback: (status: CharacterStatus) => void) => (() => void)
+  characterSetInteractive: (interactive: boolean) => void
+  characterMoveBy: (dx: number, dy: number) => void
+  characterDragEnd: () => void
+  /** The app-wide accessibility "reduce motion" setting */
+  characterGetAppReducedMotion: () => Promise<boolean>
+  onCharacterAppReducedMotion: (callback: (reduced: boolean) => void) => (() => void)
 }
 
 declare global {

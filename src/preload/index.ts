@@ -225,6 +225,34 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.off('language-switched', handler)
   },
 
+  // Desktop character
+  characterGetSettings: () => ipcRenderer.invoke('character-get-settings'),
+  characterSaveSettings: (settings: unknown) => ipcRenderer.invoke('character-save-settings', settings),
+  characterImportImage: (request: { profileId?: string; state?: string }) => ipcRenderer.invoke('character-import-image', request),
+  characterDelete: (profileId: string) => ipcRenderer.invoke('character-delete', profileId),
+  characterGetAssets: (profileId: string) => ipcRenderer.invoke('character-get-assets', profileId),
+  characterGetStatus: () => ipcRenderer.invoke('character-get-status'),
+  characterResetPosition: () => ipcRenderer.invoke('character-reset-position'),
+  onCharacterSettingsChanged: (callback: (settings: unknown) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, settings: unknown): void => callback(settings)
+    ipcRenderer.on('character-settings-changed', handler)
+    return () => ipcRenderer.off('character-settings-changed', handler)
+  },
+  onCharacterStatus: (callback: (status: unknown) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: unknown): void => callback(status)
+    ipcRenderer.on('character-status', handler)
+    return () => ipcRenderer.off('character-status', handler)
+  },
+  characterSetInteractive: (interactive: boolean) => ipcRenderer.send('character-set-interactive', interactive),
+  characterMoveBy: (dx: number, dy: number) => ipcRenderer.send('character-move-by', { dx, dy }),
+  characterDragEnd: () => ipcRenderer.send('character-drag-end'),
+  characterGetAppReducedMotion: () => ipcRenderer.invoke('character-get-app-reduced-motion'),
+  onCharacterAppReducedMotion: (callback: (reduced: boolean) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, reduced: boolean): void => callback(reduced)
+    ipcRenderer.on('character-app-reduced-motion', handler)
+    return () => ipcRenderer.off('character-app-reduced-motion', handler)
+  },
+
   // Auto-update (#314)
   updateCheck: () => ipcRenderer.invoke('update-check'),
   updateDownload: () => ipcRenderer.invoke('update-download'),
