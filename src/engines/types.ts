@@ -37,7 +37,7 @@ export interface STTResult {
   isFinal: boolean
   /** Unix timestamp in ms */
   timestamp: number
-  /** STT confidence score (0.0–1.0). Used by GER to decide if correction is needed. */
+  /** STT confidence score (0.0–1.0), when the engine provides one */
   confidence?: number
 }
 
@@ -59,8 +59,8 @@ export interface TranslationResult {
   confirmedText?: string
   /** Unstable trailing portion still being recognized */
   interimText?: string
-  /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), 'ger-corrected' (GER), 'simulmt-partial' (partial clause), 'simulmt-revised' (full clause revision), 'ssbd-retranslated' (SSBD re-translation) */
-  translationStage?: 'draft' | 'refined' | 'ger-corrected' | 'simulmt-partial' | 'simulmt-revised' | 'ssbd-retranslated'
+  /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), 'simulmt-partial' (partial clause), 'simulmt-revised' (full clause revision), 'ssbd-retranslated' (SSBD re-translation) */
+  translationStage?: 'draft' | 'refined' | 'simulmt-partial' | 'simulmt-revised' | 'ssbd-retranslated'
   /** STT confidence score (0.0–1.0), forwarded from STTResult for UI styling */
   confidence?: number
   /** Speaker label from diarization (e.g. 'Speaker 1', 'Speaker 2') */

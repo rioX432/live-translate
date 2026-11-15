@@ -97,7 +97,7 @@ live-translate/
 │   │   │       ├── AccessibilitySettings.tsx  # High contrast, dyslexia font, WCAG
 │   │   │       ├── KeyboardShortcuts.tsx      # Shortcut configuration UI
 │   │   │       ├── EnterpriseSettings.tsx     # MDM config, admin lock, telemetry
-│   │   │       ├── TranslatorSettings.tsx     # 5-option engine selector + adaptive routing
+│   │   │       ├── TranslatorSettings.tsx     # 5-option engine selector
 │   │   │       └── ...                        # Audio, Language, STT, Subtitle, etc.
 │   │   └── hooks/
 │   │       ├── useAudioCapture.ts     # Mic/virtual audio capture via Silero VAD
@@ -136,12 +136,10 @@ live-translate/
 │   │   ├── TranslationPipeline.ts     # Orchestration, streaming, auto-recovery
 │   │   ├── EngineManager.ts           # Engine registration, creation, init/dispose
 │   │   ├── StreamingProcessor.ts      # Streaming audio processing logic
-│   │   ├── AdaptiveRouter.ts          # Complexity-scored fast↔quality routing
 │   │   ├── MemoryMonitor.ts           # Process memory usage monitoring
 │   │   ├── LocalAgreement.ts          # LCP for streaming stability (flicker-free)
 │   │   ├── ContextBuffer.ts           # Ring buffer for context-aware translation
 │   │   ├── TranslationCache.ts        # LRU cache for repeated phrases
-│   │   ├── GERProcessor.ts            # Generative Error Correction (async post-edit)
 │   │   ├── ClauseBoundary.ts          # Clause-level streaming translation
 │   │   └── whisper-filter.ts          # Hallucination detection
 │   └── logger/

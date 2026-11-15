@@ -8,12 +8,6 @@ import type {
   TranslationResult
 } from '../engines/types'
 
-// GERProcessor transitively imports the Electron-backed worker pool; stub it so the
-// pipeline can be exercised in a plain Node test environment. GER stays disabled here.
-vi.mock('../main/worker-pool', () => ({
-  workerPool: { isAlive: false, sendRequest: vi.fn() }
-}))
-
 function makeResult(source: string, translated: string): TranslationResult {
   return {
     sourceText: source,

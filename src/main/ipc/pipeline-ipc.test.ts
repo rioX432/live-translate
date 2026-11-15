@@ -55,7 +55,6 @@ function makeCtx(): AppContext {
     setGlossary: vi.fn(),
     setLanguageConfig: vi.fn(),
     setSimulMt: vi.fn(),
-    setAdaptiveRouting: vi.fn(),
     setDraftSttEnabled: vi.fn(),
     setDiarizationEnabled: vi.fn(),
     start: vi.fn(),

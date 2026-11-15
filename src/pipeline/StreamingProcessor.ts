@@ -10,7 +10,6 @@ import type {
 import type { STTEngine } from '../engines/types'
 import type { LocalAgreement } from './LocalAgreement'
 import type { ContextBuffer } from './ContextBuffer'
-import type { GERProcessor } from './GERProcessor'
 import { detectClauseBoundary, countUnits } from './ClauseBoundaryDetector'
 import { createLogger } from '../main/logger'
 
@@ -33,8 +32,6 @@ export interface StreamingDeps {
   /** Notify that processing count changed */
   incrementProcessing(): void
   decrementProcessing(): void
-  /** GER processor for async STT post-correction */
-  getGER?(): GERProcessor | null
   /** Draft STT engine for fast interim results (#536) */
   getDraftSTTEngine?(): STTEngine | null
   /** Speaker diarizer for multi-speaker identification (#549) */
@@ -354,18 +351,6 @@ export class StreamingProcessor {
 
       this.deps.emitter.emit('result', result)
 
-      // Fire-and-forget GER correction on finalized result (async, non-blocking)
-      const ger = this.deps.getGER?.()
-      if (ger) {
-        ger.maybeCorrect(
-          agreement.confirmedText,
-          sttResult.confidence,
-          sttResult.language,
-          targetLang,
-          result.timestamp,
-          translatedText || undefined
-        )
-      }
 
       return result
     } catch (err) {

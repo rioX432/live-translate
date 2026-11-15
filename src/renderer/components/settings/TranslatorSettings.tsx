@@ -1,7 +1,7 @@
 import React from 'react'
 import { GlossarySettings } from './GlossarySettings'
 import { Section } from './Section'
-import { LLM_ENGINE_MODES, radioLabelStyle, selectStyle } from './shared'
+import { LLM_ENGINE_MODES, radioLabelStyle } from './shared'
 import type { EngineMode } from './shared'
 
 interface TranslatorSettingsProps {
@@ -20,15 +20,6 @@ interface TranslatorSettingsProps {
   onSimulMtEnabledChange: (v: boolean) => void
   simulMtWaitK: number
   onSimulMtWaitKChange: (v: number) => void
-  // Adaptive routing (#547)
-  adaptiveRoutingEnabled: boolean
-  onAdaptiveRoutingEnabledChange: (v: boolean) => void
-  adaptiveRoutingShortThreshold: number
-  onAdaptiveRoutingShortThresholdChange: (v: number) => void
-  adaptiveRoutingLongThreshold: number
-  onAdaptiveRoutingLongThresholdChange: (v: number) => void
-  adaptiveRoutingQualityEngine: string
-  onAdaptiveRoutingQualityEngineChange: (v: string) => void
   // Glossary
   glossaryTerms: Array<{ source: string; target: string }>
   onGlossaryTermsChange: (terms: Array<{ source: string; target: string }>) => void
@@ -51,14 +42,6 @@ export function TranslatorSettings({
   onSimulMtEnabledChange,
   simulMtWaitK,
   onSimulMtWaitKChange,
-  adaptiveRoutingEnabled,
-  onAdaptiveRoutingEnabledChange,
-  adaptiveRoutingShortThreshold,
-  onAdaptiveRoutingShortThresholdChange,
-  adaptiveRoutingLongThreshold,
-  onAdaptiveRoutingLongThresholdChange,
-  adaptiveRoutingQualityEngine,
-  onAdaptiveRoutingQualityEngineChange,
   glossaryTerms,
   onGlossaryTermsChange,
   orgGlossaryTerms,
@@ -194,78 +177,6 @@ export function TranslatorSettings({
               </div>
             )}
           </>
-        )}
-
-        {/* Adaptive Quality Routing (#547) — only for offline LLM engines */}
-        {showLlmOptions && (
-          <div style={{ marginTop: '8px', paddingLeft: '24px' }}>
-            <label style={radioLabelStyle}>
-              <input
-                type="checkbox"
-                checked={adaptiveRoutingEnabled}
-                onChange={(e) => onAdaptiveRoutingEnabledChange(e.target.checked)}
-                disabled={disabled}
-              />
-              <div>
-                <div style={{ fontWeight: 500, fontSize: '12px' }}>Adaptive quality routing</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                  Auto-route: short sentences use fast engine, complex ones use quality engine
-                </div>
-              </div>
-            </label>
-            {adaptiveRoutingEnabled && (
-              <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '2px' }}>
-                    Quality engine
-                  </div>
-                  <select
-                    value={adaptiveRoutingQualityEngine}
-                    onChange={(e) => onAdaptiveRoutingQualityEngineChange(e.target.value)}
-                    disabled={disabled}
-                    style={{ ...selectStyle, fontSize: '12px', padding: '6px 8px' }}
-                  >
-                    <option value="hunyuan-mt">Hunyuan-MT 7B (Quality, ~4GB)</option>
-                  </select>
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '2px' }}>
-                    Fast-only threshold: &lt;{adaptiveRoutingShortThreshold} tokens
-                  </div>
-                  <input
-                    type="range"
-                    aria-label="Short threshold"
-                    min={3}
-                    max={30}
-                    value={adaptiveRoutingShortThreshold}
-                    onChange={(e) => onAdaptiveRoutingShortThresholdChange(Number(e.target.value))}
-                    disabled={disabled}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                <div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '2px' }}>
-                    Quality threshold: &gt;{adaptiveRoutingLongThreshold} tokens
-                  </div>
-                  <input
-                    type="range"
-                    aria-label="Long threshold"
-                    min={20}
-                    max={100}
-                    value={adaptiveRoutingLongThreshold}
-                    onChange={(e) => onAdaptiveRoutingLongThresholdChange(Number(e.target.value))}
-                    disabled={disabled}
-                    style={{ width: '100%' }}
-                  />
-                </div>
-                {adaptiveRoutingShortThreshold >= adaptiveRoutingLongThreshold && (
-                  <div style={{ fontSize: '11px', color: '#f59e0b', marginTop: '4px' }}>
-                    Warning: thresholds overlap — all text will use the fast engine only
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         )}
 
         </fieldset>

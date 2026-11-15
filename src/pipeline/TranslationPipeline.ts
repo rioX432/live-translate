@@ -15,10 +15,7 @@ import { ContextBuffer } from './ContextBuffer'
 import { TranslationCache } from './TranslationCache'
 import { EngineManager } from './EngineManager'
 import { StreamingProcessor } from './StreamingProcessor'
-import { GERProcessor } from './GERProcessor'
 import { MemoryMonitor } from './MemoryMonitor'
-import { AdaptiveRouter } from './AdaptiveRouter'
-import type { AdaptiveRoutingConfig } from './AdaptiveRouter'
 import { createLogger } from '../main/logger'
 
 const log = createLogger('pipeline')
@@ -30,8 +27,6 @@ export interface PipelineEvents {
   'draft-result': (result: TranslationResult) => void
   /** Draft STT interim result — fast Moonshine Tiny JA result before primary STT (#536) */
   'draft-stt-result': (result: TranslationResult) => void
-  /** GER-corrected result — async post-correction of STT errors (#409) */
-  'ger-corrected': (result: TranslationResult) => void
   error: (error: Error) => void
   'engine-loading': (message: string) => void
   'engine-ready': () => void
@@ -110,15 +105,10 @@ export class TranslationPipeline extends EventEmitter {
   // Glossary terms for context-aware translation
   private glossary: GlossaryEntry[] = []
 
-  // Adaptive quality routing (#547)
-  private adaptiveRouter = new AdaptiveRouter()
-  private adaptiveRoutingQualityEngineId: string | null = null
-
   // Delegates
   private engineManager = new EngineManager()
   private memoryMonitor = new MemoryMonitor()
   private streaming: StreamingProcessor
-  private ger: GERProcessor
 
   constructor() {
     super()
@@ -139,15 +129,8 @@ export class TranslationPipeline extends EventEmitter {
           this.processingDoneResolvers = []
         }
       },
-      getGER: () => this.ger,
       getDraftSTTEngine: () => this.draftSttEnabled ? this.engineManager.draftSttEngine : null,
       getDiarizer: () => this.diarizationEnabled ? this.engineManager.diarizer : null,
-      getGeneration: () => this.generation
-    })
-    this.ger = new GERProcessor({
-      emitter: this,
-      getTranslator: () => this.engineManager.translator,
-      getGlossary: () => this.glossary,
       getGeneration: () => this.generation
     })
   }
@@ -207,7 +190,6 @@ export class TranslationPipeline extends EventEmitter {
   /** Set glossary terms for context-aware translation */
   setGlossary(glossary: GlossaryEntry[]): void {
     this.glossary = glossary
-    this.adaptiveRouter.setGlossary(glossary)
   }
 
   /** Configure source and target languages */
@@ -226,11 +208,6 @@ export class TranslationPipeline extends EventEmitter {
     this.simulMtWaitK = Math.max(1, Math.min(waitK, 10))
   }
 
-  /** Enable or disable GER (Generative Error Correction) post-processing (#409) */
-  setGEREnabled(enabled: boolean): void {
-    this.ger.setEnabled(enabled)
-  }
-
   /** Enable or disable draft STT for fast interim results (#536) */
   setDraftSttEnabled(enabled: boolean): void {
     this.draftSttEnabled = enabled
@@ -239,19 +216,6 @@ export class TranslationPipeline extends EventEmitter {
   /** Enable or disable speaker diarization (#549) */
   setDiarizationEnabled(enabled: boolean): void {
     this.diarizationEnabled = enabled
-  }
-
-  /** Configure adaptive quality routing (#547) */
-  setAdaptiveRouting(config: Partial<AdaptiveRoutingConfig>, qualityEngineId?: string): void {
-    this.adaptiveRouter.setConfig(config)
-    if (qualityEngineId !== undefined) {
-      this.adaptiveRoutingQualityEngineId = qualityEngineId
-    }
-  }
-
-  /** Get adaptive routing telemetry summary (#547) */
-  getRoutingTelemetry() {
-    return this.adaptiveRouter.getTelemetrySummary()
   }
 
   // --- Engine registration (delegated to EngineManager) ---
@@ -297,12 +261,11 @@ export class TranslationPipeline extends EventEmitter {
       await this.waitForProcessing()
       // stop()-equivalent reset (#719): bump the generation and clear all streaming
       // state so results scheduled under the previous engine are never emitted after
-      // the switch (stale LocalAgreement / ContextBuffer / SimulMT / GER output).
+      // the switch (stale LocalAgreement / ContextBuffer / SimulMT output).
       this.generation++
       this.agreement.reset()
       this.contextBuffer.reset()
       this.streaming.reset()
-      this.ger.reset()
       this.translationCache.clear()
       await this.engineManager.disposeEngines()
       await this.engineManager.initializeEngines(config, this)
@@ -327,31 +290,6 @@ export class TranslationPipeline extends EventEmitter {
         }
       }
 
-      // Initialize adaptive routing quality engine if enabled (#547)
-      if (this.adaptiveRouter.getConfig().enabled && config.mode === 'cascade') {
-        try {
-          const qualityEngineId = this.adaptiveRoutingQualityEngineId
-          // Only init quality engine if it's different from the primary translator
-          if (qualityEngineId && qualityEngineId !== config.translatorEngineId) {
-            await this.engineManager.initQualityTranslator(qualityEngineId, this)
-            this.adaptiveRouter.setFastEngine(this.engineManager.translator)
-            this.adaptiveRouter.setQualityEngine(this.engineManager.qualityTranslator)
-            log.info(`Adaptive routing: fast=${config.translatorEngineId}, quality=${qualityEngineId}`)
-          } else {
-            log.info('Adaptive routing: quality engine same as primary — routing disabled')
-            this.adaptiveRouter.setFastEngine(null)
-            this.adaptiveRouter.setQualityEngine(null)
-          }
-        } catch (err) {
-          log.warn('Quality translator initialization failed (non-fatal):', err)
-          this.emit('engine-loading', 'Quality engine not available — using single engine mode')
-          this.adaptiveRouter.setFastEngine(null)
-          this.adaptiveRouter.setQualityEngine(null)
-        }
-      } else {
-        this.adaptiveRouter.setFastEngine(null)
-        this.adaptiveRouter.setQualityEngine(null)
-      }
 
       // If was RUNNING (hot-swap), go back to RUNNING; otherwise stay IDLE until start()
       if (prevState === PipelineState.RUNNING) {
@@ -387,7 +325,6 @@ export class TranslationPipeline extends EventEmitter {
     // Bump generation so no stale async result is emitted after stop (#719).
     this.generation++
     this.streaming.reset()
-    this.ger.reset()
     this.agreement.reset()
     this.contextBuffer.reset()
     this.translationCache.clear()
@@ -466,17 +403,6 @@ export class TranslationPipeline extends EventEmitter {
       if (cached !== undefined) {
         translated = cached
         log.info(`Translate: cache hit (${translated.length} chars)`)
-      } else if (this.adaptiveRouter.getConfig().enabled && this.adaptiveRouter.isReady) {
-        // Adaptive routing: score complexity and route to appropriate engine (#547)
-        const glossary = this.glossary.length > 0 ? this.glossary : undefined
-        const routeResult = await this.adaptiveRouter.translate(
-          sttResult.text,
-          sttResult.language,
-          targetLang,
-          this.contextBuffer.getContext(glossary)
-        )
-        translated = routeResult.translated
-        this.translationCache.set(sttResult.text, sttResult.language, targetLang, translated)
       } else {
         const t1 = performance.now()
         const glossary = this.glossary.length > 0 ? this.glossary : undefined
@@ -493,15 +419,6 @@ export class TranslationPipeline extends EventEmitter {
 
       this.contextBuffer.add(sttResult.text, translated)
 
-      // Fire-and-forget GER correction (async, non-blocking)
-      this.ger.maybeCorrect(
-        sttResult.text,
-        sttResult.confidence,
-        sttResult.language,
-        targetLang,
-        Date.now(),
-        translated || undefined
-      )
 
       return {
         sourceText: sttResult.text,
@@ -590,7 +507,6 @@ export class TranslationPipeline extends EventEmitter {
 
   async dispose(): Promise<void> {
     await this.stop()
-    await this.adaptiveRouter.dispose()
     this.removeAllListeners()
   }
 }

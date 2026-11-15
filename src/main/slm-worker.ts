@@ -35,7 +35,6 @@ type WorkerInboundMessage =
   | { type: 'translate-simulmt'; id: string; text: string; previousOutput: string; from: string; to: string; isRevision: boolean; context?: TranslateContextPayload }
   | { type: 'simulmt-reset' }
   | { type: 'summarize'; id: string; transcript: string }
-  | { type: 'ger-correct'; id: string; text: string; language: string; glossary?: Array<{ source: string; target: string }> }
   | { type: 'dispose' }
 
 interface TranslateContextPayload {
@@ -852,69 +851,6 @@ ${transcript}`
   }
 }
 
-/**
- * Handle GER (Generative Error Correction) request.
- * Performs selective correction of STT output focused on glossary terms,
- * proper nouns, numbers, and units. Does NOT rewrite the entire text.
- */
-async function handleGERCorrect(
-  id: string,
-  text: string,
-  language: string,
-  glossary?: Array<{ source: string; target: string }>
-): Promise<void> {
-  if (!context) {
-    process.parentPort!.postMessage({
-      type: 'error',
-      id,
-      message: 'Model not initialized'
-    })
-    return
-  }
-
-  try {
-    const t0 = performance.now()
-    const langName = LANG_NAMES_EN[language] ?? language
-
-    // Build a targeted correction prompt
-    const parts: string[] = []
-    parts.push(
-      `You are a speech recognition error corrector for ${langName}.`,
-      'Fix ONLY clear errors in proper nouns, numbers, units, and technical terms.',
-      'Do NOT rephrase or rewrite. Output the corrected text only.'
-    )
-
-    if (glossary && glossary.length > 0) {
-      const entries = glossary.map((g) => `  "${g.source}"`).join('\n')
-      parts.push(`\nKnown terms (correct spellings):\n${entries}`)
-    }
-
-    parts.push(`\nSTT output:\n${text}`)
-
-    const prompt = parts.join('\n')
-
-    const { response, inferenceMs } = await runInference(prompt)
-    const totalMs = performance.now() - t0
-
-    log.info(
-      `GER: total=${totalMs.toFixed(0)}ms inference=${inferenceMs.toFixed(0)}ms ` +
-      `inputLen=${text.length} outputLen=${response.length}`
-    )
-
-    process.parentPort!.postMessage({
-      type: 'result',
-      id,
-      text: response
-    })
-  } catch (err) {
-    process.parentPort!.postMessage({
-      type: 'error',
-      id,
-      message: err instanceof Error ? err.message : String(err)
-    })
-  }
-}
-
 async function handleDispose(): Promise<void> {
   try {
     // Clean up prefix cache session
@@ -987,9 +923,6 @@ process.parentPort!.on('message', (e: { data: WorkerInboundMessage }) => {
         case 'summarize':
           await handleSummarize(msg.id, msg.transcript)
           break
-        case 'ger-correct':
-          await handleGERCorrect(msg.id, msg.text, msg.language, msg.glossary)
-          break
         case 'dispose':
           await handleDispose()
           break
@@ -1003,7 +936,7 @@ process.parentPort!.on('message', (e: { data: WorkerInboundMessage }) => {
     }
   }
 
-  if (msg.type === 'translate' || msg.type === 'translate-incremental' || msg.type === 'translate-ssbd' || msg.type === 'translate-simulmt' || msg.type === 'summarize' || msg.type === 'ger-correct') {
+  if (msg.type === 'translate' || msg.type === 'translate-incremental' || msg.type === 'translate-ssbd' || msg.type === 'translate-simulmt' || msg.type === 'summarize') {
     // Queue to serialize context access
     requestQueue = requestQueue.then(handleMessage, handleMessage)
   } else {

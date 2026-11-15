@@ -27,7 +27,6 @@ import { FluidAudioDiarizer } from '../engines/diarization/FluidAudioDiarizer'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { store } from './store'
 import {
-  migrateLegacyAdaptiveRoutingQualityEngine,
   migrateLegacyTranslationEngine,
   type MigratableKey
 } from './store-migrations'
@@ -321,7 +320,6 @@ app.whenReady().then(async () => {
     set: (key: MigratableKey, value: string) => store.set(key, value)
   }
   migrateLegacyTranslationEngine(migratableStore, log)
-  migrateLegacyAdaptiveRoutingQualityEngine(migratableStore, log)
 
   // #730: dev-only shadow measurement run. Builds its own engines, opens no
   // windows, and quits when the report is written — the production pipeline and

@@ -50,10 +50,6 @@ export const SAVEABLE_SETTINGS: Readonly<Record<string, Validator>> = {
   virtualMicDeviceId: isInt(-1, 4096),
   draftSttEnabled: isBool,
   speakerDiarizationEnabled: isBool,
-  adaptiveRoutingEnabled: isBool,
-  adaptiveRoutingShortThreshold: isInt(1, 1000),
-  adaptiveRoutingLongThreshold: isInt(1, 1000),
-  adaptiveRoutingQualityEngine: isString,
   telemetryConsent: isBool,
   telemetryConsentShown: isBool,
   preferredLocalEngine: isString
