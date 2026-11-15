@@ -1,0 +1,27 @@
+== C4-ja2en-s16b
+  [    60s of audio] mean   57.1 ms  p95  114.8  RTF 0.71
+  [   120s of audio] mean   61.0 ms  p95  117.7  RTF 0.76
+  [   180s of audio] mean   69.8 ms  p95  134.0  RTF 0.87
+  [   240s of audio] mean   88.0 ms  p95  180.0  RTF 1.10
+  [   300s of audio] mean   64.5 ms  p95  119.9  RTF 0.81
+window=100 tokens (8.0s) total stream 330s
+all            n=4123  mean    68.0 ms  p50    57.3  p95   129.8  max   333.9  RTF mean  0.85  RTF p95  1.62
+window filling n= 100  mean    51.1 ms  p50    46.9  p95   108.9  max   177.7  RTF mean  0.64  RTF p95  1.36
+steady state   n=4023  mean    68.4 ms  p50    57.4  p95   130.0  max   333.9  RTF mean  0.86  RTF p95  1.63
+forced (staleness) refreshes: 53
+== C4-en2ja-nb
+  [    60s of audio] mean   58.2 ms  p95  114.7  RTF 0.73
+  [   120s of audio] mean   69.7 ms  p95  121.4  RTF 0.87
+  [   180s of audio] mean   60.3 ms  p95  116.4  RTF 0.75
+  [   240s of audio] mean   71.9 ms  p95  132.4  RTF 0.90
+  [   300s of audio] mean   59.1 ms  p95  116.2  RTF 0.74
+window=100 tokens (8.0s) total stream 330s
+all            n=4123  mean    63.5 ms  p50    55.7  p95   117.9  max   296.2  RTF mean  0.79  RTF p95  1.47
+window filling n= 100  mean    48.0 ms  p50    47.5  p95    65.8  max   118.6  RTF mean  0.60  RTF p95  0.82
+steady state   n=4023  mean    63.8 ms  p50    55.9  p95   118.3  max   296.2  RTF mean  0.80  RTF p95  1.48
+forced (staleness) refreshes: 22
+== C4-ja2en-exactb
+window=100 tokens (8.0s) total stream 60s
+all            n= 748  mean   182.9 ms  p50   140.1  p95   264.3  max 14105.5  RTF mean  2.29  RTF p95  3.30
+window filling n= 100  mean   345.1 ms  p50   117.6  p95   702.0  max 14105.5  RTF mean  4.31  RTF p95  8.77
+steady state   n= 648  mean   157.9 ms  p50   140.4  p95   226.5  max   757.4  RTF mean  1.97  RTF p95  2.83

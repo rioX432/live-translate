@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeForErrorRate, percentile, scoreUtterances, type RunEvent, type Utterance } from './score-lib'
+import { normalizeForErrorRate, normalizeForMatch, percentile, scoreUtterances, type RunEvent, type Utterance } from './score-lib'
 
 const utt = (id: string, lang: 'ja' | 'en', text: string, start: number, end: number): Utterance => ({
   id,
@@ -76,6 +76,13 @@ describe('scoreUtterances', () => {
 describe('normalizeForErrorRate', () => {
   it('drops punctuation, keeps digits and %, folds width and case', () => {
     expect(normalizeForErrorRate('Ｈｅｌｌｏ、世界！ 20%。')).toBe('hello 世界 20%')
+  })
+})
+
+describe('normalizeForMatch', () => {
+  it('folds typographic apostrophes so "don’t" matches "don\'t"', () => {
+    expect(normalizeForMatch('Please DON’T go')).toContain("don't")
+    expect(normalizeForMatch('ｖ２．３')).toBe('v2.3')
   })
 })
 

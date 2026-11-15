@@ -1,0 +1,870 @@
+[
+ {
+  "tag": "C0",
+  "session": "d2-mix-60",
+  "utterances": 60,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 53,
+    "missing": 7,
+    "p50": 5.86063232421875,
+    "p90": 12.288690185546908
+   },
+   "firstTrFromStart": {
+    "n": 53,
+    "missing": 7,
+    "p50": 7.818868896484389,
+    "p90": 12.950284667968733
+   },
+   "finalFromEnd": {
+    "n": 53,
+    "missing": 7,
+    "p50": 4.556541259765595,
+    "p90": 7.860783496093758
+   }
+  },
+  "ja": {
+   "utterances": 30,
+   "errorRate": 0.0917487684729064,
+   "metric": "CER",
+   "langIdCorrect": 28,
+   "langIdWrong": 0,
+   "noFinal": 2
+  },
+  "en": {
+   "utterances": 30,
+   "errorRate": 0.3783359497645212,
+   "metric": "WER",
+   "langIdCorrect": 23,
+   "langIdWrong": 2,
+   "noFinal": 5
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 1.2333333333333334,
+   "erasedCharsPerUtt": 23.083333333333332
+  },
+  "terms": {
+   "target": null,
+   "source": null
+  },
+  "counters": {
+   "streamSent": 131,
+   "streamDropBusy": 250,
+   "streamGated": 1,
+   "finalizeSent": 62,
+   "finalizeWouldDrop": 4,
+   "finalizeGated": 2,
+   "legacySkipped": 64
+  },
+  "loadMs": 1711,
+  "warmupMs": {
+   "stt": 15980,
+   "mt": 515
+  },
+  "mem": {
+   "peakRssBytes": 2553888768,
+   "peakFootprintBytes": 1499084848,
+   "sumOfProcessPeakFootprintBytes": 1548388408,
+   "samples": 4943
+  }
+ },
+ {
+  "tag": "C0",
+  "session": "d2n-mix-60",
+  "utterances": 60,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 60,
+    "missing": 0,
+    "p50": 3.7575697021484302,
+    "p90": 6.443999194335949
+   },
+   "firstTrFromStart": {
+    "n": 60,
+    "missing": 0,
+    "p50": 6.061366333007811,
+    "p90": 9.066983203125034
+   },
+   "finalFromEnd": {
+    "n": 60,
+    "missing": 0,
+    "p50": 5.258816650390656,
+    "p90": 7.576622534179695
+   }
+  },
+  "ja": {
+   "utterances": 30,
+   "errorRate": 0.05110837438423645,
+   "metric": "CER",
+   "langIdCorrect": 30,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "en": {
+   "utterances": 30,
+   "errorRate": 0.04709576138147567,
+   "metric": "WER",
+   "langIdCorrect": 30,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 1.9,
+   "erasedCharsPerUtt": 46.03333333333333
+  },
+  "terms": {
+   "target": null,
+   "source": null
+  },
+  "counters": {
+   "streamSent": 231,
+   "streamDropBusy": 400,
+   "streamGated": 0,
+   "finalizeSent": 68,
+   "finalizeWouldDrop": 4,
+   "finalizeGated": 0,
+   "legacySkipped": 68
+  },
+  "loadMs": 1207,
+  "warmupMs": {
+   "stt": 2909,
+   "mt": 495
+  },
+  "mem": {
+   "peakRssBytes": 2573664256,
+   "peakFootprintBytes": 1538375288,
+   "sumOfProcessPeakFootprintBytes": 1556236824,
+   "samples": 4885
+  }
+ },
+ {
+  "tag": "C0",
+  "session": "d4-negnum",
+  "utterances": 40,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 38,
+    "missing": 2,
+    "p50": 1.9334954101562545,
+    "p90": 8.283814453125002
+   },
+   "firstTrFromStart": {
+    "n": 38,
+    "missing": 2,
+    "p50": 3.7957892333984447,
+    "p90": 8.827873325195336
+   },
+   "finalFromEnd": {
+    "n": 38,
+    "missing": 2,
+    "p50": 5.218040600585944,
+    "p90": 6.644152377929686
+   }
+  },
+  "ja": {
+   "utterances": 24,
+   "errorRate": 0.26044226044226043,
+   "metric": "CER",
+   "langIdCorrect": 21,
+   "langIdWrong": 1,
+   "noFinal": 2
+  },
+  "en": {
+   "utterances": 16,
+   "errorRate": 0.17037037037037037,
+   "metric": "WER",
+   "langIdCorrect": 16,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 0.125,
+   "erasedCharsPerUtt": 1.475
+  },
+  "terms": {
+   "target": {
+    "total": 49,
+    "hit": 47,
+    "rate": 0.9591836734693877
+   },
+   "source": null
+  },
+  "counters": {
+   "streamSent": 125,
+   "streamDropBusy": 34,
+   "streamGated": 0,
+   "finalizeSent": 38,
+   "finalizeWouldDrop": 14,
+   "finalizeGated": 0,
+   "legacySkipped": 38
+  },
+  "loadMs": 1751,
+  "warmupMs": {
+   "stt": 3826,
+   "mt": 579
+  },
+  "mem": {
+   "peakRssBytes": 2360999936,
+   "peakFootprintBytes": 1378756720,
+   "sumOfProcessPeakFootprintBytes": 1438319040,
+   "samples": 1277
+  }
+ },
+ {
+  "tag": "C1",
+  "session": "d2-mix-60",
+  "utterances": 60,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 53,
+    "missing": 7,
+    "p50": 3.4310620117187227,
+    "p90": 10.491128271484332
+   },
+   "firstTrFromStart": {
+    "n": 53,
+    "missing": 7,
+    "p50": 8.131650878906271,
+    "p90": 12.334203759765618
+   },
+   "finalFromEnd": {
+    "n": 53,
+    "missing": 7,
+    "p50": 2.391996093749981,
+    "p90": 5.070510986328101
+   }
+  },
+  "ja": {
+   "utterances": 30,
+   "errorRate": 0.1206896551724138,
+   "metric": "CER",
+   "langIdCorrect": 28,
+   "langIdWrong": 0,
+   "noFinal": 2
+  },
+  "en": {
+   "utterances": 30,
+   "errorRate": 0.2543171114599686,
+   "metric": "WER",
+   "langIdCorrect": 23,
+   "langIdWrong": 2,
+   "noFinal": 5
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 6,
+   "erasedCharsPerUtt": 108.9
+  },
+  "terms": {
+   "target": null,
+   "source": null
+  },
+  "counters": {
+   "streamSent": 353,
+   "streamDropBusy": 24,
+   "streamGated": 1,
+   "finalizeSent": 62,
+   "finalizeWouldDrop": 2,
+   "finalizeGated": 2,
+   "legacySkipped": 64
+  },
+  "loadMs": 7068,
+  "warmupMs": {
+   "stt": 176,
+   "mt": 2433
+  },
+  "mem": {
+   "peakRssBytes": 2473377792,
+   "peakFootprintBytes": 2693397608,
+   "sumOfProcessPeakFootprintBytes": 3416628536,
+   "samples": 4879
+  }
+ },
+ {
+  "tag": "C1",
+  "session": "d2n-mix-60",
+  "utterances": 60,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 60,
+    "missing": 0,
+    "p50": 1.4916408691406344,
+    "p90": 2.9298015136718902
+   },
+   "firstTrFromStart": {
+    "n": 60,
+    "missing": 0,
+    "p50": 7.963279663085899,
+    "p90": 14.576618383789073
+   },
+   "finalFromEnd": {
+    "n": 60,
+    "missing": 0,
+    "p50": 2.1954837646484293,
+    "p90": 4.322631469726559
+   }
+  },
+  "ja": {
+   "utterances": 30,
+   "errorRate": 0.08312807881773399,
+   "metric": "CER",
+   "langIdCorrect": 30,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "en": {
+   "utterances": 30,
+   "errorRate": 0.04081632653061224,
+   "metric": "WER",
+   "langIdCorrect": 30,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 9.366666666666667,
+   "erasedCharsPerUtt": 206.4
+  },
+  "terms": {
+   "target": null,
+   "source": null
+  },
+  "counters": {
+   "streamSent": 615,
+   "streamDropBusy": 17,
+   "streamGated": 0,
+   "finalizeSent": 68,
+   "finalizeWouldDrop": 1,
+   "finalizeGated": 0,
+   "legacySkipped": 68
+  },
+  "loadMs": 3743,
+  "warmupMs": {
+   "stt": 297,
+   "mt": 572
+  },
+  "mem": {
+   "peakRssBytes": 2389491712,
+   "peakFootprintBytes": 2650887200,
+   "sumOfProcessPeakFootprintBytes": 3193725536,
+   "samples": 4833
+  }
+ },
+ {
+  "tag": "C1",
+  "session": "d4-negnum",
+  "utterances": 40,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 38,
+    "missing": 2,
+    "p50": 0.4745803955078145,
+    "p90": 1.4605133740234353
+   },
+   "firstTrFromStart": {
+    "n": 38,
+    "missing": 2,
+    "p50": 3.32929653320312,
+    "p90": 4.403684008789066
+   },
+   "finalFromEnd": {
+    "n": 38,
+    "missing": 2,
+    "p50": 1.579195166015623,
+    "p90": 2.4073847851562604
+   }
+  },
+  "ja": {
+   "utterances": 24,
+   "errorRate": 0.16707616707616707,
+   "metric": "CER",
+   "langIdCorrect": 22,
+   "langIdWrong": 0,
+   "noFinal": 2
+  },
+  "en": {
+   "utterances": 16,
+   "errorRate": 0.14074074074074075,
+   "metric": "WER",
+   "langIdCorrect": 16,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 3.675,
+   "erasedCharsPerUtt": 56.85
+  },
+  "terms": {
+   "target": {
+    "total": 49,
+    "hit": 47,
+    "rate": 0.9591836734693877
+   },
+   "source": null
+  },
+  "counters": {
+   "streamSent": 157,
+   "streamDropBusy": 3,
+   "streamGated": 0,
+   "finalizeSent": 38,
+   "finalizeWouldDrop": 0,
+   "finalizeGated": 0,
+   "legacySkipped": 38
+  },
+  "loadMs": 9599,
+  "warmupMs": {
+   "stt": 493,
+   "mt": 2009
+  },
+  "mem": {
+   "peakRssBytes": 1768439808,
+   "peakFootprintBytes": 2473631888,
+   "sumOfProcessPeakFootprintBytes": 2821868032,
+   "samples": 1296
+  }
+ },
+ {
+  "tag": "C3",
+  "session": "d1-en-30",
+  "utterances": 30,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 23,
+    "missing": 7,
+    "p50": 7.348673583984379,
+    "p90": 12.603348681640625
+   },
+   "firstTrFromStart": {
+    "n": 23,
+    "missing": 7,
+    "p50": 8.574035400390585,
+    "p90": 12.603348681640625
+   },
+   "finalFromEnd": {
+    "n": 23,
+    "missing": 7,
+    "p50": 3.0223474121093687,
+    "p90": 7.5513481933593845
+   }
+  },
+  "ja": {
+   "utterances": 0,
+   "errorRate": 0,
+   "metric": "CER",
+   "langIdCorrect": 0,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "en": {
+   "utterances": 30,
+   "errorRate": 0.45054945054945056,
+   "metric": "WER",
+   "langIdCorrect": 23,
+   "langIdWrong": 0,
+   "noFinal": 7
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 1.8666666666666667,
+   "erasedCharsPerUtt": 57.36666666666667
+  },
+  "terms": {
+   "target": null,
+   "source": null
+  },
+  "counters": {
+   "streamSent": 65,
+   "streamDropBusy": 0,
+   "streamGated": 3,
+   "finalizeSent": 28,
+   "finalizeWouldDrop": 1,
+   "finalizeGated": 2,
+   "legacySkipped": 30
+  },
+  "loadMs": 1446,
+  "warmupMs": {
+   "stt": 684,
+   "mt": 2293
+  },
+  "mem": {
+   "peakRssBytes": 1753874432,
+   "peakFootprintBytes": 588426672,
+   "sumOfProcessPeakFootprintBytes": 692477216,
+   "samples": 2025
+  }
+ },
+ {
+  "tag": "C3",
+  "session": "d1-ja-30",
+  "utterances": 30,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 30,
+    "missing": 0,
+    "p50": 2.717526489257814,
+    "p90": 5.85135583496094
+   },
+   "firstTrFromStart": {
+    "n": 30,
+    "missing": 0,
+    "p50": 9.097753784179687,
+    "p90": 13.65398974609375
+   },
+   "finalFromEnd": {
+    "n": 30,
+    "missing": 0,
+    "p50": 0.23103698730471933,
+    "p90": 2.519934350585976
+   }
+  },
+  "ja": {
+   "utterances": 30,
+   "errorRate": 0.07389162561576355,
+   "metric": "CER",
+   "langIdCorrect": 30,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "en": {
+   "utterances": 0,
+   "errorRate": 0,
+   "metric": "WER",
+   "langIdCorrect": 0,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 9.366666666666667,
+   "erasedCharsPerUtt": 126.6
+  },
+  "terms": {
+   "target": null,
+   "source": null
+  },
+  "counters": {
+   "streamSent": 298,
+   "streamDropBusy": 6,
+   "streamGated": 0,
+   "finalizeSent": 32,
+   "finalizeWouldDrop": 0,
+   "finalizeGated": 0,
+   "legacySkipped": 32
+  },
+  "loadMs": 3114,
+  "warmupMs": {
+   "stt": 384,
+   "mt": 1807
+  },
+  "mem": {
+   "peakRssBytes": 1669939200,
+   "peakFootprintBytes": 601418632,
+   "sumOfProcessPeakFootprintBytes": 1076812184,
+   "samples": 2928
+  }
+ },
+ {
+  "tag": "D3asr",
+  "session": "d3-terms",
+  "utterances": 24,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 24,
+    "missing": 0,
+    "p50": 0.7217494628906209,
+    "p90": 1.652255478515633
+   },
+   "firstTrFromStart": {
+    "n": 24,
+    "missing": 0,
+    "p50": 2.7095165283203215,
+    "p90": 5.168037021484376
+   },
+   "finalFromEnd": {
+    "n": 24,
+    "missing": 0,
+    "p50": 1.6344583007812519,
+    "p90": 2.032753876953133
+   }
+  },
+  "ja": {
+   "utterances": 16,
+   "errorRate": 0.09333333333333334,
+   "metric": "CER",
+   "langIdCorrect": 16,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "en": {
+   "utterances": 8,
+   "errorRate": 0.014285714285714285,
+   "metric": "WER",
+   "langIdCorrect": 8,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 4.125,
+   "erasedCharsPerUtt": 108.54166666666667
+  },
+  "terms": {
+   "target": {
+    "total": 35,
+    "hit": 10,
+    "rate": 0.2857142857142857
+   },
+   "source": {
+    "total": 35,
+    "hit": 31,
+    "rate": 0.8857142857142857
+   }
+  },
+  "counters": {
+   "streamSent": 108,
+   "streamDropBusy": 3,
+   "streamGated": 0,
+   "finalizeSent": 24,
+   "finalizeWouldDrop": 0,
+   "finalizeGated": 0,
+   "legacySkipped": 24
+  },
+  "loadMs": 3461,
+  "warmupMs": {
+   "stt": 374,
+   "mt": 1079
+  },
+  "mem": {
+   "peakRssBytes": 2946416640,
+   "peakFootprintBytes": 2201596824,
+   "sumOfProcessPeakFootprintBytes": 2728497488,
+   "samples": 901
+  }
+ },
+ {
+  "tag": "D3both",
+  "session": "d3-terms",
+  "utterances": 24,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 24,
+    "missing": 0,
+    "p50": 0.737904321289065,
+    "p90": 1.7914830126953127
+   },
+   "firstTrFromStart": {
+    "n": 24,
+    "missing": 0,
+    "p50": 1.0233548339843779,
+    "p90": 4.661476406249997
+   },
+   "finalFromEnd": {
+    "n": 24,
+    "missing": 0,
+    "p50": 2.325443749999998,
+    "p90": 2.831350571289063
+   }
+  },
+  "ja": {
+   "utterances": 16,
+   "errorRate": 0.09333333333333334,
+   "metric": "CER",
+   "langIdCorrect": 16,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "en": {
+   "utterances": 8,
+   "errorRate": 0.014285714285714285,
+   "metric": "WER",
+   "langIdCorrect": 8,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 3.75,
+   "erasedCharsPerUtt": 94.75
+  },
+  "terms": {
+   "target": {
+    "total": 35,
+    "hit": 33,
+    "rate": 0.9428571428571428
+   },
+   "source": {
+    "total": 35,
+    "hit": 31,
+    "rate": 0.8857142857142857
+   }
+  },
+  "counters": {
+   "streamSent": 83,
+   "streamDropBusy": 26,
+   "streamGated": 0,
+   "finalizeSent": 24,
+   "finalizeWouldDrop": 0,
+   "finalizeGated": 0,
+   "legacySkipped": 24
+  },
+  "loadMs": 8908,
+  "warmupMs": {
+   "stt": 680,
+   "mt": 4218
+  },
+  "mem": {
+   "peakRssBytes": 2919006208,
+   "peakFootprintBytes": 2554166640,
+   "sumOfProcessPeakFootprintBytes": 2709721088,
+   "samples": 949
+  }
+ },
+ {
+  "tag": "D3mt",
+  "session": "d3-terms",
+  "utterances": 24,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 24,
+    "missing": 0,
+    "p50": 0.8393013671874971,
+    "p90": 2.3703824365234376
+   },
+   "firstTrFromStart": {
+    "n": 24,
+    "missing": 0,
+    "p50": 1.7503974609374993,
+    "p90": 5.147626967773439
+   },
+   "finalFromEnd": {
+    "n": 24,
+    "missing": 0,
+    "p50": 2.723688208007811,
+    "p90": 4.996667499999998
+   }
+  },
+  "ja": {
+   "utterances": 16,
+   "errorRate": 0.11733333333333333,
+   "metric": "CER",
+   "langIdCorrect": 16,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "en": {
+   "utterances": 8,
+   "errorRate": 0.11428571428571428,
+   "metric": "WER",
+   "langIdCorrect": 8,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 2.5416666666666665,
+   "erasedCharsPerUtt": 49.583333333333336
+  },
+  "terms": {
+   "target": {
+    "total": 35,
+    "hit": 24,
+    "rate": 0.6857142857142857
+   },
+   "source": {
+    "total": 35,
+    "hit": 20,
+    "rate": 0.5714285714285714
+   }
+  },
+  "counters": {
+   "streamSent": 84,
+   "streamDropBusy": 20,
+   "streamGated": 0,
+   "finalizeSent": 24,
+   "finalizeWouldDrop": 0,
+   "finalizeGated": 0,
+   "legacySkipped": 24
+  },
+  "loadMs": 38117,
+  "warmupMs": {
+   "stt": 541,
+   "mt": 10015
+  },
+  "mem": {
+   "peakRssBytes": 2881486848,
+   "peakFootprintBytes": 2431364528,
+   "sumOfProcessPeakFootprintBytes": 2690824816,
+   "samples": 1130
+  }
+ },
+ {
+  "tag": "D3none",
+  "session": "d3-terms",
+  "utterances": 24,
+  "latency": {
+   "firstSrcFromStart": {
+    "n": 24,
+    "missing": 0,
+    "p50": 1.2337899414062523,
+    "p90": 11.21687907226563
+   },
+   "firstTrFromStart": {
+    "n": 24,
+    "missing": 0,
+    "p50": 3.644153369140625,
+    "p90": 11.21687907226563
+   },
+   "finalFromEnd": {
+    "n": 24,
+    "missing": 0,
+    "p50": 3.5702594726562467,
+    "p90": 10.466105122070307
+   }
+  },
+  "ja": {
+   "utterances": 16,
+   "errorRate": 0.11733333333333333,
+   "metric": "CER",
+   "langIdCorrect": 16,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "en": {
+   "utterances": 8,
+   "errorRate": 0.11428571428571428,
+   "metric": "WER",
+   "langIdCorrect": 8,
+   "langIdWrong": 0,
+   "noFinal": 0
+  },
+  "rewrites": {
+   "interimUpdatesPerUtt": 2.5833333333333335,
+   "erasedCharsPerUtt": 35.583333333333336
+  },
+  "terms": {
+   "target": {
+    "total": 35,
+    "hit": 9,
+    "rate": 0.2571428571428571
+   },
+   "source": {
+    "total": 35,
+    "hit": 20,
+    "rate": 0.5714285714285714
+   }
+  },
+  "counters": {
+   "streamSent": 95,
+   "streamDropBusy": 10,
+   "streamGated": 0,
+   "finalizeSent": 24,
+   "finalizeWouldDrop": 7,
+   "finalizeGated": 0,
+   "legacySkipped": 24
+  },
+  "loadMs": 9495,
+  "warmupMs": {
+   "stt": 484,
+   "mt": 2787
+  },
+  "mem": {
+   "peakRssBytes": 2960588800,
+   "peakFootprintBytes": 2650796160,
+   "sumOfProcessPeakFootprintBytes": 2700200952,
+   "samples": 885
+  }
+ }
+]

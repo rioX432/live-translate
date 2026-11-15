@@ -9,7 +9,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'fs'
 import { join, basename } from 'path'
 import { aggregateAccuracy, computeErrorRate } from '../src/wer'
-import { normalizeForErrorRate, percentile, scoreUtterances, type RunEvent, type Utterance } from './score-lib'
+import { normalizeForErrorRate, normalizeForMatch, percentile, scoreUtterances, type RunEvent, type Utterance } from './score-lib'
 
 function arg(name: string): string | undefined {
   const i = process.argv.indexOf(`--${name}`)
@@ -66,15 +66,14 @@ function perLang(lang: 'ja' | 'en') {
  * An entry 'a|b' is satisfied by any of its variants.
  */
 function expectHits(field: 'expect' | 'expectSrc', hypOf: (i: number) => string) {
-  const norm = (s: string): string => s.normalize('NFKC').toLowerCase()
   let total = 0
   let hit = 0
   const misses: { id: string; expected: string; hyp: string }[] = []
   utts.forEach((u, i) => {
     for (const x of u[field] ?? []) {
       total++
-      const hyp = norm(hypOf(i))
-      if (x.split('|').some((v) => hyp.includes(norm(v)))) hit++
+      const hyp = normalizeForMatch(hypOf(i))
+      if (x.split('|').some((v) => hyp.includes(normalizeForMatch(v)))) hit++
       else misses.push({ id: u.id, expected: x, hyp: hypOf(i) })
     }
   })

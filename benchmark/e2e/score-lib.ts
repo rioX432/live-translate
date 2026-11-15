@@ -65,6 +65,17 @@ export function normalizeForErrorRate(s: string): string {
     .toLowerCase()
 }
 
+/**
+ * Normalization for D3/D4 expected-string matching: NFKC and lowercase. NFKC leaves
+ * typographic apostrophes alone, and the translators emit "don’t", so fold them to "'".
+ */
+export function normalizeForMatch(s: string): string {
+  return s
+    .normalize('NFKC')
+    .replace(/[‘’ʼ]/g, "'")
+    .toLowerCase()
+}
+
 interface Segment {
   seg: number
   start: number
