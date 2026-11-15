@@ -287,7 +287,8 @@ registerUpdateHandlers(ctx)
 // --- Register custom protocol for serving VAD assets outside asar ---
 // Must be called before app.whenReady()
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'vad-asset', privileges: { standard: true, secure: true, supportFetchAPI: true } }
+  // corsEnabled: since Electron 45, fetch() from the file:// renderer fails for a scheme without it
+  { scheme: 'vad-asset', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } }
 ])
 
 // --- Initialize electron-audio-loopback before app is ready ---
