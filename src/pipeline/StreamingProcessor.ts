@@ -155,7 +155,7 @@ export class StreamingProcessor {
         this.simulMtPreviousOutput = ''
         return null
       }
-      log.info(`STT: ${sttMs}ms → "${sttResult.text}" [${sttResult.language}]`)
+      log.info(`STT: ${sttMs}ms → ${sttResult.text.length} chars [${sttResult.language}]`)
 
       const agreement = this.deps.agreement.update(sttResult.text)
       const targetLang = this.deps.resolveTargetLanguage(sttResult.language)
@@ -473,7 +473,7 @@ export class StreamingProcessor {
           log.info(`Draft STT: ${draftMs}ms → (no result)`)
           return
         }
-        log.info(`Draft STT: ${draftMs}ms → "${draftResult.text}" [${draftResult.language}]`)
+        log.info(`Draft STT: ${draftMs}ms → ${draftResult.text.length} chars [${draftResult.language}]`)
 
         if (!this.isCurrentGeneration(gen)) return
 
@@ -574,7 +574,7 @@ export class StreamingProcessor {
 
     translatePromise.then((translated) => {
       const clauseMs = (performance.now() - t0).toFixed(0)
-      log.info(`Clause translation: ${clauseMs}ms → "${translated}" (prefix: "${textToTranslate}")`)
+      log.info(`Clause translation: ${clauseMs}ms → ${translated.length} chars (input ${textToTranslate.length} chars)`)
 
       if (!this.isCurrentGeneration(gen)) return
 

@@ -59,7 +59,7 @@ const SPEAKER_COLORS = [
 
 /** Font stack with Noto Sans CJK for broader coverage */
 const BASE_FONT_FAMILY =
-  '"Noto Sans", "Noto Sans CJK JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+  '"Noto Sans", "Noto Sans CJK JP", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
 
 /** Dyslexia-friendly font stack */
 const DYSLEXIA_FONT_FAMILY =

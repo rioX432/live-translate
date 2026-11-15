@@ -3,6 +3,7 @@ import { readFile, writeFile } from 'fs/promises'
 import { store } from '../store'
 import type { AppSettings, SubtitleSettings, CorrectionEntry } from '../store'
 import { validateSubtitleSettings } from '../ipc-validators'
+import { validateSettingsUpdate } from '../settings-validation'
 import type { AppContext } from '../app-context'
 import { createLogger } from '../logger'
 import {
@@ -20,15 +21,8 @@ export function registerSettingsIpc(ctx: AppContext): void {
   ipcMain.handle('get-settings', () => {
     return {
       translationEngine: store.get('translationEngine'),
-      googleApiKey: store.get('googleApiKey'),
-      deeplApiKey: store.get('deeplApiKey'),
-      geminiApiKey: store.get('geminiApiKey'),
-      microsoftApiKey: store.get('microsoftApiKey'),
-      microsoftRegion: store.get('microsoftRegion'),
-      openaiApiKey: store.get('openaiApiKey'),
-      cloudRealtimeEnabled: store.get('cloudRealtimeEnabled'),
-      geminiLiveApiKey: store.get('geminiLiveApiKey'),
-      geminiLiveEnabled: store.get('geminiLiveEnabled'),
+      saveTranscripts: store.get('saveTranscripts'),
+      sessionRecoveryEnabled: store.get('sessionRecoveryEnabled'),
       sttEngine: store.get('sttEngine'),
       selectedMicrophone: store.get('selectedMicrophone'),
       selectedDisplay: store.get('selectedDisplay'),
@@ -74,7 +68,8 @@ export function registerSettingsIpc(ctx: AppContext): void {
   })
 
   ipcMain.handle('save-settings', (_event, settings: Record<string, unknown>) => {
-    for (const [key, value] of Object.entries(settings)) {
+    // Validate everything before writing so a bad payload never leaves a partial update
+    for (const [key, value] of validateSettingsUpdate(settings)) {
       store.set(key as keyof AppSettings, value as never)
     }
   })
@@ -236,7 +231,7 @@ export function registerSettingsIpc(ctx: AppContext): void {
     if (history.length > 500) history.splice(0, history.length - 500)
     store.set('correctionHistory', history)
 
-    _log.info(`Correction saved: "${sourceText}" -> "${correctedTranslation}" (was: "${originalTranslation}")`)
+    _log.info(`Correction saved (glossary size ${glossary.length})`)
     return { success: true, glossaryCount: glossary.length }
   })
 

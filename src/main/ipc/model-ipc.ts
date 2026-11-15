@@ -1,4 +1,4 @@
-import { ipcMain } from 'electron'
+import { app, ipcMain } from 'electron'
 import { isGGUFDownloaded, getGGUFVariants, getHunyuanMTVariants, getHunyuanMT15Variants, getWhisperVariants, isModelDownloaded as isWhisperModelDownloaded } from '../../engines/model-downloader'
 import type { SLMModelSize, WhisperVariant } from '../../engines/model-downloader'
 import { detectGpu } from '../../engines/gpu-detector'
@@ -59,7 +59,8 @@ export function registerModelIpc(): void {
     }))
   })
 
-  ipcMain.handle('list-plugins', () => listPlugins())
+  // Packaged builds never load plugins, so there is nothing to list
+  ipcMain.handle('list-plugins', () => (app.isPackaged ? [] : listPlugins()))
   ipcMain.handle('detect-gpu', async () => detectGpu())
   ipcMain.handle('get-platform', () => process.platform)
 

@@ -83,7 +83,7 @@ export class OpusMTTranslator implements TranslatorEngine {
     const translated = result[0]?.translation_text || ''
 
     if (isHallucination(trimmed, translated, from, to)) {
-      log.warn(`Hallucination detected: "${trimmed}" → "${translated.substring(0, 80)}..." (filtered)`)
+      log.warn(`Hallucination detected: inputLen=${trimmed.length} outputLen=${translated.length} (filtered)`)
       return ''
     }
 

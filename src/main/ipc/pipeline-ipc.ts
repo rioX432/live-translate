@@ -1,13 +1,4 @@
 import { ipcMain } from 'electron'
-import { GoogleTranslator } from '../../engines/translator/GoogleTranslator'
-import { DeepLTranslator } from '../../engines/translator/DeepLTranslator'
-import { GeminiTranslator } from '../../engines/translator/GeminiTranslator'
-import { MicrosoftTranslator } from '../../engines/translator/MicrosoftTranslator'
-import { ApiRotationController } from '../../engines/translator/ApiRotationController'
-import type { ProviderConfig, QuotaStore } from '../../engines/translator/ApiRotationController'
-import { HunyuanMT15Translator } from '../../engines/translator/HunyuanMT15Translator'
-import { CloudRealtimeE2E } from '../../engines/e2e/CloudRealtimeE2E'
-import { GeminiLiveE2E } from '../../engines/e2e/GeminiLiveE2E'
 import { TranscriptLogger } from '../../logger/TranscriptLogger'
 import { store } from '../store'
 import type { AppContext } from '../app-context'
@@ -24,6 +15,12 @@ const log = createLogger('ipc:pipeline')
 /** Live session metrics for usage analytics — tracks character count in real-time */
 let liveMetrics: LiveSessionMetrics | null = null
 
+/**
+ * Metadata of the running session, kept in memory so the usage log works even when
+ * crash-recovery persistence (activeSession) is off, which is the default.
+ */
+let runningSession: { engineMode: string; startedAt: number } | null = null
+
 /** Increment character count for the current live session (#519) */
 export function trackTranslatedCharacters(charCount: number): void {
   if (liveMetrics && charCount > 0) {
@@ -31,30 +28,9 @@ export function trackTranslatedCharacters(charCount: number): void {
   }
 }
 
-/** Monthly character limits for API rotation providers */
-const QUOTA_LIMITS = {
-  microsoft: 2_000_000,
-  google: 480_000,
-  deepl: 500_000,
-  gemini: 1_000_000
-} as const
-
-/** Pipeline start config with API keys */
-interface PipelineStartConfig extends EngineConfig {
-  apiKey?: string
-  deeplApiKey?: string
-  geminiApiKey?: string
-  microsoftApiKey?: string
-  microsoftRegion?: string
-  /** OpenAI API key for cloud realtime e2e translation (BYOK, #722) */
-  openaiApiKey?: string
-  /** Gemini Live API key for the second cloud realtime e2e path (BYOK, #723) */
-  geminiLiveApiKey?: string
-}
-
 /** Register pipeline control IPC handlers */
 export function registerPipelineIpc(ctx: AppContext): void {
-  ipcMain.handle('pipeline-start', async (_event, config: PipelineStartConfig) => {
+  ipcMain.handle('pipeline-start', async (_event, config: EngineConfig) => {
     if (!ctx.pipeline) return { error: 'Pipeline not initialized' }
     if (ctx.pipeline.active) {
       await ctx.pipeline.stop() // Auto-stop before restart
@@ -73,169 +49,8 @@ export function registerPipelineIpc(ctx: AppContext): void {
         log.info(`MDM: Overriding STT engine from ${config.sttEngineId} to ${mdm.lockedSttEngine}`)
         config.sttEngineId = mdm.lockedSttEngine
       }
-      // #519: Use managed API keys if provided by MDM
-      if (mdm.managedApiKey && !config.apiKey) {
-        config.apiKey = mdm.managedApiKey
-      }
-      if (mdm.managedDeeplApiKey && !config.deeplApiKey) {
-        config.deeplApiKey = mdm.managedDeeplApiKey
-      }
-      if (mdm.managedGeminiApiKey && !config.geminiApiKey) {
-        config.geminiApiKey = mdm.managedGeminiApiKey
-      }
-      // #704: inject managed Microsoft (Azure) Translator key+region when present
-      if (mdm.managedMicrosoftApiKey && !config.microsoftApiKey) {
-        config.microsoftApiKey = mdm.managedMicrosoftApiKey
-      }
-      if (mdm.managedMicrosoftRegion && !config.microsoftRegion) {
-        config.microsoftRegion = mdm.managedMicrosoftRegion
-      }
-      // #722: inject managed OpenAI key for cloud realtime translation
-      if (mdm.managedOpenaiApiKey && !config.openaiApiKey) {
-        config.openaiApiKey = mdm.managedOpenaiApiKey
-      }
-      // #723: inject managed Gemini Live key for the second cloud realtime path
-      if (mdm.managedGeminiLiveApiKey && !config.geminiLiveApiKey) {
-        config.geminiLiveApiKey = mdm.managedGeminiLiveApiKey
-      }
 
-      // #722: register the cloud realtime e2e engine when selected (BYOK)
-      if (config.mode === 'e2e' && config.e2eEngineId === 'cloud-realtime-e2e') {
-        if (!config.openaiApiKey) {
-          return { error: 'Cloud realtime translation requires an OpenAI API key' }
-        }
-        const openaiKey = config.openaiApiKey
-        ctx.pipeline.registerE2E('cloud-realtime-e2e', () =>
-          new CloudRealtimeE2E({
-            apiKey: openaiKey,
-            sourceLanguage: store.get('sourceLanguage'),
-            targetLanguage: store.get('targetLanguage'),
-            // Scrub any BYOK key that might surface in a status/error string before it reaches the renderer
-            onStatus: (msg) => ctx.mainWindow?.webContents.send('status-update', sanitizeErrorMessage(msg))
-          })
-        )
-      }
-
-      // #723: register the Gemini Live e2e engine when selected (BYOK). Second cloud
-      // path; the renderer only selects it when the OpenAI path is not also enabled.
-      if (config.mode === 'e2e' && config.e2eEngineId === 'gemini-live-e2e') {
-        if (!config.geminiLiveApiKey) {
-          return { error: 'Gemini Live translation requires a Gemini Live API key' }
-        }
-        const geminiLiveKey = config.geminiLiveApiKey
-        ctx.pipeline.registerE2E('gemini-live-e2e', () =>
-          new GeminiLiveE2E({
-            apiKey: geminiLiveKey,
-            sourceLanguage: store.get('sourceLanguage'),
-            targetLanguage: store.get('targetLanguage'),
-            // Scrub any BYOK key that might surface in a status/error string before it reaches the renderer
-            onStatus: (msg) => ctx.mainWindow?.webContents.send('status-update', sanitizeErrorMessage(msg))
-          })
-        )
-      }
-
-      // Register online translators with provided API keys
-      if (config.apiKey) {
-        ctx.pipeline.registerTranslator('google-translate', () => new GoogleTranslator(config.apiKey!))
-      }
-      if (config.deeplApiKey) {
-        ctx.pipeline.registerTranslator('deepl-translate', () => new DeepLTranslator(config.deeplApiKey!))
-      }
-      if (config.geminiApiKey) {
-        ctx.pipeline.registerTranslator('gemini-translate', () => new GeminiTranslator(config.geminiApiKey!))
-      }
-      if (config.microsoftApiKey && config.microsoftRegion) {
-        ctx.pipeline.registerTranslator('microsoft-translate', () =>
-          new MicrosoftTranslator(config.microsoftApiKey!, config.microsoftRegion!)
-        )
-      }
-
-      // Build rotation controller when rotation mode is selected
-      let rotationProviders: ProviderConfig[] | null = null
-      if (config.translatorEngineId === 'rotation-controller') {
-        rotationProviders = []
-        const statusFn = (msg: string): void => {
-          ctx.mainWindow?.webContents.send('status-update', msg)
-        }
-
-        // Order: Azure (2M) → Google (480K safe cap) → DeepL (500K)
-        if (config.microsoftApiKey && config.microsoftRegion) {
-          rotationProviders.push({
-            engine: new MicrosoftTranslator(config.microsoftApiKey, config.microsoftRegion),
-            monthlyCharLimit: QUOTA_LIMITS.microsoft
-          })
-        }
-        if (config.apiKey) {
-          rotationProviders.push({
-            engine: new GoogleTranslator(config.apiKey),
-            monthlyCharLimit: QUOTA_LIMITS.google
-          })
-        }
-        if (config.deeplApiKey) {
-          rotationProviders.push({
-            engine: new DeepLTranslator(config.deeplApiKey),
-            monthlyCharLimit: QUOTA_LIMITS.deepl
-          })
-        }
-        if (config.geminiApiKey) {
-          rotationProviders.push({
-            engine: new GeminiTranslator(config.geminiApiKey),
-            monthlyCharLimit: QUOTA_LIMITS.gemini
-          })
-        }
-
-        if (rotationProviders.length === 0) {
-          return { error: 'Rotation mode requires at least one API key' }
-        }
-
-        const persistence = {
-          load: (): QuotaStore => store.get('quotaTracking') as QuotaStore,
-          save: (quota: QuotaStore): void => { store.set('quotaTracking', quota) }
-        }
-
-        ctx.pipeline.registerTranslator('rotation-controller', () =>
-          new ApiRotationController(rotationProviders!, persistence, statusFn, {
-            // #703: local fallback so exhausted cloud quotas never silently
-            // stop the subtitle stream. HunyuanMT15 is lazy-initialized inside
-            // the controller (only loaded on first exhaustion).
-            fallbackEngine: new HunyuanMT15Translator({
-              onProgress: (msg) =>
-                ctx.mainWindow?.webContents.send('status-update', msg)
-            })
-          })
-        )
-      }
-
-      try {
-        await ctx.pipeline.switchEngine(config)
-      } catch (err) {
-        // Dispose leaked rotation provider instances on switchEngine failure
-        if (rotationProviders) {
-          for (const p of rotationProviders) {
-            p.engine.dispose().catch((e) => log.warn('Failed to dispose rotation provider:', e))
-          }
-        }
-
-        // #575: Auto-fallback to cloud engine if local engine fails on fresh install
-        const isLocalEngine = config.translatorEngineId && !['google-translate', 'deepl-translate', 'gemini-translate', 'microsoft-translate', 'rotation-controller'].includes(config.translatorEngineId)
-        if (isLocalEngine && config.apiKey) {
-          log.warn(`Local engine ${config.translatorEngineId} failed, falling back to Google Translate`)
-          ctx.mainWindow?.webContents.send('status-update', `Local engine failed — falling back to cloud translation`)
-
-          // Re-register and switch to Google Translate as fallback
-          ctx.pipeline.registerTranslator('google-translate', () => new GoogleTranslator(config.apiKey!))
-          const fallbackConfig = { ...config, translatorEngineId: 'google-translate' }
-          try {
-            await ctx.pipeline.switchEngine(fallbackConfig)
-            config = fallbackConfig
-          } catch (fallbackErr) {
-            log.error('Fallback to cloud also failed:', fallbackErr)
-            throw err // Throw original error
-          }
-        } else {
-          throw err
-        }
-      }
+      await ctx.pipeline.switchEngine(config)
 
       // Load merged glossary (personal + org) from store (#517)
       const personal = store.get('glossaryTerms') || []
@@ -265,17 +80,26 @@ export function registerPipelineIpc(ctx: AppContext): void {
       // Configure speaker diarization (#549)
       ctx.pipeline!.setDiarizationEnabled(store.get('speakerDiarizationEnabled'))
 
-      // Start logger
-      ctx.logger = new TranscriptLogger((msg) => ctx.mainWindow?.webContents.send('status-update', msg))
-      const sessionLabel = config.mode === 'e2e'
-        ? config.e2eEngineId === 'cloud-realtime-e2e'
-          ? 'Cloud Realtime (gpt-realtime-translate)'
-          : 'Offline (Whisper Translate)'
-        : `Cascade (Whisper + ${config.translatorEngineId})`
-      ctx.logger.startSession(sessionLabel)
+      // Transcripts contain meeting content: written to disk only when the user opted in.
+      if (store.get('saveTranscripts')) {
+        ctx.logger = new TranscriptLogger((msg) => ctx.mainWindow?.webContents.send('status-update', msg))
+        const sessionLabel = config.mode === 'e2e'
+          ? 'Offline (Whisper Translate)'
+          : `Cascade (Whisper + ${config.translatorEngineId})`
+        ctx.logger.startSession(sessionLabel)
+      } else {
+        ctx.logger = null
+      }
 
-      // #62: persist session BEFORE start to avoid crash window
-      store.set('activeSession', { config, startedAt: Date.now() })
+      const startedAt = Date.now()
+      runningSession = {
+        engineMode: String(config.translatorEngineId || config.e2eEngineId || 'unknown'),
+        startedAt
+      }
+      // #62: persist session BEFORE start to avoid crash window — opt-in only
+      if (store.get('sessionRecoveryEnabled')) {
+        store.set('activeSession', { config: { ...config }, startedAt })
+      }
 
       ctx.pipeline.start()
 
@@ -297,19 +121,19 @@ export function registerPipelineIpc(ctx: AppContext): void {
 
   ipcMain.handle('pipeline-stop', async () => {
     // #116: log session usage
-    const activeSession = store.get('activeSession')
-    if (activeSession) {
+    if (runningSession) {
       const now = Date.now()
       const logs = store.get('sessionLogs') || []
       logs.push({
-        startedAt: activeSession.startedAt,
+        startedAt: runningSession.startedAt,
         endedAt: now,
-        engineMode: String(activeSession.config?.translatorEngineId || activeSession.config?.e2eEngineId || 'unknown'),
-        durationMs: now - activeSession.startedAt,
+        engineMode: runningSession.engineMode,
+        durationMs: now - runningSession.startedAt,
         errorCount: 0
       })
       // Keep last 100 session logs
       store.set('sessionLogs', logs.slice(-100))
+      runningSession = null
     }
 
     // #519: Record usage analytics before stopping

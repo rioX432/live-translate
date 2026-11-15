@@ -155,7 +155,7 @@ export class GERProcessor {
     ])
 
     const gerMs = performance.now() - t0
-    log.info(`GER: ${gerMs.toFixed(0)}ms "${sttText}" → "${correctedText}"`)
+    log.info(`GER: ${gerMs.toFixed(0)}ms inputLen=${sttText.length} outputLen=${correctedText.length}`)
 
     // Only proceed if the correction actually changed the text
     const trimmedOriginal = sttText.trim()
@@ -211,7 +211,7 @@ export class GERProcessor {
       return
     }
 
-    log.info(`GER corrected: "${trimmedOriginal}" → "${trimmedCorrected}" → "${translatedText}"`)
+    log.info(`GER corrected: inputLen=${trimmedOriginal.length} correctedLen=${trimmedCorrected.length} outputLen=${translatedText.length}`)
     this.deps.emitter.emit('ger-corrected', result)
   }
 }

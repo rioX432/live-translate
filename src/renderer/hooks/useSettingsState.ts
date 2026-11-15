@@ -37,27 +37,6 @@ export interface SettingsState {
   setEngineMode: (v: EngineMode) => void
   gpuInfo: { hasGpu: boolean; gpuNames: string[] } | null
 
-  // API keys
-  apiKey: string
-  setApiKey: (v: string) => void
-  deeplApiKey: string
-  setDeeplApiKey: (v: string) => void
-  geminiApiKey: string
-  setGeminiApiKey: (v: string) => void
-  microsoftApiKey: string
-  setMicrosoftApiKey: (v: string) => void
-  microsoftRegion: string
-  setMicrosoftRegion: (v: string) => void
-  // Cloud realtime interpretation (#722, BYOK)
-  openaiApiKey: string
-  setOpenaiApiKey: (v: string) => void
-  cloudRealtimeEnabled: boolean
-  setCloudRealtimeEnabled: (v: boolean) => void
-  // Gemini Live realtime interpretation (#723, BYOK, preview)
-  geminiLiveApiKey: string
-  setGeminiLiveApiKey: (v: string) => void
-  geminiLiveEnabled: boolean
-  setGeminiLiveEnabled: (v: boolean) => void
 
   // Display
   displays: DisplayInfo[]
@@ -151,8 +130,6 @@ export interface SettingsState {
   // UI state
   showAdvanced: boolean
   setShowAdvanced: (v: boolean) => void
-  showApiOptions: boolean
-  setShowApiOptions: (v: boolean) => void
 
   // Audio + noise suppression
   audio: UseAudioCaptureReturn
@@ -172,26 +149,15 @@ export interface SettingsState {
 export function useSettingsState(): SettingsState {
   // UI state (trivial, kept in composer)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [showApiOptions, setShowApiOptions] = useState(false)
 
   // Domain-specific hooks
-  const engine = useEngineSettings({ setShowAdvanced, setShowApiOptions })
+  const engine = useEngineSettings()
   const display = useDisplaySettings()
   const subtitle = useSubtitleSettings()
   const language = useLanguageSettings()
   const session = useSessionSettings()
 
   // --- Actions ---
-  const apiKeys = {
-    apiKey: engine.apiKey,
-    deeplApiKey: engine.deeplApiKey,
-    geminiApiKey: engine.geminiApiKey,
-    microsoftApiKey: engine.microsoftApiKey,
-    microsoftRegion: engine.microsoftRegion,
-    openaiApiKey: engine.openaiApiKey,
-    geminiLiveApiKey: engine.geminiLiveApiKey
-  }
-
   const handleStart = async (): Promise<void> => {
     if (session.isStarting) return
     session.setIsStarting(true)
@@ -201,15 +167,6 @@ export function useSettingsState(): SettingsState {
 
       await withIpcTimeout(window.api.saveSettings({
         translationEngine: engine.engineMode,
-        googleApiKey: engine.apiKey,
-        deeplApiKey: engine.deeplApiKey,
-        geminiApiKey: engine.geminiApiKey,
-        microsoftApiKey: engine.microsoftApiKey,
-        microsoftRegion: engine.microsoftRegion,
-        openaiApiKey: engine.openaiApiKey,
-        cloudRealtimeEnabled: engine.cloudRealtimeEnabled,
-        geminiLiveApiKey: engine.geminiLiveApiKey,
-        geminiLiveEnabled: engine.geminiLiveEnabled,
         selectedMicrophone: session.audio.selectedDevice,
         selectedDisplay: display.selectedDisplay,
         sttEngine: language.sttEngine,
@@ -231,11 +188,8 @@ export function useSettingsState(): SettingsState {
         streamingIntervalMs: session.streamingIntervalMs
       }), 10_000, 'saveSettings')
 
-      const resolvedMode = resolveEngineMode(engine.engineMode, apiKeys, engine.gpuInfo)
-      const config = buildEngineConfig(resolvedMode, language.sttEngine, apiKeys, {
-        cloudRealtimeEnabled: engine.cloudRealtimeEnabled,
-        geminiLiveEnabled: engine.geminiLiveEnabled
-      })
+      const resolvedMode = resolveEngineMode(engine.engineMode, engine.gpuInfo)
+      const config = buildEngineConfig(resolvedMode, language.sttEngine)
 
       const result = await withIpcTimeout(window.api.pipelineStart(config), 120_000, 'pipelineStart')
       if (result.error) {
@@ -330,15 +284,6 @@ export function useSettingsState(): SettingsState {
     // Engine
     engineMode: engine.engineMode, setEngineMode: engine.setEngineMode,
     gpuInfo: engine.gpuInfo,
-    apiKey: engine.apiKey, setApiKey: engine.setApiKey,
-    deeplApiKey: engine.deeplApiKey, setDeeplApiKey: engine.setDeeplApiKey,
-    geminiApiKey: engine.geminiApiKey, setGeminiApiKey: engine.setGeminiApiKey,
-    microsoftApiKey: engine.microsoftApiKey, setMicrosoftApiKey: engine.setMicrosoftApiKey,
-    microsoftRegion: engine.microsoftRegion, setMicrosoftRegion: engine.setMicrosoftRegion,
-    openaiApiKey: engine.openaiApiKey, setOpenaiApiKey: engine.setOpenaiApiKey,
-    cloudRealtimeEnabled: engine.cloudRealtimeEnabled, setCloudRealtimeEnabled: engine.setCloudRealtimeEnabled,
-    geminiLiveApiKey: engine.geminiLiveApiKey, setGeminiLiveApiKey: engine.setGeminiLiveApiKey,
-    geminiLiveEnabled: engine.geminiLiveEnabled, setGeminiLiveEnabled: engine.setGeminiLiveEnabled,
     slmKvCacheQuant: engine.slmKvCacheQuant, setSlmKvCacheQuant: engine.setSlmKvCacheQuant,
     slmSpeculativeDecoding: engine.slmSpeculativeDecoding, setSlmSpeculativeDecoding: engine.setSlmSpeculativeDecoding,
     simulMtEnabled: engine.simulMtEnabled, setSimulMtEnabled: engine.setSimulMtEnabled,
@@ -390,7 +335,6 @@ export function useSettingsState(): SettingsState {
 
     // UI state
     showAdvanced, setShowAdvanced,
-    showApiOptions, setShowApiOptions,
 
     // Actions
     handleStart, handleStop, handleResume, handleDismissResume,

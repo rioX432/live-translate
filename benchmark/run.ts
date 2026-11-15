@@ -8,10 +8,6 @@ import { writeSTTReports } from './src/stt-report.js'
 // ── Translation engines ──
 
 const AVAILABLE_ENGINES = [
-  'google',
-  'deepl',
-  'microsoft',
-  'gemini',
   'opus-mt',
   'ct2-opus-mt',
   'ct2-madlad400',
@@ -120,7 +116,7 @@ function parseArgs(): ParsedArgs {
 
   // Defaults
   if (mode === 'translate' && engines.length === 0) {
-    engines = ['google', 'opus-mt', 'translate-gemma', 'translate-gemma-cpu']
+    engines = ['opus-mt', 'translate-gemma', 'translate-gemma-cpu']
   }
   if (mode === 'stt' && sttEngines.length === 0) {
     sttEngines = ['whisper-local', 'mlx-whisper']
@@ -133,22 +129,6 @@ function parseArgs(): ParsedArgs {
 
 async function createEngine(id: EngineId): Promise<BenchmarkEngine> {
   switch (id) {
-    case 'google': {
-      const { GoogleTranslateBench } = await import('./src/engines/google-translate.js')
-      return new GoogleTranslateBench()
-    }
-    case 'deepl': {
-      const { DeepLBench } = await import('./src/engines/deepl.js')
-      return new DeepLBench()
-    }
-    case 'microsoft': {
-      const { MicrosoftBench } = await import('./src/engines/microsoft.js')
-      return new MicrosoftBench()
-    }
-    case 'gemini': {
-      const { GeminiBench } = await import('./src/engines/gemini.js')
-      return new GeminiBench()
-    }
     case 'opus-mt': {
       const { OpusMTBench } = await import('./src/engines/opus-mt.js')
       return new OpusMTBench()

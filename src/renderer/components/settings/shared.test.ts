@@ -1,202 +1,69 @@
 import { describe, it, expect } from 'vitest'
-import { buildEngineConfig, resolveEngineMode, getEngineDisplayName, LEGACY_TRANSLATION_ENGINES, LLM_ENGINE_MODES, API_ENGINE_MODES } from './shared'
+import { buildEngineConfig, resolveEngineMode, getEngineDisplayName, LEGACY_TRANSLATION_ENGINES, LLM_ENGINE_MODES } from './shared'
 import type { EngineMode, SttEngineType } from './shared'
 
 const STT: SttEngineType = 'mlx-whisper'
-const NO_KEYS = { apiKey: '', deeplApiKey: '', geminiApiKey: '', microsoftApiKey: '', microsoftRegion: '' }
-const ALL_KEYS = { apiKey: 'g', deeplApiKey: 'd', geminiApiKey: 'gem', microsoftApiKey: 'm', microsoftRegion: 'eastus' }
+const CLOUD_MODES = ['rotation', 'online', 'online-deepl', 'online-gemini']
 
-describe('EngineMode catalog (#702)', () => {
-  it('LEGACY_TRANSLATION_ENGINES lists the four IDs removed from the UI', () => {
+describe('EngineMode catalog', () => {
+  it('LEGACY_TRANSLATION_ENGINES lists the IDs removed from the UI, including every cloud mode', () => {
     expect(LEGACY_TRANSLATION_ENGINES).toEqual(
-      expect.arrayContaining(['offline-lfm2', 'offline-plamo', 'offline-hybrid', 'offline-opus'])
+      expect.arrayContaining(['offline-lfm2', 'offline-plamo', 'offline-hybrid', 'offline-opus', ...CLOUD_MODES])
     )
-    expect(LEGACY_TRANSLATION_ENGINES).toHaveLength(4)
+    expect(LEGACY_TRANSLATION_ENGINES).toHaveLength(8)
   })
 
   it('LLM_ENGINE_MODES only retains the two supported LLM engines', () => {
     expect(LLM_ENGINE_MODES).toEqual(['offline-hymt15', 'offline-hunyuan-mt'])
   })
 
-  it('API_ENGINE_MODES still lists every online provider mode', () => {
-    expect(API_ENGINE_MODES).toEqual(['rotation', 'online', 'online-deepl', 'online-gemini'])
-  })
-
   it('getEngineDisplayName returns the raw mode string for unknown legacy IDs', () => {
-    // Legacy IDs are no longer in the union, so callers casting through `as EngineMode`
-    // should fall through the switch default and receive the raw string.
     for (const legacy of LEGACY_TRANSLATION_ENGINES) {
       expect(getEngineDisplayName(legacy as EngineMode)).toBe(legacy)
     }
   })
+
+  it('getEngineDisplayName names the on-device engines', () => {
+    expect(getEngineDisplayName('offline-hymt15')).toContain('HY-MT')
+    expect(getEngineDisplayName('auto')).toBe('Auto')
+  })
 })
 
-describe('buildEngineConfig (#702)', () => {
-  it('returns HY-MT 1.5 config for the default offline mode', () => {
-    expect(buildEngineConfig('offline-hymt15', STT, NO_KEYS)).toEqual({
-      mode: 'cascade',
-      sttEngineId: STT,
-      translatorEngineId: 'hunyuan-mt-15'
-    })
+describe('resolveEngineMode', () => {
+  it('returns an explicit mode unchanged', () => {
+    expect(resolveEngineMode('offline-apple', null)).toBe('offline-apple')
+    expect(resolveEngineMode('offline-hunyuan-mt', { hasGpu: false })).toBe('offline-hunyuan-mt')
   })
 
-  it('returns Hunyuan-MT 7B config for offline-hunyuan-mt', () => {
-    expect(buildEngineConfig('offline-hunyuan-mt', STT, NO_KEYS)).toEqual({
-      mode: 'cascade',
-      sttEngineId: STT,
-      translatorEngineId: 'hunyuan-mt'
-    })
+  it('auto resolves to HY-MT 1.5 without a GPU or GPU info', () => {
+    expect(resolveEngineMode('auto', null)).toBe('offline-hymt15')
+    expect(resolveEngineMode('auto', { hasGpu: false })).toBe('offline-hymt15')
   })
 
-  it('returns Apple Translate config for offline-apple', () => {
-    expect(buildEngineConfig('offline-apple', STT, NO_KEYS)).toEqual({
-      mode: 'cascade',
-      sttEngineId: STT,
-      translatorEngineId: 'apple-translate'
-    })
+  it('auto resolves to Hunyuan-MT 7B with a GPU', () => {
+    expect(resolveEngineMode('auto', { hasGpu: true })).toBe('offline-hunyuan-mt')
   })
 
-  it('returns rotation controller with all configured API keys for rotation mode', () => {
-    expect(buildEngineConfig('rotation', STT, ALL_KEYS)).toEqual({
-      mode: 'cascade',
-      sttEngineId: STT,
-      translatorEngineId: 'rotation-controller',
-      apiKey: 'g',
-      deeplApiKey: 'd',
-      geminiApiKey: 'gem',
-      microsoftApiKey: 'm',
-      microsoftRegion: 'eastus'
-    })
-  })
-
-  it('omits absent API keys from the rotation config', () => {
-    const partial = { apiKey: 'g', deeplApiKey: '', geminiApiKey: '', microsoftApiKey: '', microsoftRegion: '' }
-    expect(buildEngineConfig('rotation', STT, partial)).toEqual({
-      mode: 'cascade',
-      sttEngineId: STT,
-      translatorEngineId: 'rotation-controller',
-      apiKey: 'g'
-    })
-  })
-
-  it.each(['offline-lfm2', 'offline-plamo', 'offline-hybrid', 'offline-opus'])(
-    'falls back to HY-MT 1.5 for removed legacy engine "%s"',
-    (legacy) => {
-      // Callers may still hold a stale EngineMode string before migration runs;
-      // buildEngineConfig must safely fall through to the default case.
-      const cfg = buildEngineConfig(legacy as EngineMode, STT, NO_KEYS)
-      expect(cfg).toEqual({
-        mode: 'cascade',
-        sttEngineId: STT,
-        translatorEngineId: 'hunyuan-mt-15'
-      })
+  it('auto never resolves to a cloud mode', () => {
+    for (const gpu of [null, { hasGpu: false }, { hasGpu: true }]) {
+      expect(CLOUD_MODES).not.toContain(resolveEngineMode('auto', gpu))
     }
-  )
-})
-
-describe('resolveEngineMode (#702)', () => {
-  it('resolves auto → rotation when at least one API key is configured', () => {
-    expect(resolveEngineMode('auto', ALL_KEYS, { hasGpu: false })).toBe('rotation')
-  })
-
-  it('resolves auto → offline-hunyuan-mt when GPU is present and no API keys', () => {
-    expect(resolveEngineMode('auto', NO_KEYS, { hasGpu: true })).toBe('offline-hunyuan-mt')
-  })
-
-  it('resolves auto → offline-hymt15 when no GPU and no API keys', () => {
-    expect(resolveEngineMode('auto', NO_KEYS, { hasGpu: false })).toBe('offline-hymt15')
-  })
-
-  it('returns the mode unchanged when not auto', () => {
-    expect(resolveEngineMode('offline-hymt15', NO_KEYS, null)).toBe('offline-hymt15')
-    expect(resolveEngineMode('offline-apple', NO_KEYS, null)).toBe('offline-apple')
-  })
-
-  it('treats Azure as a valid key only when both key and region are present', () => {
-    const onlyKey = { ...NO_KEYS, microsoftApiKey: 'm' }
-    expect(resolveEngineMode('auto', onlyKey, { hasGpu: false })).toBe('offline-hymt15')
-    const withRegion = { ...NO_KEYS, microsoftApiKey: 'm', microsoftRegion: 'eastus' }
-    expect(resolveEngineMode('auto', withRegion, { hasGpu: false })).toBe('rotation')
   })
 })
 
-describe('buildEngineConfig realtime e2e precedence (#723)', () => {
-  const OPENAI_KEYS = { ...NO_KEYS, openaiApiKey: 'sk-test' }
-  const GEMINI_LIVE_KEYS = { ...NO_KEYS, geminiLiveApiKey: 'AIza-test' }
-  const BOTH_KEYS = { ...NO_KEYS, openaiApiKey: 'sk-test', geminiLiveApiKey: 'AIza-test' }
-  const CASCADE = { mode: 'cascade', sttEngineId: STT, translatorEngineId: 'hunyuan-mt-15' }
-
-  it('selects the OpenAI realtime path when only cloud realtime is enabled', () => {
-    expect(
-      buildEngineConfig('offline-hymt15', STT, OPENAI_KEYS, { cloudRealtimeEnabled: true })
-    ).toEqual({
-      mode: 'e2e',
-      e2eEngineId: 'cloud-realtime-e2e',
-      openaiApiKey: 'sk-test'
-    })
+describe('buildEngineConfig', () => {
+  it.each([
+    ['offline-hymt15', 'hunyuan-mt-15'],
+    ['offline-hunyuan-mt', 'hunyuan-mt'],
+    ['offline-apple', 'apple-translate']
+  ] as const)('maps %s to the %s translator in cascade mode', (mode, translator) => {
+    expect(buildEngineConfig(mode, STT)).toEqual({ mode: 'cascade', sttEngineId: STT, translatorEngineId: translator })
   })
 
-  it('selects the Gemini Live path when only Gemini Live is enabled', () => {
-    expect(
-      buildEngineConfig('offline-hymt15', STT, GEMINI_LIVE_KEYS, { geminiLiveEnabled: true })
-    ).toEqual({
-      mode: 'e2e',
-      e2eEngineId: 'gemini-live-e2e',
-      geminiLiveApiKey: 'AIza-test'
-    })
-  })
-
-  it('prefers gpt-realtime-translate over the Gemini Live preview when both are enabled', () => {
-    expect(
-      buildEngineConfig('offline-hymt15', STT, BOTH_KEYS, {
-        cloudRealtimeEnabled: true,
-        geminiLiveEnabled: true
-      })
-    ).toEqual({
-      mode: 'e2e',
-      e2eEngineId: 'cloud-realtime-e2e',
-      openaiApiKey: 'sk-test'
-    })
-  })
-
-  // Privacy: a misconfigured OpenAI path must never redirect the user's audio to
-  // Google. "Enabled but keyless" falls back to local, never sideways to the other
-  // vendor — even though the Gemini toggle is on and its key is present.
-  it('falls back to the local cascade — not to Gemini — when cloud realtime is enabled without an OpenAI key', () => {
-    expect(
-      buildEngineConfig('offline-hymt15', STT, GEMINI_LIVE_KEYS, {
-        cloudRealtimeEnabled: true,
-        geminiLiveEnabled: true
-      })
-    ).toEqual(CASCADE)
-  })
-
-  it("never leaks the other path's key into the selected e2e config", () => {
-    const openai = buildEngineConfig('offline-hymt15', STT, BOTH_KEYS, { cloudRealtimeEnabled: true })
-    expect(openai).not.toHaveProperty('geminiLiveApiKey')
-    const gemini = buildEngineConfig('offline-hymt15', STT, BOTH_KEYS, { geminiLiveEnabled: true })
-    expect(gemini).not.toHaveProperty('openaiApiKey')
-  })
-
-  it('stays on the local-first cascade when a toggle is on but its key is missing', () => {
-    expect(
-      buildEngineConfig('offline-hymt15', STT, NO_KEYS, {
-        cloudRealtimeEnabled: true,
-        geminiLiveEnabled: true
-      })
-    ).toEqual(CASCADE)
-  })
-
-  it('stays on the local-first cascade when both toggles are off despite keys present', () => {
-    expect(
-      buildEngineConfig('offline-hymt15', STT, BOTH_KEYS, {
-        cloudRealtimeEnabled: false,
-        geminiLiveEnabled: false
-      })
-    ).toEqual(CASCADE)
-  })
-
-  it('stays on the local-first cascade when no realtime options are passed at all', () => {
-    expect(buildEngineConfig('offline-hymt15', STT, BOTH_KEYS)).toEqual(CASCADE)
+  it('falls back to HY-MT 1.5 for unknown legacy IDs and never carries credentials', () => {
+    for (const legacy of LEGACY_TRANSLATION_ENGINES) {
+      const config = buildEngineConfig(legacy as EngineMode, STT)
+      expect(config).toEqual({ mode: 'cascade', sttEngineId: STT, translatorEngineId: 'hunyuan-mt-15' })
+    }
   })
 })

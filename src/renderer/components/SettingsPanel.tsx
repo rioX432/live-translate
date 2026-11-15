@@ -18,7 +18,8 @@ import {
   AccessibilitySettings,
   SpeakerSettings,
   CorrectionHistory,
-  ModelDownloadProgress
+  ModelDownloadProgress,
+  PrivacySettings
 } from './settings'
 
 function SettingsPanel(): React.JSX.Element {
@@ -185,26 +186,6 @@ function SettingsPanel(): React.JSX.Element {
             onAdaptiveRoutingLongThresholdChange={s.setAdaptiveRoutingLongThreshold}
             adaptiveRoutingQualityEngine={s.adaptiveRoutingQualityEngine}
             onAdaptiveRoutingQualityEngineChange={s.setAdaptiveRoutingQualityEngine}
-            apiKey={s.apiKey}
-            onApiKeyChange={s.setApiKey}
-            deeplApiKey={s.deeplApiKey}
-            onDeeplApiKeyChange={s.setDeeplApiKey}
-            geminiApiKey={s.geminiApiKey}
-            onGeminiApiKeyChange={s.setGeminiApiKey}
-            microsoftApiKey={s.microsoftApiKey}
-            onMicrosoftApiKeyChange={s.setMicrosoftApiKey}
-            microsoftRegion={s.microsoftRegion}
-            onMicrosoftRegionChange={s.setMicrosoftRegion}
-            openaiApiKey={s.openaiApiKey}
-            onOpenaiApiKeyChange={s.setOpenaiApiKey}
-            cloudRealtimeEnabled={s.cloudRealtimeEnabled}
-            onCloudRealtimeEnabledChange={s.setCloudRealtimeEnabled}
-            geminiLiveApiKey={s.geminiLiveApiKey}
-            onGeminiLiveApiKeyChange={s.setGeminiLiveApiKey}
-            geminiLiveEnabled={s.geminiLiveEnabled}
-            onGeminiLiveEnabledChange={s.setGeminiLiveEnabled}
-            showApiOptions={s.showApiOptions}
-            onShowApiOptionsChange={s.setShowApiOptions}
             glossaryTerms={s.glossaryTerms}
             onGlossaryTermsChange={s.setGlossaryTerms}
             orgGlossaryTerms={s.orgGlossaryTerms}
@@ -259,6 +240,8 @@ function SettingsPanel(): React.JSX.Element {
 
           <VirtualMicSettings disabled={disabled} />
 
+          <PrivacySettings disabled={disabled} />
+
           <EnterpriseSettings disabled={disabled} />
 
           <KeyboardShortcuts />
@@ -271,11 +254,6 @@ function SettingsPanel(): React.JSX.Element {
       <SessionControls
         isRunning={s.isRunning}
         isStarting={s.isStarting}
-        engineMode={s.engineMode}
-        apiKey={s.apiKey}
-        deeplApiKey={s.deeplApiKey}
-        geminiApiKey={s.geminiApiKey}
-        microsoftApiKey={s.microsoftApiKey}
         status={s.status}
         sessionDuration={s.sessionDuration}
         onStart={s.handleStart}

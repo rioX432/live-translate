@@ -460,7 +460,7 @@ export class TranslationPipeline extends EventEmitter {
       log.info(`STT: ${sttMs}ms → (no result)`)
       return null
     }
-    log.info(`STT: ${sttMs}ms → "${sttResult.text}" [${sttResult.language}]`)
+    log.info(`STT: ${sttMs}ms → ${sttResult.text.length} chars [${sttResult.language}]`)
 
     const targetLang = this.resolveTargetLanguage(sttResult.language)
 
@@ -475,7 +475,7 @@ export class TranslationPipeline extends EventEmitter {
       let translated: string
       if (cached !== undefined) {
         translated = cached
-        log.info(`Translate: cache hit → "${translated}"`)
+        log.info(`Translate: cache hit (${translated.length} chars)`)
       } else if (this.adaptiveRouter.getConfig().enabled && this.adaptiveRouter.isReady) {
         // Adaptive routing: score complexity and route to appropriate engine (#547)
         const glossary = this.glossary.length > 0 ? this.glossary : undefined
@@ -497,7 +497,7 @@ export class TranslationPipeline extends EventEmitter {
           this.contextBuffer.getContext(glossary)
         )
         const translateMs = (performance.now() - t1).toFixed(0)
-        log.info(`Translate: ${translateMs}ms → "${translated}"`)
+        log.info(`Translate: ${translateMs}ms → ${translated.length} chars`)
         this.translationCache.set(sttResult.text, sttResult.language, targetLang, translated)
       }
 

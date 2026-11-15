@@ -204,8 +204,11 @@ async function initPipeline(): Promise<void> {
   // Apply diarization setting from store
   ctx.pipeline.setDiarizationEnabled(!!store.get('speakerDiarizationEnabled'))
 
-  // Auto-register discovered plugins (#145)
-  for (const plugin of discoverPlugins()) {
+  // Plugins run with full system access, so packaged builds never auto-load them from userData.
+  // Development builds still register them (#145).
+  const discovered = app.isPackaged ? [] : discoverPlugins()
+  if (app.isPackaged) log.info('Plugin auto-load disabled in packaged builds')
+  for (const plugin of discovered) {
     const { manifest } = plugin
     const factory = () => loadPluginEngine(plugin)
     // Plugin factory returns Promise<STTEngine | TranslatorEngine | E2ETranslationEngine>;
@@ -309,7 +312,7 @@ app.whenReady().then(async () => {
   if (store.get('hasCompletedSetup') && store.get('isFirstRun')) {
     store.set('isFirstRun', false)
     // Existing users keep their current engine (don't override to 'online')
-    log.info('Existing user detected — skipping cloud-first onboarding')
+    log.info('Existing user detected — skipping onboarding')
   }
 
   // #702 / #705: Migrate legacy persisted engine IDs trimmed from the UI.
@@ -323,12 +326,10 @@ app.whenReady().then(async () => {
   // #730: dev-only shadow measurement run. Builds its own engines, opens no
   // windows, and quits when the report is written — the production pipeline and
   // UI are never involved.
-  if (process.env.LT_SHADOW_JA_EN === '1') {
+  if (process.env.LT_SHADOW_JA_EN === '1' && !app.isPackaged) {
     const { runShadowJaEnHarness } = await import('./dev/shadow-harness')
     try {
       await runShadowJaEnHarness({
-        includeCloud: process.env.LT_SHADOW_CLOUD === '1',
-        includeGeminiLive: process.env.LT_SHADOW_GEMINI_LIVE === '1',
         limit: process.env.LT_SHADOW_LIMIT ? Number(process.env.LT_SHADOW_LIMIT) : undefined,
         outPath: process.env.LT_SHADOW_OUT
       })

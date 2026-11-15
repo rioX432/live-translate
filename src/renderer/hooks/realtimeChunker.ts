@@ -1,8 +1,7 @@
 /**
  * Repackages a stream of variable-length PCM frames into fixed-size chunks.
  *
- * Cloud realtime translation APIs (OpenAI realtime, Gemini Live) expect audio
- * appended as fixed ~100ms PCM chunks, but the VAD emits frames of a different
+ * Streaming engines expect audio appended as fixed ~100ms PCM chunks, but the VAD emits frames of a different
  * cadence (~96ms at 16kHz). This buffers incoming frames and emits exactly
  * `chunkSamples`-long chunks, carrying the remainder to the next push so no
  * sample is dropped or duplicated. Chunk boundaries are driven purely by sample

@@ -127,11 +127,6 @@ export interface ElectronAPI {
     lockedEngine: string | null
     lockedSttEngine: string | null
     telemetryDisabled: boolean
-    hasManagedApiKey: boolean
-    hasManagedDeeplApiKey: boolean
-    hasManagedGeminiApiKey: boolean
-    hasManagedMicrosoftApiKey: boolean
-    managedMicrosoftRegion: string | null
     organizationName: string | null
     autoUpdateDisabled: boolean
   }>

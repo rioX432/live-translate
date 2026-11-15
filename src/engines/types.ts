@@ -99,7 +99,7 @@ export interface STTEngine {
 
 /**
  * Text-to-text translation engine interface.
- * Implementations: GoogleTranslator
+ * Implementations: HunyuanMT15Translator, HunyuanMTTranslator, and the other local engines
  */
 export interface TranslatorEngine {
   readonly id: string
