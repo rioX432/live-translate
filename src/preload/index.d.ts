@@ -34,9 +34,7 @@ export interface ElectronAPI {
   saveSubtitleSettings: (settings: Record<string, unknown>) => Promise<void>
   onSubtitleSettingsChanged: (callback: (settings: unknown) => void) => (() => void)
   onDisplaysChanged: (callback: () => void) => (() => void)
-  getWhisperVariants: () => Promise<Array<{ key: string; label: string; description: string; filename: string; sizeMB: number; downloaded: boolean }>>
   getPlatform: () => Promise<string>
-  getMacOSVersion: () => Promise<string | null>
   saveGlossary: (terms: Array<{ source: string; target: string }>) => Promise<void>
   saveOrgGlossary: (terms: Array<{ source: string; target: string }>) => Promise<void>
   importGlossary: (target: 'personal' | 'org') => Promise<{
@@ -87,16 +85,16 @@ export interface ElectronAPI {
 
   // Quick Start onboarding (#510)
   quickStartRecommend: () => Promise<{
-    sttEngine: string
-    translationEngine: string
+    sttEngine: 'qwen3-asr' | 'whisper-local'
+    translationEngine: 'auto'
     whisperVariant: string
-    downloads: Array<{ type: string; key: string; filename: string; url: string; sizeMB: number; label: string }>
+    downloads: Array<{ kind: 'whisper' | 'gguf' | 'pinned-repo'; key: string; label: string; sizeMB: number }>
     totalDownloadMB: number
     needsDownload: boolean
-    fallbackEngine: string | null
+    fallbackEngine: null
     reason: string
   }>
-  quickStartApply: (options: { sourceLanguage: string; targetLanguage: string; recommendation: unknown }) => Promise<{ success: boolean }>
+  quickStartApply: (options: { sourceLanguage: string; targetLanguage: string }) => Promise<{ success: boolean }>
   quickStartIsCompleted: () => Promise<boolean>
   quickStartSkip: () => Promise<{ success: boolean }>
   quickStartSystemInfo: () => Promise<{ platform: string; totalMemoryMB: number; gpuInfo: { hasGpu: boolean; gpuNames: string[] } }>
@@ -174,7 +172,6 @@ export interface ElectronAPI {
   onboardingSwitchToLocal: () => Promise<{ success?: boolean; engine?: string; tier?: number; error?: string }>
   onboardingUpgradeToTier2: () => Promise<{ success?: boolean; engine?: string; tier?: number; error?: string }>
   onboardingDismiss: () => Promise<{ success: boolean }>
-  onboardingSetPreferredEngine: (engine: string) => Promise<{ success?: boolean; error?: string }>
   onboardingIsFirstRun: () => Promise<boolean>
   onOnboardingDownloadProgress: (callback: (data: {
     status: string

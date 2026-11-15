@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react'
-import { str, bool, num, arr } from './settingsCastUtils'
-import type { EngineMode } from '../components/settings/shared'
+import { bool, num, arr } from './settingsCastUtils'
+import type { SttEngineType } from '../components/settings/shared'
 
 export interface EngineSettingsState {
-  engineMode: EngineMode
-  setEngineMode: (v: EngineMode) => void
+  /** STT engine main selected for this platform, shown read-only */
+  sttEngine: SttEngineType
   gpuInfo: { hasGpu: boolean; gpuNames: string[] } | null
 
-
-  slmKvCacheQuant: boolean
-  setSlmKvCacheQuant: (v: boolean) => void
-  slmSpeculativeDecoding: boolean
-  setSlmSpeculativeDecoding: (v: boolean) => void
   simulMtEnabled: boolean
   setSimulMtEnabled: (v: boolean) => void
   simulMtWaitK: number
@@ -25,10 +20,8 @@ export interface EngineSettingsState {
 }
 
 export function useEngineSettings(): EngineSettingsState {
-  const [engineMode, setEngineMode] = useState<EngineMode>('auto')
+  const [sttEngine, setSttEngine] = useState<SttEngineType>('whisper-local')
   const [gpuInfo, setGpuInfo] = useState<{ hasGpu: boolean; gpuNames: string[] } | null>(null)
-  const [slmKvCacheQuant, setSlmKvCacheQuant] = useState(true)
-  const [slmSpeculativeDecoding, setSlmSpeculativeDecoding] = useState(false)
   const [simulMtEnabled, setSimulMtEnabled] = useState(false)
   const [simulMtWaitK, setSimulMtWaitK] = useState(3)
   const [glossaryTerms, setGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
@@ -37,15 +30,6 @@ export function useEngineSettings(): EngineSettingsState {
   // Load engine-related settings on mount
   useEffect(() => {
     window.api.getSettings().then((s) => {
-      // #702: Coerce legacy/unknown engine IDs to 'auto' so the UI never displays a removed option.
-      // The main process also migrates the persisted value on startup.
-      if (s.translationEngine) {
-        const raw = str(s.translationEngine, 'auto')
-        const valid: EngineMode[] = ['auto', 'offline-hymt15', 'offline-hunyuan-mt', 'offline-apple']
-        setEngineMode((valid.includes(raw as EngineMode) ? raw : 'auto') as EngineMode)
-      }
-      if (s.slmKvCacheQuant !== undefined) setSlmKvCacheQuant(bool(s.slmKvCacheQuant, true))
-      if (s.slmSpeculativeDecoding !== undefined) setSlmSpeculativeDecoding(bool(s.slmSpeculativeDecoding, false))
       if (s.glossaryTerms) setGlossaryTerms(arr<{ source: string; target: string }>(s.glossaryTerms, []))
       if (s.orgGlossaryTerms) setOrgGlossaryTerms(arr<{ source: string; target: string }>(s.orgGlossaryTerms, []))
       if (s.simulMtEnabled !== undefined) setSimulMtEnabled(bool(s.simulMtEnabled, false))
@@ -53,25 +37,22 @@ export function useEngineSettings(): EngineSettingsState {
     })
   }, [])
 
-  // Detect GPU — fall back to HY-MT1.5 if no GPU
+  // The STT engine depends on the CPU architecture, which only main knows
   useEffect(() => {
-    window.api.detectGpu().then((info) => {
-      setGpuInfo(info)
-      if (!info.hasGpu) {
-        window.api.getSettings().then((s) => {
-          if (!s.translationEngine) {
-            setEngineMode('offline-hymt15')
-          }
-        })
-      }
-    }).catch(() => setGpuInfo({ hasGpu: false, gpuNames: [] }))
+    window.api.quickStartRecommend()
+      .then((rec) => setSttEngine(rec.sttEngine))
+      .catch((e) => console.warn('[settings] Failed to load engine selection:', e))
+  }, [])
+
+  useEffect(() => {
+    window.api.detectGpu()
+      .then(setGpuInfo)
+      .catch(() => setGpuInfo({ hasGpu: false, gpuNames: [] }))
   }, [])
 
   return {
-    engineMode, setEngineMode,
+    sttEngine,
     gpuInfo,
-    slmKvCacheQuant, setSlmKvCacheQuant,
-    slmSpeculativeDecoding, setSlmSpeculativeDecoding,
     simulMtEnabled, setSimulMtEnabled,
     simulMtWaitK, setSimulMtWaitK,
     glossaryTerms, setGlossaryTerms,

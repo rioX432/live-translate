@@ -118,14 +118,8 @@ contextBridge.exposeInMainWorld('api', {
   // #238: Check if draft model is available for speculative decoding
   isDraftModelAvailable: (engine?: string) => ipcRenderer.invoke('is-draft-model-available', engine),
 
-  // #261: Whisper model variant info
-  getWhisperVariants: () => ipcRenderer.invoke('get-whisper-variants'),
-
   // #243: Platform detection for hiding platform-specific options
   getPlatform: () => ipcRenderer.invoke('get-platform'),
-
-  // #548: macOS version detection for Apple SpeechTranscriber (macOS 26+)
-  getMacOSVersion: () => ipcRenderer.invoke('get-macos-version') as Promise<string | null>,
 
   // Display change notifications (#192)
   onDisplaysChanged: (callback: () => void) => {
@@ -194,7 +188,7 @@ contextBridge.exposeInMainWorld('api', {
 
   // Quick Start onboarding (#510)
   quickStartRecommend: () => ipcRenderer.invoke('quick-start-recommend'),
-  quickStartApply: (options: { sourceLanguage: string; targetLanguage: string; recommendation: unknown }) =>
+  quickStartApply: (options: { sourceLanguage: string; targetLanguage: string }) =>
     ipcRenderer.invoke('quick-start-apply', options),
   quickStartIsCompleted: () => ipcRenderer.invoke('quick-start-is-completed'),
   quickStartSkip: () => ipcRenderer.invoke('quick-start-skip'),
@@ -218,7 +212,6 @@ contextBridge.exposeInMainWorld('api', {
   onboardingSwitchToLocal: () => ipcRenderer.invoke('onboarding-switch-to-local'),
   onboardingUpgradeToTier2: () => ipcRenderer.invoke('onboarding-upgrade-to-tier2'),
   onboardingDismiss: () => ipcRenderer.invoke('onboarding-dismiss'),
-  onboardingSetPreferredEngine: (engine: string) => ipcRenderer.invoke('onboarding-set-preferred-engine', engine),
   onboardingIsFirstRun: () => ipcRenderer.invoke('onboarding-is-first-run'),
   onOnboardingDownloadProgress: (callback: (data: { status: string; progress: number; tier?: number | null; tier1Ready?: boolean; tier2Ready?: boolean; message?: string; error?: string }) => void) => {
     const handler = (_event: Electron.IpcRendererEvent, data: { status: string; progress: number; tier?: number | null; tier1Ready?: boolean; tier2Ready?: boolean; message?: string; error?: string }): void => callback(data)

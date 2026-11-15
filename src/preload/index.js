@@ -78,14 +78,8 @@ electron_1.contextBridge.exposeInMainWorld('api', {
     },
     // #238: Check if draft model (4B) is available for speculative decoding
     isDraftModelAvailable: function () { return electron_1.ipcRenderer.invoke('is-draft-model-available'); },
-    // #261: Whisper model variant info
-    getWhisperVariants: function () { return electron_1.ipcRenderer.invoke('get-whisper-variants'); },
-    // #260: Moonshine model variant info
-    getMoonshineVariants: function () { return electron_1.ipcRenderer.invoke('get-moonshine-variants'); },
     // #243: Platform detection for hiding platform-specific options
     getPlatform: function () { return electron_1.ipcRenderer.invoke('get-platform'); },
-    // #548: macOS version detection for Apple SpeechTranscriber (macOS 26+)
-    getMacOSVersion: function () { return electron_1.ipcRenderer.invoke('get-macos-version'); },
     // Display change notifications (#192)
     onDisplaysChanged: function (callback) {
         var handler = function () { return callback(); };

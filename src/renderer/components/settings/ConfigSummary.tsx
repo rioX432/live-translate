@@ -1,21 +1,17 @@
 import React from 'react'
 import {
   LANGUAGE_LABELS,
-  getEngineDisplayName,
+  TRANSLATOR_DISPLAY_NAME,
   getSttDisplayName
 } from './shared'
 import type {
-  EngineMode,
   Language,
   SourceLanguage,
-  SttEngineType,
-  WhisperVariantType
+  SttEngineType
 } from './shared'
 
 interface ConfigSummaryProps {
   sttEngine: SttEngineType
-  whisperVariant: WhisperVariantType
-  engineMode: EngineMode
   sourceLanguage: SourceLanguage
   targetLanguage: Language
   gpuInfo: { hasGpu: boolean; gpuNames: string[] } | null
@@ -23,8 +19,6 @@ interface ConfigSummaryProps {
 
 export function ConfigSummary({
   sttEngine,
-  whisperVariant,
-  engineMode,
   sourceLanguage,
   targetLanguage,
   gpuInfo
@@ -43,11 +37,11 @@ export function ConfigSummary({
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
         <span>Speech Recognition</span>
-        <span style={{ color: '#e2e8f0' }}>{getSttDisplayName(sttEngine, whisperVariant)}</span>
+        <span style={{ color: '#e2e8f0' }}>{getSttDisplayName(sttEngine)}</span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <span>Translation</span>
-        <span style={{ color: '#e2e8f0' }}>{getEngineDisplayName(engineMode)}</span>
+        <span style={{ color: '#e2e8f0' }}>{TRANSLATOR_DISPLAY_NAME}</span>
       </div>
       <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
         <span>Language</span>

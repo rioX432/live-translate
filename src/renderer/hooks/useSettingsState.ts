@@ -18,23 +18,19 @@ import { useLanguageSettings } from './useLanguageSettings'
 import { useSessionSettings } from './useSessionSettings'
 import {
   withIpcTimeout,
-  resolveEngineMode,
   buildEngineConfig
 } from '../components/settings/shared'
 import type {
   DisplayInfo,
-  EngineMode,
   Language,
   SourceLanguage,
   SttEngineType,
-  SubtitlePositionType,
-  WhisperVariantType
+  SubtitlePositionType
 } from '../components/settings/shared'
 
 export interface SettingsState {
-  // Engine
-  engineMode: EngineMode
-  setEngineMode: (v: EngineMode) => void
+  // Engine (fixed by main; shown read-only)
+  sttEngine: SttEngineType
   gpuInfo: { hasGpu: boolean; gpuNames: string[] } | null
 
 
@@ -57,16 +53,6 @@ export interface SettingsState {
   targetLanguage: Language
   setTargetLanguage: (v: Language) => void
 
-  // STT
-  sttEngine: SttEngineType
-  setSttEngine: (v: SttEngineType) => void
-  whisperVariant: WhisperVariantType
-  setWhisperVariant: (v: WhisperVariantType) => void
-
-  // Draft STT
-  draftSttEnabled: boolean
-  setDraftSttEnabled: (v: boolean) => void
-
   // Speaker diarization (#549)
   speakerDiarizationEnabled: boolean
   setSpeakerDiarizationEnabled: (v: boolean) => void
@@ -88,11 +74,7 @@ export interface SettingsState {
   // Accessibility
   accessibility: AccessibilityState
 
-  // SLM options
-  slmKvCacheQuant: boolean
-  setSlmKvCacheQuant: (v: boolean) => void
-  slmSpeculativeDecoding: boolean
-  setSlmSpeculativeDecoding: (v: boolean) => void
+  // SimulMT
   simulMtEnabled: boolean
   setSimulMtEnabled: (v: boolean) => void
   simulMtWaitK: number
@@ -107,8 +89,6 @@ export interface SettingsState {
 
   // Platform
   platform: string
-  /** Whether the current system is macOS 26+ (Tahoe) */
-  isMacOS26: boolean
 
   // Meeting summary
   lastTranscriptPath: string | null
@@ -157,26 +137,19 @@ export function useSettingsState(): SettingsState {
       session.setStatus('Starting pipeline...')
 
       await withIpcTimeout(window.api.saveSettings({
-        translationEngine: engine.engineMode,
         selectedMicrophone: session.audio.selectedDevice,
         selectedDisplay: display.selectedDisplay,
-        sttEngine: language.sttEngine,
-        whisperVariant: language.whisperVariant,
-        slmKvCacheQuant: engine.slmKvCacheQuant,
-        slmSpeculativeDecoding: engine.slmSpeculativeDecoding,
         simulMtEnabled: engine.simulMtEnabled,
         simulMtWaitK: engine.simulMtWaitK,
         sourceLanguage: language.sourceLanguage,
         targetLanguage: language.targetLanguage,
         noiseSuppressionEnabled: session.noiseSuppression.enabled,
         audioSource: session.audio.audioSource,
-        draftSttEnabled: language.draftSttEnabled,
         speakerDiarizationEnabled: language.speakerDiarizationEnabled,
         streamingIntervalMs: session.streamingIntervalMs
       }), 10_000, 'saveSettings')
 
-      const resolvedMode = resolveEngineMode(engine.engineMode, engine.gpuInfo)
-      const config = buildEngineConfig(resolvedMode, language.sttEngine)
+      const config = buildEngineConfig(engine.sttEngine)
 
       const result = await withIpcTimeout(window.api.pipelineStart(config), 120_000, 'pipelineStart')
       if (result.error) {
@@ -265,10 +238,8 @@ export function useSettingsState(): SettingsState {
 
   return {
     // Engine
-    engineMode: engine.engineMode, setEngineMode: engine.setEngineMode,
+    sttEngine: engine.sttEngine,
     gpuInfo: engine.gpuInfo,
-    slmKvCacheQuant: engine.slmKvCacheQuant, setSlmKvCacheQuant: engine.setSlmKvCacheQuant,
-    slmSpeculativeDecoding: engine.slmSpeculativeDecoding, setSlmSpeculativeDecoding: engine.setSlmSpeculativeDecoding,
     simulMtEnabled: engine.simulMtEnabled, setSimulMtEnabled: engine.setSimulMtEnabled,
     simulMtWaitK: engine.simulMtWaitK, setSimulMtWaitK: engine.setSimulMtWaitK,
     glossaryTerms: engine.glossaryTerms, setGlossaryTerms: engine.setGlossaryTerms,
@@ -291,11 +262,7 @@ export function useSettingsState(): SettingsState {
     // Language
     sourceLanguage: language.sourceLanguage, setSourceLanguage: language.setSourceLanguage,
     targetLanguage: language.targetLanguage, setTargetLanguage: language.setTargetLanguage,
-    sttEngine: language.sttEngine, setSttEngine: language.setSttEngine,
-    whisperVariant: language.whisperVariant, setWhisperVariant: language.setWhisperVariant,
     platform: language.platform,
-    isMacOS26: language.isMacOS26,
-    draftSttEnabled: language.draftSttEnabled, setDraftSttEnabled: language.setDraftSttEnabled,
     speakerDiarizationEnabled: language.speakerDiarizationEnabled, setSpeakerDiarizationEnabled: language.setSpeakerDiarizationEnabled,
 
     // Session

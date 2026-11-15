@@ -4,7 +4,6 @@ import { Onboarding } from './Onboarding'
 import {
   AudioSettings,
   LanguageSettings,
-  STTSettings,
   TranslatorSettings,
   SubtitleSettings,
   TTSSettings,
@@ -108,8 +107,6 @@ function SettingsPanel(): React.JSX.Element {
       {/* Current config summary — always visible */}
       <ConfigSummary
         sttEngine={s.sttEngine}
-        whisperVariant={s.whisperVariant}
-        engineMode={s.engineMode}
         sourceLanguage={s.sourceLanguage}
         targetLanguage={s.targetLanguage}
         gpuInfo={s.gpuInfo}
@@ -117,14 +114,9 @@ function SettingsPanel(): React.JSX.Element {
 
       {/* Onboarding: model download progress (#575) */}
       <ModelDownloadProgress
-        onSwitchToLocal={(engine) => {
-          s.setEngineMode(engine as never)
-          window.api.saveSettings({ translationEngine: engine })
-        }}
         onDismiss={() => {
           // No-op: banner hides itself
         }}
-        disabled={disabled}
       />
 
       {/* Advanced Settings toggle */}
@@ -151,29 +143,9 @@ function SettingsPanel(): React.JSX.Element {
             disabled={disabled}
           />
 
-          <STTSettings
-            sttEngine={s.sttEngine}
-            onSttEngineChange={s.setSttEngine}
-            whisperVariant={s.whisperVariant}
-            onWhisperVariantChange={s.setWhisperVariant}
-            platform={s.platform}
-            isMacOS26={s.isMacOS26}
-            disabled={disabled}
-            sourceLanguage={s.sourceLanguage}
-            draftSttEnabled={s.draftSttEnabled}
-            onDraftSttEnabledChange={s.setDraftSttEnabled}
-          />
-
           <TranslatorSettings
-            engineMode={s.engineMode}
-            onEngineModeChange={s.setEngineMode}
-            platform={s.platform}
             disabled={disabled}
             gpuInfo={s.gpuInfo}
-            slmKvCacheQuant={s.slmKvCacheQuant}
-            onSlmKvCacheQuantChange={s.setSlmKvCacheQuant}
-            slmSpeculativeDecoding={s.slmSpeculativeDecoding}
-            onSlmSpeculativeDecodingChange={s.setSlmSpeculativeDecoding}
             simulMtEnabled={s.simulMtEnabled}
             onSimulMtEnabledChange={s.setSimulMtEnabled}
             simulMtWaitK={s.simulMtWaitK}
