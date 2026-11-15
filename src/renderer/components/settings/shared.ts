@@ -26,10 +26,10 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
 
 export const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
 
-export type EngineMode = 'auto' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-apple'
+export type EngineMode = 'auto'
 
-/** Legacy engine mode IDs removed from the UI in #702.
- *  Persisted store values matching these IDs are migrated to 'auto' on startup. */
+/** Translation engine IDs persisted by older versions. 'auto' is the only value left;
+ *  matching store values are migrated to it on startup. */
 export const LEGACY_TRANSLATION_ENGINES: readonly string[] = [
   'offline-lfm2',
   'offline-plamo',
@@ -38,11 +38,14 @@ export const LEGACY_TRANSLATION_ENGINES: readonly string[] = [
   'rotation',
   'online',
   'online-deepl',
-  'online-gemini'
+  'online-gemini',
+  'offline-hymt15',
+  'offline-hunyuan-mt',
+  'offline-apple'
 ] as const
 
-export type SttEngineType = 'whisper-local' | 'mlx-whisper' | 'kotoba-whisper' | 'qwen3-asr' | 'sensevoice-sherpa' | 'apple-speech-transcriber'
-export type WhisperVariantType = 'kotoba-v2.0' | 'large-v3-turbo' | 'distil-large-v3' | 'base' | 'small'
+/** STT engines main picks between (src/engines/engine-selection.ts) */
+export type SttEngineType = 'qwen3-asr' | 'whisper-local'
 export type SubtitlePositionType = 'top' | 'bottom'
 
 export interface DisplayInfo {
@@ -155,63 +158,16 @@ export const disclosureArrowStyle = (isOpen: boolean): React.CSSProperties => ({
   fontSize: fontSize.xs
 })
 
-// --- Engine mode utilities ---
+// --- Engine utilities ---
 
-/** LLM-based engine modes that support KV cache / SimulMT options */
-export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hymt15', 'offline-hunyuan-mt']
-
-/** Display name for each engine mode */
-export function getEngineDisplayName(mode: EngineMode): string {
-  switch (mode) {
-    case 'offline-apple': return 'Apple Translate (Built-in)'
-    case 'offline-hymt15': return 'HY-MT 1.5 (Recommended)'
-    case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B (High Quality)'
-    case 'auto': return 'Auto'
-    default: return mode
-  }
+/** Display name for the STT engine main runs on this platform */
+export function getSttDisplayName(sttEngine: SttEngineType): string {
+  return sttEngine === 'qwen3-asr' ? 'Qwen3-ASR 0.6B' : 'Whisper large-v3-turbo'
 }
 
-/** Display name for STT engine + variant */
-export function getSttDisplayName(sttEngine: SttEngineType, whisperVariant: WhisperVariantType): string {
-  switch (sttEngine) {
-    case 'apple-speech-transcriber': return 'Apple Speech (Zero Setup)'
-    case 'sensevoice-sherpa': return 'SenseVoice Small (Ultra-fast, Offline)'
-    case 'qwen3-asr': return 'Qwen3-ASR 0.6B (Apple Silicon)'
-    case 'kotoba-whisper': return 'Kotoba-Whisper v2.0 (JA-optimized)'
-    case 'mlx-whisper': return 'mlx-whisper (Apple Silicon)'
-    case 'whisper-local': {
-      const variantLabels: Record<string, string> = {
-        'kotoba-v2.0': 'kotoba-v2.0',
-        'large-v3-turbo': 'large-v3-turbo',
-        'distil-large-v3': 'distil-large-v3',
-        'small': 'small, fast',
-        'base': 'base, fastest'
-      }
-      return `Whisper (${variantLabels[whisperVariant] || whisperVariant})`
-    }
-    default: return sttEngine
-  }
-}
+export const TRANSLATOR_DISPLAY_NAME = 'Hy-MT2 1.8B'
 
-/** Resolve 'auto' engine mode to a concrete local mode based on GPU availability */
-export function resolveEngineMode(mode: EngineMode, gpuInfo: { hasGpu: boolean } | null): EngineMode {
-  if (mode !== 'auto') return mode
-  if (gpuInfo?.hasGpu) return 'offline-hunyuan-mt'
-  return 'offline-hymt15'
-}
-
-/** Build pipeline config from resolved engine mode and settings */
-export function buildEngineConfig(resolvedMode: EngineMode, sttEngine: SttEngineType): Record<string, unknown> {
-  const base = { mode: 'cascade' as const, sttEngineId: sttEngine }
-
-  switch (resolvedMode) {
-    case 'offline-hunyuan-mt':
-      return { ...base, translatorEngineId: 'hunyuan-mt' }
-    case 'offline-apple':
-      return { ...base, translatorEngineId: 'apple-translate' }
-    case 'offline-hymt15':
-    default:
-      // 'offline-hymt15' is the fast offline default; any unknown legacy ID falls back here.
-      return { ...base, translatorEngineId: 'hunyuan-mt-15' }
-  }
+/** Pipeline config sent on start; main replaces the engine IDs with its own selection. */
+export function buildEngineConfig(sttEngine: SttEngineType): Record<string, unknown> {
+  return { mode: 'cascade' as const, sttEngineId: sttEngine, translatorEngineId: 'hy-mt2' }
 }

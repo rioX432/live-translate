@@ -2,8 +2,7 @@
  * Shared UtilityProcess pool for slm-worker.
  *
  * Ensures only ONE slm-worker UtilityProcess runs at a time.
- * Multiple engines (SLMTranslator, HunyuanMTTranslator, HunyuanMT15Translator)
- * and the generate-summary handler all share this single worker.
+ * The Hy-MT2 translator and the generate-summary handler share this single worker.
  *
  * When a different model is needed, the pool sends a dispose+init sequence
  * to hot-swap the loaded model without killing the process.
@@ -37,19 +36,14 @@ export interface PendingRequest {
 
 export interface WorkerInitOptions {
   modelPath: string
-  kvCacheQuant?: boolean
-  modelType?: string
-  draftModelPath?: string
+  modelType?: 'hy-mt2' | 'summary'
 }
 
 /** Timeout value by request type */
-export type RequestType = 'translate' | 'translate-incremental' | 'translate-ssbd' | 'translate-simulmt' | 'summarize'
+export type RequestType = 'translate' | 'summarize'
 
 const TIMEOUT_BY_TYPE: Record<RequestType, number> = {
   'translate': WORKER_TRANSLATE_TIMEOUT_MS,
-  'translate-incremental': WORKER_TRANSLATE_TIMEOUT_MS,
-  'translate-ssbd': WORKER_TRANSLATE_TIMEOUT_MS,
-  'translate-simulmt': WORKER_TRANSLATE_TIMEOUT_MS,
   'summarize': WORKER_SUMMARIZE_TIMEOUT_MS
 }
 
@@ -141,15 +135,6 @@ class WorkerPool {
     })
   }
 
-  /**
-   * Send a fire-and-forget message to the worker (no response expected).
-   * Used for commands like 'simulmt-reset' that don't return a result.
-   */
-  sendFireAndForget(message: Record<string, unknown>): void {
-    if (!this.worker) return
-    this.worker.postMessage(message)
-  }
-
   /** Check if the worker is alive and initialized */
   get isAlive(): boolean {
     return this.worker !== null
@@ -239,9 +224,7 @@ class WorkerPool {
           this.worker!.postMessage({
             type: 'init',
             modelPath: options.modelPath,
-            kvCacheQuant: options.kvCacheQuant,
-            modelType: options.modelType,
-            ...(options.draftModelPath && { draftModelPath: options.draftModelPath })
+            modelType: options.modelType
           })
         })
     )

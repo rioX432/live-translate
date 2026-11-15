@@ -51,7 +51,6 @@ export interface CorrectionEntry {
 export interface AppSettings {
   translationEngine: string
   selectedMicrophone: string
-  sttEngine: string
   selectedDisplay: number
   /**
    * Opt-in: write plaintext transcripts (source + translation) to userData/logs.
@@ -63,26 +62,16 @@ export interface AppSettings {
   activeSession: ActiveSession | null
   subtitleSettings: SubtitleSettings
   sessionLogs: SessionLog[]
-  /** Enable KV cache quantization (Q8_0) for TranslateGemma to reduce VRAM usage ~50% */
-  slmKvCacheQuant: boolean
   /** TranslateGemma model size: 4B (lighter) or 12B (higher quality) */
   slmModelSize: '4b' | '12b'
   /** User-defined glossary for fixed translation of specific terms */
   glossaryTerms: GlossaryEntry[]
   /** Organization-wide glossary imported from JSON/CSV (#517) */
   orgGlossaryTerms: GlossaryEntry[]
-  /** Enable speculative decoding: 4B draft model + 12B verifier for 2-3x throughput */
-  slmSpeculativeDecoding: boolean
   /** Enable simultaneous translation (SimulMT) with Wait-k policy for lower latency */
   simulMtEnabled: boolean
   /** Wait-k value: start translating after k confirmed words (default 3) */
   simulMtWaitK: number
-  /** Whisper model variant for local STT: kotoba-v2.0 (Japanese-optimized) or large-v3-turbo (multilingual) */
-  whisperVariant: string
-  /** Moonshine model variant for local STT: tiny (fastest) or base (recommended) */
-  moonshineVariant: string
-  /** Sherpa-ONNX model key: whisper-tiny, whisper-base, sensevoice-small, paraformer-zh */
-  sherpaOnnxModel: string
   /** Source language: 'auto' for auto-detection or a specific language code */
   sourceLanguage: SourceLanguage
   /** Target language for translation output */
@@ -111,8 +100,6 @@ export interface AppSettings {
   virtualMicEnabled: boolean
   /** PortAudio device ID for virtual mic output (#515) */
   virtualMicDeviceId: number
-  /** Enable draft STT (Moonshine Tiny JA) for fast interim results (#536) */
-  draftSttEnabled: boolean
   /** Opt-in anonymous telemetry consent (#519) */
   telemetryConsent: boolean
   /** Whether the telemetry consent dialog has been shown */
@@ -145,7 +132,6 @@ export const store = new Store<AppSettings>({
   defaults: {
     hasCompletedSetup: false,
     translationEngine: 'auto',
-    sttEngine: 'mlx-whisper',
     selectedMicrophone: '',
     selectedDisplay: 0,
     saveTranscripts: false,
@@ -166,16 +152,11 @@ export const store = new Store<AppSettings>({
       }
     },
     sessionLogs: [],
-    slmKvCacheQuant: true,
     slmModelSize: '4b',
     glossaryTerms: [],
     orgGlossaryTerms: [],
-    slmSpeculativeDecoding: false,
     simulMtEnabled: false,
     simulMtWaitK: 3,
-    whisperVariant: 'kotoba-v2.0',
-    moonshineVariant: 'base',
-    sherpaOnnxModel: 'whisper-base',
     sourceLanguage: 'auto',
     targetLanguage: 'en',
     wsAudioPort: DEFAULT_WS_PORT,
@@ -189,7 +170,6 @@ export const store = new Store<AppSettings>({
     ttsVolume: 0.8,
     virtualMicEnabled: false,
     virtualMicDeviceId: -1,
-    draftSttEnabled: false,
     telemetryConsent: false,
     telemetryConsentShown: false,
     speakerDiarizationEnabled: false,

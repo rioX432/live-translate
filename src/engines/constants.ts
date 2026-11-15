@@ -45,85 +45,17 @@ export const WORKER_MAX_PENDING_REQUESTS = 50
 
 
 // ---------------------------------------------------------------------------
-// Python discovery (execSync import checks)
+// Qwen3-ASR resident helper
 // ---------------------------------------------------------------------------
 
-/** Timeout for `python3 -c "import ..."` checks when locating a suitable venv (ms) */
-export const PYTHON_IMPORT_CHECK_TIMEOUT_MS = 5_000
+/** Spawn to ready: model load plus one warm-up decode that compiles the Metal kernels (ms) */
+export const QWEN3_ASR_READY_TIMEOUT_MS = 120_000
 
-// ---------------------------------------------------------------------------
-// STT bridges (mlx-whisper, Qwen-ASR)
-// ---------------------------------------------------------------------------
+/** One transcription reply; the renderer VAD caps a segment at 12 s of audio (ms) */
+export const QWEN3_ASR_REQUEST_TIMEOUT_MS = 30_000
 
-/** Command timeout for mlx-whisper transcription (ms) */
-export const MLX_WHISPER_TRANSCRIBE_TIMEOUT_MS = 30_000
-
-/** Init timeout for mlx-whisper bridge (ms) */
-export const MLX_WHISPER_INIT_TIMEOUT_MS = 60_000
-
-/** Command timeout for Qwen-ASR transcription (ms) */
-export const QWEN_ASR_TRANSCRIBE_TIMEOUT_MS = 30_000
-
-/** Init timeout for Qwen-ASR bridge (ms) */
-export const QWEN_ASR_INIT_TIMEOUT_MS = 120_000
-
-/** Command timeout for speech-swift (Qwen3-ASR Swift) transcription (ms) */
-export const SPEECH_SWIFT_TRANSCRIBE_TIMEOUT_MS = 30_000
-
-/** Init timeout for speech-swift — first run triggers model download (ms) */
-export const SPEECH_SWIFT_INIT_TIMEOUT_MS = 300_000
-
-/** Command timeout for Apple SpeechTranscriber transcription (ms) */
-export const APPLE_STT_TRANSCRIBE_TIMEOUT_MS = 15_000
-
-/** Init timeout for Apple SpeechTranscriber — first run triggers AssetInventory download (ms) */
-export const APPLE_STT_INIT_TIMEOUT_MS = 300_000
-
-/** Command timeout for SenseVoice transcription (ms) */
-export const SENSEVOICE_TRANSCRIBE_TIMEOUT_MS = 30_000
-
-/** Init timeout for SenseVoice bridge — model download on first run can be slow (ms) */
-export const SENSEVOICE_INIT_TIMEOUT_MS = 180_000
-
-// ---------------------------------------------------------------------------
-// Moonshine Tiny JA (draft STT)
-// ---------------------------------------------------------------------------
-
-/** Command timeout for Moonshine Tiny JA transcription (ms) */
-export const MOONSHINE_TINY_JA_TRANSCRIBE_TIMEOUT_MS = 15_000
-
-/** Init timeout for Moonshine Tiny JA bridge — model download on first run (~100MB) (ms) */
-export const MOONSHINE_TINY_JA_INIT_TIMEOUT_MS = 120_000
-
-// ---------------------------------------------------------------------------
-// CarelessWhisper (causal streaming STT via LoRA) (#555)
-// ---------------------------------------------------------------------------
-
-/** Command timeout for CarelessWhisper transcription (ms) */
-export const CARELESS_WHISPER_TRANSCRIBE_TIMEOUT_MS = 15_000
-
-/** Init timeout for CarelessWhisper bridge — model + LoRA weight download on first run (ms) */
-export const CARELESS_WHISPER_INIT_TIMEOUT_MS = 180_000
-
-// ---------------------------------------------------------------------------
-// ANE translator
-// ---------------------------------------------------------------------------
-
-/** Command timeout for ANE translation (ms) */
-export const ANE_TRANSLATE_TIMEOUT_MS = 30_000
-
-/** Init timeout for ANE bridge — first-run CoreML conversion can be slow (ms) */
-export const ANE_INIT_TIMEOUT_MS = 600_000
-
-// ---------------------------------------------------------------------------
-// Apple Translate (macOS 15+ Translation framework)
-// ---------------------------------------------------------------------------
-
-/** Command timeout for Apple Translate translation (ms) */
-export const APPLE_TRANSLATE_COMMAND_TIMEOUT_MS = 15_000
-
-/** Init timeout for Apple Translate bridge — first run may trigger model download (ms) */
-export const APPLE_TRANSLATE_INIT_TIMEOUT_MS = 120_000
+/** Consecutive helper crashes or failed starts tolerated before STT reports a hard failure */
+export const QWEN3_ASR_MAX_RESTARTS = 3
 
 // ---------------------------------------------------------------------------
 // FluidAudio speaker diarization (#549)

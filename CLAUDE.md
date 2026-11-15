@@ -9,7 +9,7 @@ Strictly follow the rules in [AGENTS.md](./AGENTS.md).
 3. **JA↔EN会議字幕特化** — 多言語汎用ではなくJA↔ENの口語会議用途に集中。会議体験の最適化にリソースを集中投下
 
 ## Won't Do
-- **翻訳エンジン4個以上をUIに見せる** — 「自動」「品質モード（Hunyuan-MT 7B）」「Apple純正（macOS 15+）」の3択に厳選。ユーザーにエンジン選択の複雑さを見せない
+- **エンジン選択をUIに見せる** — 役割ごとに1エンジン（STT: Apple Silicon は Qwen3-ASR 0.6B、それ以外は whisper.cpp / 翻訳: Hy-MT2 1.8B）。プラットフォームで自動決定し、ユーザーに選ばせない
 - **多言語対応の汎用拡大（40+言語）** — JA↔EN特化がCore Value③。汎用多言語はSokuji/Feloの領域
 - **会議プラットフォーム直接統合（Teams/Zoom/Meetプラグイン）** — オーバーレイの責務外。仮想マイクで既に対応可能
 - **Linux対応** — ユーザーベースが小さく、ネイティブオーディオAPI対応のコストがCore Value向上に見合わない
@@ -43,14 +43,13 @@ Before acting, always pause and reconsider. Re-read the requirements, re-check y
 - macOS microphone permission: Electron dev mode runs via Terminal — grant mic access to Terminal.app in System Preferences
 - VAD uses `AudioWorkletNode` via `processorType: 'AudioWorklet'` — do not revert to deprecated `ScriptProcessorNode`
 - electron-vite 2.x requires `build.lib.entry` for main/preload configs
-- Whisper model (~540MB) downloads on first launch — handle offline gracefully
-- TranslateGemma is experimental only (8s/sentence too slow for real-time)
-- HY-MT1.5-1.8B is the fast default translator (~180ms, ~1GB) — replaced OPUS-MT as default (#544)
-- OPUS-MT is legacy fallback only — used on low-memory systems and while LLM models download
-- Hunyuan-MT 7B is quality mode only (3.7s JA→EN) — not suitable for real-time streaming
-- GGUF models (~2.6GB+) download with resume support and SHA256 verification
+- One engine per role, chosen by `selectEngines()` in `src/engines/engine-selection.ts`: Qwen3-ASR 0.6B (8-bit MLX) on Apple Silicon, whisper.cpp large-v3-turbo elsewhere; Hy-MT2 1.8B (Q4_K_M) translates everywhere. Main ignores engine IDs sent by the renderer
+- Qwen3-ASR runs in a resident Swift helper (`scripts/qwen3-asr-helper`, built by `scripts/build-qwen3-asr-helper.sh` with xcodebuild so MLX's Metal kernels ship) — no Python install. `ResidentProcess` restarts it and gives up after repeated failures
+- HY-MT1.5 must not come back as a default: its license excludes the EU, UK and South Korea
+- Default models (~600MB-1.1GB each) download on first launch — handle offline gracefully
+- TranslateGemma GGUF is used only for meeting summaries, not for live translation
+- GGUF models download with resume support and SHA256 verification
 - node-llama-cpp runs in shared UtilityProcess pool (worker-pool.ts → slm-worker.ts), not main process
-- Lightning Whisper MLX and Moonshine base removed — JA CER too high (162% and 221% respectively). Moonshine Tiny JA is a separate experimental engine with improved JA CER (10.1%)
 - electron-store is plain JSON (no encryption key) — the app holds no secrets; `legacy-store.ts` strips keys left by old versions before the store opens
 - Model downloads are pinned to a Hugging Face commit and SHA256 (`model-pins.test.ts` enforces it)
 - The renderer CSP lives in `src/renderer/index.html`; the dev server relaxes it via `devCsp()` in `electron.vite.config.ts`

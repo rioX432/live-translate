@@ -6,14 +6,8 @@ import { createLogger } from '../main/logger'
 
 const log = createLogger('model-downloader')
 
-export const MODEL_FILENAME = 'ggml-kotoba-whisper-v2.0-q5_0.bin'
-export const MODEL_URL =
-  'https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0-ggml/resolve/e3a0cf6a62b95911703cfb97d819292e058f12c3/ggml-kotoba-whisper-v2.0-q5_0.bin'
-export const MODEL_SHA256 =
-  '4a3b92192b5d3578ff854a5876213e2e27af0c2d357492c2d14271e82c303658'
-
 /** Whisper model variant identifier */
-export type WhisperVariant = 'kotoba-v2.0' | 'large-v3-turbo' | 'distil-large-v3' | 'base' | 'small'
+export type WhisperVariant = 'large-v3-turbo'
 
 /** Whisper model variant configuration */
 export interface WhisperVariantConfig {
@@ -25,62 +19,29 @@ export interface WhisperVariantConfig {
   description: string
 }
 
-/** Available Whisper model variants for local STT */
+/**
+ * whisper.cpp model for platforms without MLX (Windows, Intel Mac). large-v3-turbo
+ * is multilingual, unlike the JA-only Kotoba checkpoint, so the addon's language
+ * detection can tell JA from EN.
+ */
 export const WHISPER_VARIANTS: Record<WhisperVariant, WhisperVariantConfig> = {
-  'kotoba-v2.0': {
-    filename: 'ggml-kotoba-whisper-v2.0-q5_0.bin',
-    url: 'https://huggingface.co/kotoba-tech/kotoba-whisper-v2.0-ggml/resolve/e3a0cf6a62b95911703cfb97d819292e058f12c3/ggml-kotoba-whisper-v2.0-q5_0.bin',
-    sha256: '4a3b92192b5d3578ff854a5876213e2e27af0c2d357492c2d14271e82c303658',
-    sizeMB: 540,
-    label: 'Kotoba Whisper v2.0 (Default)',
-    description: 'Optimized for Japanese, ~540MB'
-  },
   'large-v3-turbo': {
     filename: 'ggml-large-v3-turbo-q5_0.bin',
     url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-large-v3-turbo-q5_0.bin',
     sha256: '394221709cd5ad1f40c46e6031ca61bce88931e6e088c188294c6d5a55ffa7e2',
     sizeMB: 600,
-    label: 'Large v3 Turbo (OpenAI)',
-    description: 'Multilingual, 6x faster than large-v3, ~600MB'
-  },
-  'distil-large-v3': {
-    filename: 'ggml-distil-large-v3.bin',
-    url: 'https://huggingface.co/distil-whisper/distil-large-v3-ggml/resolve/0d78dd96ed9fc152325f63b53788fec3b43de031/ggml-distil-large-v3.bin',
-    sha256: '2883a11b90fb10ed592d826edeaee7d2929bf1ab985109fe9e1e7b4d2b69a298',
-    sizeMB: 1500,
-    label: 'Distil Large v3 (HuggingFace)',
-    description: 'Distilled large-v3, 5x faster, within 1% WER, ~1.5GB'
-  },
-  'small': {
-    filename: 'ggml-small.bin',
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-small.bin',
-    sha256: '1be3a9b2063867b937e64e2ec7483364a79917e157fa98c5d94b5c1fffea987b',
-    sizeMB: 466,
-    label: 'Small (Fast)',
-    description: 'Fast multilingual, lower accuracy, ~466MB'
-  },
-  'base': {
-    filename: 'ggml-base.bin',
-    url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/5359861c739e955e79d9a303bcbc70fb988958b1/ggml-base.bin',
-    sha256: '60ed5bc3dd14eea856493d334349b405782ddcaf0028d4b5df4088345fba2efe',
-    sizeMB: 142,
-    label: 'Base (Fastest)',
-    description: 'Fastest, lowest accuracy, ~142MB'
+    label: 'Large v3 Turbo',
+    description: 'Multilingual, ~600MB'
   }
 }
 
-/** Get available Whisper variants */
-export function getWhisperVariants(): Record<WhisperVariant, WhisperVariantConfig> {
-  return WHISPER_VARIANTS
-}
+export const DEFAULT_WHISPER_VARIANT: WhisperVariant = 'large-v3-turbo'
 
 // Global download lock — serializes all model downloads to prevent disk corruption (#208)
 const activeDownloads = new Map<string, Promise<string>>()
 
-export function getModelPath(variant?: WhisperVariant): string {
-  const config = variant ? WHISPER_VARIANTS[variant] : null
-  const filename = config ? config.filename : MODEL_FILENAME
-  return join(getModelsDir(), filename)
+export function getModelPath(variant: WhisperVariant = DEFAULT_WHISPER_VARIANT): string {
+  return join(getModelsDir(), WHISPER_VARIANTS[variant].filename)
 }
 
 export function getModelsDir(): string {
@@ -91,7 +52,7 @@ export function getModelsDir(): string {
   return dir
 }
 
-export function isModelDownloaded(variant?: WhisperVariant): boolean {
+export function isModelDownloaded(variant: WhisperVariant = DEFAULT_WHISPER_VARIANT): boolean {
   return existsSync(getModelPath(variant))
 }
 
@@ -107,132 +68,19 @@ export interface GGUFVariant {
 /** Model size identifier for TranslateGemma */
 export type SLMModelSize = '4b' | '12b'
 
-/** Hunyuan-MT-7B GGUF variants (Mungert quantizations) */
-export const HUNYUAN_MT_VARIANTS: Record<string, GGUFVariant> = {
-  'Q4_K_M': {
-    filename: 'Hunyuan-MT-7B-q4_k_m.gguf',
-    url: 'https://huggingface.co/Mungert/Hunyuan-MT-7B-GGUF/resolve/61e98ae605cc4fe9581fd3ff1052a271843e4d64/Hunyuan-MT-7B-q4_k_m.gguf',
-    sha256: 'c6cb1068db17f851a4dd9e1d2e3217a293a50000e617486e7fd0bfaa05674d88',
-    sizeMB: 4700,
-    label: 'Q4_K_M (Recommended, ~4.7GB)'
-  },
-  'Q8_0': {
-    filename: 'Hunyuan-MT-7B-q8_0.gguf',
-    url: 'https://huggingface.co/Mungert/Hunyuan-MT-7B-GGUF/resolve/61e98ae605cc4fe9581fd3ff1052a271843e4d64/Hunyuan-MT-7B-q8_0.gguf',
-    sha256: 'a956c22ff7fadbf4bcf6baca7c81fdfa549ecff1ea6f4995a2355d97c95a9ab5',
-    sizeMB: 7980,
-    label: 'Q8_0 (Best quality, ~8.0GB)'
-  },
-  'Q3_K_M': {
-    filename: 'Hunyuan-MT-7B-q3_k_m.gguf',
-    url: 'https://huggingface.co/Mungert/Hunyuan-MT-7B-GGUF/resolve/61e98ae605cc4fe9581fd3ff1052a271843e4d64/Hunyuan-MT-7B-q3_k_m.gguf',
-    sha256: '68018c22f27af64cffb1b70d4f92bbc9063e5d63375df79aa52c5f74acabdff9',
-    sizeMB: 3760,
-    label: 'Q3_K_M (Smallest, ~3.8GB)'
-  }
+/**
+ * Hy-MT2-1.8B (Apache-2.0), the translation model on every platform.
+ * Q4_K_M: https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF
+ */
+export const HY_MT2_MODEL: GGUFVariant = {
+  filename: 'Hy-MT2-1.8B-Q4_K_M.gguf',
+  url: 'https://huggingface.co/tencent/Hy-MT2-1.8B-GGUF/resolve/a0c709d9fac510f2c807aa3af52872340dc37a4a/Hy-MT2-1.8B-Q4_K_M.gguf',
+  sha256: 'dc5f44fcf1fa496ee7ad725982c0c8c553a4de00259b53af84c4b89fb0c06699',
+  sizeMB: 1100,
+  label: 'Hy-MT2-1.8B Q4_K_M'
 }
 
-/** Get Hunyuan-MT GGUF variants */
-export function getHunyuanMTVariants(): Record<string, GGUFVariant> {
-  return HUNYUAN_MT_VARIANTS
-}
-
-/** HY-MT1.5-1.8B GGUF variants (official Tencent quantizations) */
-export const HUNYUAN_MT_15_VARIANTS: Record<string, GGUFVariant> = {
-  'Q4_K_M': {
-    filename: 'HY-MT1.5-1.8B-Q4_K_M.gguf',
-    url: 'https://huggingface.co/tencent/HY-MT1.5-1.8B-GGUF/resolve/265b2e615a7dc9b06c435dc878829ad99a512ba2/HY-MT1.5-1.8B-Q4_K_M.gguf',
-    sha256: '4383ac0c3c8e476de98ff979c2a3f069f8c4fb385e7860cf2d28da896cc477c7',
-    sizeMB: 1130,
-    label: 'Q4_K_M (Recommended, ~1.1GB)'
-  },
-  'Q6_K': {
-    filename: 'HY-MT1.5-1.8B-Q6_K.gguf',
-    url: 'https://huggingface.co/tencent/HY-MT1.5-1.8B-GGUF/resolve/265b2e615a7dc9b06c435dc878829ad99a512ba2/HY-MT1.5-1.8B-Q6_K.gguf',
-    sha256: 'c3819200ab9a79cb29b9a05ce8920e2eb01ae7ce520094fc5b57356494f3c641',
-    sizeMB: 1470,
-    label: 'Q6_K (Balanced, ~1.5GB)'
-  },
-  'Q8_0': {
-    filename: 'HY-MT1.5-1.8B-Q8_0.gguf',
-    url: 'https://huggingface.co/tencent/HY-MT1.5-1.8B-GGUF/resolve/265b2e615a7dc9b06c435dc878829ad99a512ba2/HY-MT1.5-1.8B-Q8_0.gguf',
-    sha256: '6789b06d0902f2f5312c0e1703d56ccbddfcfb6c653d22519b7c720f7db9a98e',
-    sizeMB: 1910,
-    label: 'Q8_0 (Best quality, ~1.9GB)'
-  }
-}
-
-/** Get HY-MT1.5-1.8B GGUF variants */
-export function getHunyuanMT15Variants(): Record<string, GGUFVariant> {
-  return HUNYUAN_MT_15_VARIANTS
-}
-
-/** LFM2-350M-ENJP-MT GGUF variants (official Liquid AI quantizations) */
-export const LFM2_VARIANTS: Record<string, GGUFVariant> = {
-  'Q4_K_M': {
-    filename: 'LFM2-350M-ENJP-MT-Q4_K_M.gguf',
-    url: 'https://huggingface.co/LiquidAI/LFM2-350M-ENJP-MT-GGUF/resolve/889c88c3d3681b4f342ae210a1d2a1369aba0e10/LFM2-350M-ENJP-MT-Q4_K_M.gguf',
-    sha256: '574ef7980dd20d69b494bce82565db5f25124d404be02052bbca62277d33077b',
-    sizeMB: 229,
-    label: 'Q4_K_M (Recommended, ~229MB)'
-  },
-  'Q6_K': {
-    filename: 'LFM2-350M-ENJP-MT-Q6_K.gguf',
-    url: 'https://huggingface.co/LiquidAI/LFM2-350M-ENJP-MT-GGUF/resolve/889c88c3d3681b4f342ae210a1d2a1369aba0e10/LFM2-350M-ENJP-MT-Q6_K.gguf',
-    sha256: '309a7dea7e7a543d5fe4d5144e8abcb2ab6b0464655b64eb6339034f7f93280b',
-    sizeMB: 293,
-    label: 'Q6_K (Balanced, ~293MB)'
-  },
-  'Q8_0': {
-    filename: 'LFM2-350M-ENJP-MT-Q8_0.gguf',
-    url: 'https://huggingface.co/LiquidAI/LFM2-350M-ENJP-MT-GGUF/resolve/889c88c3d3681b4f342ae210a1d2a1369aba0e10/LFM2-350M-ENJP-MT-Q8_0.gguf',
-    sha256: '261dbe17e21116329b7d131865f4300e3ddfef584999c8bd90ec7e3d199cba7a',
-    sizeMB: 379,
-    label: 'Q8_0 (Best quality, ~379MB)'
-  }
-}
-
-/** Get LFM2-350M-ENJP-MT GGUF variants */
-export function getLFM2Variants(): Record<string, GGUFVariant> {
-  return LFM2_VARIANTS
-}
-
-/** PLaMo-2-Translate 10B GGUF variants (mmnga quantizations) */
-export const PLAMO_VARIANTS: Record<string, GGUFVariant> = {
-  'Q4_K_S': {
-    filename: 'plamo-2-translate-Q4_K_S.gguf',
-    url: 'https://huggingface.co/mmnga/plamo-2-translate-gguf/resolve/adf2a564beea0e40b411c1c2deffedb7d5b086cf/plamo-2-translate-Q4_K_S.gguf',
-    sha256: 'a495f8ef1cbd24fcfd2d6564e02bee783849677cf4080156a078ebfe447c38a7',
-    sizeMB: 5510,
-    label: 'Q4_K_S (Recommended, ~5.5GB)'
-  },
-  'Q3_K_M': {
-    filename: 'plamo-2-translate-Q3_K_M.gguf',
-    url: 'https://huggingface.co/mmnga/plamo-2-translate-gguf/resolve/adf2a564beea0e40b411c1c2deffedb7d5b086cf/plamo-2-translate-Q3_K_M.gguf',
-    sha256: 'bb4f44bfb09ee455095776f35eec32de796537fe7bda855a605fe841f5704544',
-    sizeMB: 4640,
-    label: 'Q3_K_M (Smallest, ~4.6GB)'
-  },
-  'Q6_K': {
-    filename: 'plamo-2-translate-Q6_K.gguf',
-    url: 'https://huggingface.co/mmnga/plamo-2-translate-gguf/resolve/adf2a564beea0e40b411c1c2deffedb7d5b086cf/plamo-2-translate-Q6_K.gguf',
-    sha256: '4cfe1a86b45ccb34f2c31a98fb5430ed26f43b0316626b2761af83308edf53fa',
-    sizeMB: 7820,
-    label: 'Q6_K (Balanced, ~7.8GB)'
-  },
-  'Q8_0': {
-    filename: 'plamo-2-translate-Q8_0.gguf',
-    url: 'https://huggingface.co/mmnga/plamo-2-translate-gguf/resolve/adf2a564beea0e40b411c1c2deffedb7d5b086cf/plamo-2-translate-Q8_0.gguf',
-    sha256: '3fac34aadc7a3ac6e9afd193f0b9bdd12b9f15bd1e5f0d8428f1077263a9de32',
-    sizeMB: 10100,
-    label: 'Q8_0 (Best quality, ~10.1GB)'
-  }
-}
-
-/** Get PLaMo-2-Translate GGUF variants */
-export function getPLaMoVariants(): Record<string, GGUFVariant> {
-  return PLAMO_VARIANTS
-}
+/** TranslateGemma GGUF variants, used only for meeting summaries */
 
 export const GGUF_VARIANTS_4B: Record<string, GGUFVariant> = {
   'Q4_K_M': {
@@ -292,10 +140,7 @@ export function getGGUFVariants(modelSize: SLMModelSize): Record<string, GGUFVar
 /** Pinned SHA256 for a catalogued GGUF file, so callers that only know the filename still get verification */
 function knownGGUFSha256(filename: string): string | undefined {
   const catalogues = [
-    HUNYUAN_MT_VARIANTS,
-    HUNYUAN_MT_15_VARIANTS,
-    LFM2_VARIANTS,
-    PLAMO_VARIANTS,
+    { hyMt2: HY_MT2_MODEL },
     GGUF_VARIANTS_4B,
     GGUF_VARIANTS_12B
   ]
@@ -335,19 +180,9 @@ export async function downloadGGUF(
     return modelPath
   }
 
-  // Serialize downloads via shared lock (#208)
-  if (activeDownloads.has(filename)) {
-    onProgress?.('Waiting for model download in progress...')
-    return activeDownloads.get(filename)!
-  }
-
-  const downloadPromise = doDownloadWithResume(modelPath, url, filename, onProgress, sha256)
-  activeDownloads.set(filename, downloadPromise)
-  try {
-    return await downloadPromise
-  } finally {
-    activeDownloads.delete(filename)
-  }
+  return withDownloadLock(filename, onProgress, () =>
+    doDownloadWithResume(modelPath, url, filename, onProgress, sha256)
+  )
 }
 
 /** Download with HTTP Range resume support */
@@ -471,32 +306,104 @@ const RETRY_DELAYS = [3_000, 10_000, 30_000]
 
 export async function downloadModel(
   onProgress?: (message: string) => void,
-  variant?: WhisperVariant
+  variant: WhisperVariant = DEFAULT_WHISPER_VARIANT
 ): Promise<string> {
-  const variantConfig = variant ? WHISPER_VARIANTS[variant] : null
+  const config = WHISPER_VARIANTS[variant]
   const modelPath = getModelPath(variant)
-  const filename = variantConfig ? variantConfig.filename : MODEL_FILENAME
-  const url = variantConfig ? variantConfig.url : MODEL_URL
-  const sha256 = variantConfig ? variantConfig.sha256 : MODEL_SHA256
-  const label = variantConfig
-    ? `Whisper ${variantConfig.label} (~${variantConfig.sizeMB}MB)`
-    : 'Whisper model (~540MB)'
-
   if (existsSync(modelPath)) {
     return modelPath
   }
+  return withDownloadLock(config.filename, onProgress, () =>
+    doDownloadWithResume(modelPath, config.url, `Whisper ${config.label} (~${config.sizeMB}MB)`, onProgress, config.sha256)
+  )
+}
 
-  // Serialize downloads via shared lock (#208)
-  if (activeDownloads.has(filename)) {
+/** One file of a multi-file model repository */
+export interface PinnedRepoFile {
+  name: string
+  sha256: string
+}
+
+/** A model that is a directory of files from one Hugging Face commit */
+export interface PinnedRepoModel {
+  repo: string
+  revision: string
+  dirName: string
+  label: string
+  /** Approximate total download size */
+  sizeMB: number
+  files: PinnedRepoFile[]
+}
+
+/**
+ * Qwen3-ASR 0.6B (Apache-2.0) in MLX 8-bit, loaded by the Apple Silicon STT helper.
+ * https://huggingface.co/mlx-community/Qwen3-ASR-0.6B-8bit
+ */
+export const QWEN3_ASR_MODEL: PinnedRepoModel = {
+  repo: 'mlx-community/Qwen3-ASR-0.6B-8bit',
+  revision: '89e96d92ba34aca20b3e29fb10cc284097d1219f',
+  dirName: 'qwen3-asr-0.6b-8bit',
+  label: 'Qwen3-ASR 0.6B (~1GB)',
+  sizeMB: 1000,
+  files: [
+    { name: 'config.json', sha256: '5d104a945fed08728ab010f12bf3ce5ab4d0794bba276d81bff5bd83ae9d2be0' },
+    { name: 'model.safetensors', sha256: 'b5bfe4abc1b4c6e58b633096682ec2b6297298add1527119936107d211adf0e8' },
+    { name: 'model.safetensors.index.json', sha256: 'caa32ece76c395ba241533eb4aceb0efbc72488ef3d8d2fd3c677ce068dad57d' },
+    { name: 'merges.txt', sha256: '8831e4f1a044471340f7c0a83d7bd71306a5b867e95fd870f74d0c5308a904d5' },
+    { name: 'vocab.json', sha256: 'ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910' },
+    { name: 'tokenizer_config.json', sha256: '4942d005604266809309cabc9f4e9cb89ce855d59b14681fdc0e1cc62ea26c4c' },
+    { name: 'preprocessor_config.json', sha256: '45e120a4eda2c20c5d7f2ea9354e63536bf35e27aa573fb7cdf78017b378770d' },
+    { name: 'chat_template.json', sha256: '75a8cfca24f00de72d796fbfed6858fc9614ef3dabd8696684cc3bc03a9c58ff' },
+    { name: 'generation_config.json', sha256: '1da527824d81e07118facff437e03f2e24a23311e3bdeb2368973fe77e5f275c' }
+  ]
+}
+
+export function pinnedRepoFileUrl(model: PinnedRepoModel, file: PinnedRepoFile): string {
+  return `https://huggingface.co/${model.repo}/resolve/${model.revision}/${file.name}`
+}
+
+export function getPinnedRepoDir(model: PinnedRepoModel): string {
+  return join(getModelsDir(), model.dirName)
+}
+
+export function isPinnedRepoDownloaded(model: PinnedRepoModel): boolean {
+  const dir = getPinnedRepoDir(model)
+  return model.files.every((f) => existsSync(join(dir, f.name)))
+}
+
+/** Download every file of a pinned repository model; files already present are kept. */
+export async function downloadPinnedRepo(
+  model: PinnedRepoModel,
+  onProgress?: (message: string) => void
+): Promise<string> {
+  const dir = getPinnedRepoDir(model)
+  if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
+  return withDownloadLock(model.dirName, onProgress, async () => {
+    for (const file of model.files) {
+      const target = join(dir, file.name)
+      if (existsSync(target)) continue
+      await doDownloadWithResume(target, pinnedRepoFileUrl(model, file), `${model.label}: ${file.name}`, onProgress, file.sha256)
+    }
+    return dir
+  })
+}
+
+/** Serialize downloads of the same target through the shared lock (#208) */
+async function withDownloadLock(
+  key: string,
+  onProgress: ((message: string) => void) | undefined,
+  run: () => Promise<string>
+): Promise<string> {
+  const active = activeDownloads.get(key)
+  if (active) {
     onProgress?.('Waiting for model download in progress...')
-    return activeDownloads.get(filename)!
+    return active
   }
-
-  const downloadPromise = doDownloadWithResume(modelPath, url, label, onProgress, sha256)
-  activeDownloads.set(filename, downloadPromise)
+  const downloadPromise = run()
+  activeDownloads.set(key, downloadPromise)
   try {
     return await downloadPromise
   } finally {
-    activeDownloads.delete(filename)
+    activeDownloads.delete(key)
   }
 }

@@ -1,34 +1,42 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+// model-downloader imports electron's app at module load.
+vi.mock('electron', () => ({ app: { getPath: () => '/tmp/live-translate-test', isPackaged: false } }))
 import {
   WHISPER_VARIANTS,
-  HUNYUAN_MT_VARIANTS,
-  HUNYUAN_MT_15_VARIANTS,
-  LFM2_VARIANTS,
-  PLAMO_VARIANTS,
+  HY_MT2_MODEL,
   GGUF_VARIANTS_4B,
   GGUF_VARIANTS_12B,
-  MODEL_URL,
-  MODEL_SHA256
+  QWEN3_ASR_MODEL,
+  pinnedRepoFileUrl
 } from './model-downloader'
 
 const ALL = [
   ...Object.values(WHISPER_VARIANTS),
-  ...Object.values(HUNYUAN_MT_VARIANTS),
-  ...Object.values(HUNYUAN_MT_15_VARIANTS),
-  ...Object.values(LFM2_VARIANTS),
-  ...Object.values(PLAMO_VARIANTS),
+  HY_MT2_MODEL,
   ...Object.values(GGUF_VARIANTS_4B),
   ...Object.values(GGUF_VARIANTS_12B)
 ]
 
+const PINNED_URL = /^https:\/\/huggingface\.co\/[^/]+\/[^/]+\/resolve\/[0-9a-f]{40}\/[^/]+$/
+const SHA256 = /^[0-9a-f]{64}$/
+
 describe('model download pins', () => {
   it.each(ALL.map((v) => [v.filename, v] as const))('%s is pinned to a commit and a SHA256', (_name, v) => {
-    expect(v.url).toMatch(/^https:\/\/huggingface\.co\/[^/]+\/[^/]+\/resolve\/[0-9a-f]{40}\/[^/]+$/)
-    expect(v.sha256).toMatch(/^[0-9a-f]{64}$/)
+    expect(v.url).toMatch(PINNED_URL)
+    expect(v.sha256).toMatch(SHA256)
   })
 
-  it('pins the default model too', () => {
-    expect(MODEL_URL).toMatch(/\/resolve\/[0-9a-f]{40}\//)
-    expect(MODEL_SHA256).toBe(WHISPER_VARIANTS['kotoba-v2.0'].sha256)
+  it.each(QWEN3_ASR_MODEL.files.map((f) => [f.name, f] as const))(
+    'Qwen3-ASR %s is pinned to a commit and a SHA256',
+    (_name, file) => {
+      expect(pinnedRepoFileUrl(QWEN3_ASR_MODEL, file)).toMatch(PINNED_URL)
+      expect(file.sha256).toMatch(SHA256)
+    }
+  )
+
+  it('ships the Qwen3-ASR weights and tokenizer files', () => {
+    const names = QWEN3_ASR_MODEL.files.map((f) => f.name)
+    expect(names).toEqual(expect.arrayContaining(['config.json', 'model.safetensors', 'vocab.json', 'merges.txt']))
   })
 })

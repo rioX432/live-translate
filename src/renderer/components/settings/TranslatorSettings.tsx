@@ -1,21 +1,12 @@
 import React from 'react'
 import { GlossarySettings } from './GlossarySettings'
 import { Section } from './Section'
-import { LLM_ENGINE_MODES, radioLabelStyle } from './shared'
-import type { EngineMode } from './shared'
+import { radioLabelStyle } from './shared'
 
 interface TranslatorSettingsProps {
-  engineMode: EngineMode
-  onEngineModeChange: (v: EngineMode) => void
-  platform: string
   disabled: boolean
   // GPU info
   gpuInfo: { hasGpu: boolean; gpuNames: string[] } | null
-  // SLM options (for Hunyuan-MT)
-  slmKvCacheQuant: boolean
-  onSlmKvCacheQuantChange: (v: boolean) => void
-  slmSpeculativeDecoding: boolean
-  onSlmSpeculativeDecodingChange: (v: boolean) => void
   simulMtEnabled: boolean
   onSimulMtEnabledChange: (v: boolean) => void
   simulMtWaitK: number
@@ -29,15 +20,8 @@ interface TranslatorSettingsProps {
 }
 
 export function TranslatorSettings({
-  engineMode,
-  onEngineModeChange,
-  platform,
   disabled,
   gpuInfo,
-  slmKvCacheQuant,
-  onSlmKvCacheQuantChange,
-  slmSpeculativeDecoding,
-  onSlmSpeculativeDecodingChange,
   simulMtEnabled,
   onSimulMtEnabledChange,
   simulMtWaitK,
@@ -47,139 +31,43 @@ export function TranslatorSettings({
   orgGlossaryTerms,
   onOrgGlossaryTermsChange
 }: TranslatorSettingsProps): React.JSX.Element {
-  const showLlmOptions = LLM_ENGINE_MODES.includes(engineMode)
-
   return (
     <>
-      <Section label="Translation Engine" helpText="Auto picks the best engine for your setup. HY-MT 1.5 is the recommended offline default.">
-        <fieldset role="radiogroup" aria-label="Translation Engine" style={{ border: 'none', margin: 0, padding: 0 }}>
-        <legend style={{ position: 'absolute', width: '1px', height: '1px', overflow: 'hidden', clip: 'rect(0,0,0,0)' }}>Translation Engine</legend>
+      <Section label="Translation" helpText="Translation runs on this device with Hy-MT2 1.8B.">
+        {gpuInfo && !gpuInfo.hasGpu && (
+          <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0' }}>
+            No GPU detected — translation may be slow on CPU-only systems
+          </div>
+        )}
         <label style={radioLabelStyle}>
           <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'auto'}
-            onChange={() => onEngineModeChange('auto')}
+            type="checkbox"
+            checked={simulMtEnabled}
+            onChange={(e) => onSimulMtEnabledChange(e.target.checked)}
             disabled={disabled}
           />
           <div>
-            <div style={{ fontWeight: 500 }}>Auto (Recommended)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Picks the best on-device engine for your hardware</div>
+            <div style={{ fontWeight: 500, fontSize: '12px' }}>Conversational SimulMT</div>
+            <div style={{ fontSize: '11px', color: '#94a3b8' }}>Translate at clause boundaries with KV cache reuse — lower latency than debounced mode</div>
           </div>
         </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-hymt15'}
-            onChange={() => onEngineModeChange('offline-hymt15')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>HY-MT 1.5 (Offline default)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Fast + high quality, 36 languages, ~1GB, runs fully on-device</div>
-          </div>
-        </label>
-        <label style={radioLabelStyle}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'offline-hunyuan-mt'}
-            onChange={() => onEngineModeChange('offline-hunyuan-mt')}
-            disabled={disabled}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Hunyuan-MT 7B (High Quality, GPU recommended)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>WMT25 winner, 33 languages, ~4GB — slower but higher quality</div>
-          </div>
-        </label>
-        {platform === 'darwin' && (
-          <label style={radioLabelStyle}>
-            <input
-              type="radio"
-              name="engine"
-              checked={engineMode === 'offline-apple'}
-              onChange={() => onEngineModeChange('offline-apple')}
-              disabled={disabled}
-            />
-            <div>
-              <div style={{ fontWeight: 500 }}>Apple Translate (Built-in, macOS 15+)</div>
-              <div style={{ fontSize: '12px', color: '#94a3b8' }}>Zero config, on-device, ANE-optimized — no model download</div>
+        {simulMtEnabled && (
+          <div style={{ paddingLeft: '24px', marginTop: '-4px', marginBottom: '4px' }}>
+            <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
+              Wait-k: start after {simulMtWaitK} words/chars
             </div>
-          </label>
+            <input
+              type="range"
+              aria-label="Wait-k value"
+              min={1}
+              max={10}
+              value={simulMtWaitK}
+              onChange={(e) => onSimulMtWaitKChange(Number(e.target.value))}
+              disabled={disabled}
+              style={{ width: '100%' }}
+            />
+          </div>
         )}
-        {/* LLM sub-options for HY-MT 1.5 and Hunyuan-MT 7B */}
-        {showLlmOptions && (
-          <>
-            {gpuInfo && !gpuInfo.hasGpu && (
-              <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 4px 24px' }}>
-                No GPU detected — translation may be slow on CPU-only systems
-              </div>
-            )}
-            <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
-              <input
-                type="checkbox"
-                checked={slmKvCacheQuant}
-                onChange={(e) => onSlmKvCacheQuantChange(e.target.checked)}
-                disabled={disabled}
-              />
-              <div>
-                <div style={{ fontWeight: 500, fontSize: '12px' }}>KV cache quantization (Q8_0)</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>Reduces VRAM ~50%</div>
-              </div>
-            </label>
-            {(engineMode === 'offline-hymt15' || engineMode === 'offline-hunyuan-mt') && (
-              <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
-                <input
-                  type="checkbox"
-                  checked={slmSpeculativeDecoding}
-                  onChange={(e) => onSlmSpeculativeDecodingChange(e.target.checked)}
-                  disabled={disabled}
-                />
-                <div>
-                  <div style={{ fontWeight: 500, fontSize: '12px' }}>Speculative decoding (LFM2 draft)</div>
-                  <div style={{ fontSize: '11px', color: '#94a3b8' }}>
-                    LFM2-350M generates draft tokens, verified by the main model — 1.5-2x faster
-                  </div>
-                  <div style={{ fontSize: '10px', color: '#64748b' }}>
-                    Requires LFM2 model (~230MB). Extra memory: ~230MB on top of the main model.
-                  </div>
-                </div>
-              </label>
-            )}
-            <label style={{ ...radioLabelStyle, paddingLeft: '24px' }}>
-              <input
-                type="checkbox"
-                checked={simulMtEnabled}
-                onChange={(e) => onSimulMtEnabledChange(e.target.checked)}
-                disabled={disabled}
-              />
-              <div>
-                <div style={{ fontWeight: 500, fontSize: '12px' }}>Conversational SimulMT</div>
-                <div style={{ fontSize: '11px', color: '#94a3b8' }}>Translate at clause boundaries with KV cache reuse — lower latency than debounced mode</div>
-              </div>
-            </label>
-            {simulMtEnabled && (
-              <div style={{ paddingLeft: '48px', marginTop: '-4px', marginBottom: '4px' }}>
-                <div style={{ fontSize: '11px', color: '#94a3b8', marginBottom: '4px' }}>
-                  Wait-k: start after {simulMtWaitK} words/chars
-                </div>
-                <input
-                  type="range"
-                  aria-label="Wait-k value"
-                  min={1}
-                  max={10}
-                  value={simulMtWaitK}
-                  onChange={(e) => onSimulMtWaitKChange(Number(e.target.value))}
-                  disabled={disabled}
-                  style={{ width: '100%' }}
-                />
-              </div>
-            )}
-          </>
-        )}
-
-        </fieldset>
       </Section>
 
       <GlossarySettings

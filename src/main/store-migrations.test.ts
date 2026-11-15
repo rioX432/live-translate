@@ -40,14 +40,20 @@ describe('migrateLegacyTranslationEngine (#702)', () => {
     }
   )
 
-  it('leaves supported engine IDs untouched', () => {
-    for (const supported of ['auto', 'offline-hymt15', 'offline-hunyuan-mt', 'offline-apple']) {
-      const fixture = mockStore(supported)
-      const migrated = migrateLegacyTranslationEngine(fixture.store)
-      expect(migrated).toBe(false)
-      expect(fixture.getCurrent()).toBe(supported)
-    }
+  it('leaves auto untouched', () => {
+    const fixture = mockStore('auto')
+    expect(migrateLegacyTranslationEngine(fixture.store)).toBe(false)
+    expect(fixture.getCurrent()).toBe('auto')
   })
+
+  it.each(['offline-hymt15', 'offline-hunyuan-mt', 'offline-apple'])(
+    'maps the replaced engine %s to auto',
+    (replaced) => {
+      const fixture = mockStore(replaced)
+      expect(migrateLegacyTranslationEngine(fixture.store)).toBe(true)
+      expect(fixture.getCurrent()).toBe('auto')
+    }
+  )
 
   it.each(['rotation', 'online', 'online-deepl', 'online-gemini'])(
     'maps removed cloud mode %s to auto',
@@ -68,7 +74,7 @@ describe('migrateLegacyTranslationEngine (#702)', () => {
   })
 
   it('does not call store.set when no migration is needed', () => {
-    const fixture = mockStore('offline-hymt15')
+    const fixture = mockStore('auto')
     migrateLegacyTranslationEngine(fixture.store)
     expect(fixture.setCalls).toBe(0)
   })

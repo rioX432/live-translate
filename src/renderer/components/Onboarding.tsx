@@ -1,86 +1,73 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
-  TIER1_TOTAL_MB,
-  TIER2_TOTAL_MB,
   formatSize,
+  isDownloading,
   nextStep,
-  pickInitialStep,
   type DownloadStatus,
   type OnboardingStep
 } from './onboarding-steps'
 
 interface OnboardingProps {
-  /** Called once when the user finishes (or skips through) both steps. */
+  /** Called once when the user finishes (or skips) onboarding. */
   onComplete: () => void
 }
 
 interface DownloadState {
   status: DownloadStatus
   progress: number
-  tier1Ready: boolean
-  tier2Ready: boolean
+  ready: boolean
+  label: string
+  sizeMB: number
   error?: string
 }
 
 /**
- * Two-step first-run onboarding (#708):
- *  1. Quick Start         — Tier 1 (Whisper Base + LFM2 350M, ~371MB)
- *                           "Ready to translate in moments"
- *  2. Quality Upgrade     — Tier 2 (Kotoba Whisper + HY-MT1.5 1.8B, ~1.6GB)
- *                           Downloads in background; auto-switches when ready
- *
- * Every step is skippable.
+ * First-run onboarding: one download of the speech and translation models main selected
+ * for this platform. Skippable — the pipeline downloads missing models on start anyway.
  */
 export function Onboarding({ onComplete }: OnboardingProps): React.JSX.Element | null {
   const [step, setStep] = useState<OnboardingStep | null>(null)
   const [download, setDownload] = useState<DownloadState>({
     status: 'idle',
     progress: 0,
-    tier1Ready: false,
-    tier2Ready: false
+    ready: false,
+    label: '',
+    sizeMB: 0
   })
   const [startError, setStartError] = useState<string | null>(null)
 
-  // Bootstrap: load current onboarding status
   useEffect(() => {
     let cancelled = false
     window.api
       .onboardingGetStatus()
-      .then((status) => {
+      .then((s) => {
         if (cancelled) return
-        const s = status as unknown as DownloadState
         setDownload({
-          status: s.status,
+          status: s.status as DownloadStatus,
           progress: s.progress ?? 0,
-          tier1Ready: !!s.tier1Ready,
-          tier2Ready: !!s.tier2Ready
+          ready: !!s.tier1Ready,
+          label: s.currentLabel,
+          sizeMB: s.currentTierSizeMB
         })
-        setStep(
-          pickInitialStep({
-            tier1Ready: !!s.tier1Ready,
-            tier2Ready: !!s.tier2Ready,
-            status: s.status
-          })
-        )
+        setStep('download')
       })
       .catch((err: unknown) => {
         const message = err instanceof Error ? err.message : String(err)
         console.warn('[onboarding] Failed to load initial state:', message)
-        if (!cancelled) setStep('quick-start')
+        if (!cancelled) setStep('download')
       })
     return () => {
       cancelled = true
     }
   }, [])
 
-  // Subscribe to live download progress so each step reflects current state
   useEffect(() => {
     const unsub = window.api.onOnboardingDownloadProgress((data) => {
       setDownload((prev) => ({
+        ...prev,
         status: (data.status as DownloadStatus) ?? prev.status,
         progress: data.progress ?? prev.progress,
-        tier1Ready: data.tier1Ready ?? prev.tier1Ready,
-        tier2Ready: data.tier2Ready ?? prev.tier2Ready,
+        ready: data.tier1Ready ?? prev.ready,
         error: data.error
       }))
     })
@@ -90,34 +77,21 @@ export function Onboarding({ onComplete }: OnboardingProps): React.JSX.Element |
   }, [])
 
   const advance = useCallback((from: OnboardingStep) => {
-    const target = nextStep(from)
-    if (target === 'done') {
+    if (nextStep(from) === 'done') {
       window.api.quickStartSkip().catch(() => {
         // best-effort: don't block completion
       })
       onComplete()
-    } else {
-      setStep(target)
     }
   }, [onComplete])
 
-  const handleStartTier1 = useCallback(async () => {
+  const handleStart = useCallback(async () => {
     setStartError(null)
     try {
-      // Triggers Tier 1 download, then Tier 2 in background automatically
       await window.api.onboardingStartDownload()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
       setStartError(message)
-    }
-  }, [])
-
-  const handleSwitchToTier1Now = useCallback(async () => {
-    try {
-      await window.api.onboardingSwitchToLocal()
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err)
-      console.warn('[onboarding] Failed to activate Tier 1 engine:', message)
     }
   }, [])
 
@@ -126,84 +100,40 @@ export function Onboarding({ onComplete }: OnboardingProps): React.JSX.Element |
     return <div style={shellStyle} aria-busy="true" />
   }
 
+  const downloading = isDownloading(download.status)
+  const sizeLabel = download.sizeMB > 0 ? ` (${formatSize(download.sizeMB)})` : ''
+
   return (
     <div style={shellStyle}>
       <header style={headerStyle}>
         <h2 style={titleStyle}>Welcome to live-translate</h2>
         <p style={subtitleStyle}>
-          Two quick steps to set up local-first translation. Skip anything you do not need.
+          Translation runs entirely on this computer. Download the models once to get started.
         </p>
-        <StepIndicator current={step} />
       </header>
 
-      {step === 'quick-start' && (
-        <StepCard
-          number={1}
-          title="Quick Start"
-          subtitle={`Whisper Base + LFM2 350M (${formatSize(TIER1_TOTAL_MB)})`}
-          description="Smallest viable speech-to-text and translation models for an instant offline start. Ready to translate in moments after download."
-          status={download.status}
-          progress={download.progress}
-          isDownloading={download.status === 'downloading-tier1'}
-          isReady={download.tier1Ready}
-          error={startError ?? download.error}
-        >
-          {!download.tier1Ready && download.status !== 'downloading-tier1' && (
-            <PrimaryButton onClick={handleStartTier1}>
-              Download & start ({formatSize(TIER1_TOTAL_MB)})
-            </PrimaryButton>
-          )}
-          {download.status === 'downloading-tier1' && (
-            <p style={hintStyle}>
-              Downloading… {download.progress}% complete. You can continue to the next step.
-            </p>
-          )}
-          {download.tier1Ready && (
-            <>
-              <p style={readyStyle}>Ready — translation can start immediately.</p>
-              <PrimaryButton onClick={handleSwitchToTier1Now}>
-                Use Quick Start now
-              </PrimaryButton>
-            </>
-          )}
-          <SkipButton onClick={() => advance('quick-start')}>
-            {download.tier1Ready ? 'Next: Quality upgrade' : 'Skip — continue'}
-          </SkipButton>
-        </StepCard>
-      )}
-
-      {step === 'quality-upgrade' && (
-        <StepCard
-          number={2}
-          title="Quality Upgrade"
-          subtitle={`Kotoba Whisper + HY-MT1.5 1.8B (${formatSize(TIER2_TOTAL_MB)})`}
-          description="Higher-accuracy Japanese-optimized speech-to-text and translation. Downloads in the background — live-translate switches to high-quality mode automatically when ready."
-          status={download.status}
-          progress={download.progress}
-          isDownloading={download.status === 'downloading-tier2'}
-          isReady={download.tier2Ready}
-          error={download.error}
-        >
-          {download.tier2Ready && (
-            <p style={readyStyle}>
-              Full-quality models ready. live-translate will use them on the next session.
-            </p>
-          )}
-          {download.status === 'downloading-tier2' && !download.tier2Ready && (
-            <p style={hintStyle}>
-              Downloading in background… {download.progress}% complete. Translation keeps working with Quick Start.
-            </p>
-          )}
-          {!download.tier2Ready && download.status !== 'downloading-tier2' && (
-            <p style={hintStyle}>
-              Background download will start once Quick Start finishes. No action needed.
-            </p>
-          )}
-          <SkipButton onClick={() => advance('quality-upgrade')}>
-            Finish
-          </SkipButton>
-        </StepCard>
-      )}
+      <StepCard
+        number={1}
+        title="Download models"
+        subtitle={`${download.label}${sizeLabel}`}
+        description="Speech recognition and translation models chosen for this computer. After the download, translation works offline."
+        progress={download.progress}
+        isDownloading={downloading}
+        error={startError ?? download.error}
+      >
+        {!download.ready && !downloading && (
+          <PrimaryButton onClick={handleStart}>Download{sizeLabel}</PrimaryButton>
+        )}
+        {downloading && (
+          <p style={hintStyle}>Downloading… {download.progress}% complete.</p>
+        )}
+        {download.ready && (
+          <p style={readyStyle}>Ready — translation can start immediately.</p>
+        )}
+        <SkipButton onClick={() => advance('download')}>
+          {download.ready ? 'Finish' : 'Skip for now'}
+        </SkipButton>
+      </StepCard>
     </div>
   )
 }
@@ -212,43 +142,13 @@ export function Onboarding({ onComplete }: OnboardingProps): React.JSX.Element |
 // Subcomponents
 // ---------------------------------------------------------------------------
 
-function StepIndicator({ current }: { current: OnboardingStep }): React.JSX.Element {
-  const steps: { id: OnboardingStep; label: string }[] = [
-    { id: 'quick-start', label: '1. Quick Start' },
-    { id: 'quality-upgrade', label: '2. Quality' }
-  ]
-  return (
-    <nav aria-label="Onboarding progress" style={indicatorWrapStyle}>
-      {steps.map((s) => {
-        const active = s.id === current
-        return (
-          <span
-            key={s.id}
-            style={{
-              ...indicatorPillStyle,
-              background: active ? '#1e3a8a' : '#1e293b',
-              color: active ? '#bfdbfe' : '#94a3b8',
-              borderColor: active ? '#3b82f6' : '#334155'
-            }}
-            aria-current={active ? 'step' : undefined}
-          >
-            {s.label}
-          </span>
-        )
-      })}
-    </nav>
-  )
-}
-
 interface StepCardProps {
   number: number
   title: string
   subtitle: string
   description: string
-  status?: DownloadStatus
   progress?: number
   isDownloading?: boolean
-  isReady?: boolean
   error?: string
   children: React.ReactNode
 }
@@ -358,21 +258,6 @@ const subtitleStyle: React.CSSProperties = {
   color: '#94a3b8',
   lineHeight: 1.5,
   marginBottom: '14px'
-}
-
-const indicatorWrapStyle: React.CSSProperties = {
-  display: 'flex',
-  gap: '8px',
-  flexWrap: 'wrap'
-}
-
-const indicatorPillStyle: React.CSSProperties = {
-  display: 'inline-block',
-  padding: '4px 10px',
-  fontSize: '11px',
-  fontWeight: 600,
-  borderRadius: '999px',
-  border: '1px solid #334155'
 }
 
 const cardStyle: React.CSSProperties = {

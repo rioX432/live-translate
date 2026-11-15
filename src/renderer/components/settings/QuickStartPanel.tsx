@@ -11,16 +11,7 @@ interface QuickStartPanelProps {
   onSetupComplete: () => void
 }
 
-interface Recommendation {
-  sttEngine: string
-  translationEngine: string
-  whisperVariant: string
-  downloads: Array<{ type: string; filename: string; url: string; sizeMB: number; label: string }>
-  totalDownloadMB: number
-  needsDownload: boolean
-  fallbackEngine: string | null
-  reason: string
-}
+type Recommendation = Awaited<ReturnType<Window['api']['quickStartRecommend']>>
 
 interface SystemInfo {
   platform: string
@@ -57,11 +48,7 @@ export function QuickStartPanel({ onSetupComplete }: QuickStartPanelProps): Reac
     if (!recommendation) return
     setPhase('applying')
     try {
-      await window.api.quickStartApply({
-        sourceLanguage,
-        targetLanguage,
-        recommendation
-      })
+      await window.api.quickStartApply({ sourceLanguage, targetLanguage })
       setPhase('done')
       onSetupComplete()
     } catch (err) {
@@ -149,10 +136,12 @@ export function QuickStartPanel({ onSetupComplete }: QuickStartPanelProps): Reac
               </span>
             </div>
           )}
-          {recommendation.needsDownload && recommendation.fallbackEngine && (
-            <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '6px' }}>
-              Translation will start immediately using a lightweight fallback while models download.
-            </div>
+          {recommendation.needsDownload && (
+            <ul style={{ fontSize: '11px', color: '#94a3b8', margin: '6px 0 0', paddingLeft: '16px' }}>
+              {recommendation.downloads.map((d) => (
+                <li key={d.key}>{d.label} ({d.sizeMB}MB)</li>
+              ))}
+            </ul>
           )}
         </div>
       )}

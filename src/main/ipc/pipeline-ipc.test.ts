@@ -47,6 +47,7 @@ vi.mock('../error-utils', () => ({ sanitizeErrorMessage: (m: string) => m }))
 vi.mock('../../engines/translator/glossary-manager', () => ({ mergeGlossaries: () => [] }))
 
 import type { AppContext } from '../app-context'
+import { selectEngines } from '../../engines/engine-selection'
 
 function makeCtx(): AppContext {
   const pipeline = {
@@ -55,7 +56,6 @@ function makeCtx(): AppContext {
     setGlossary: vi.fn(),
     setLanguageConfig: vi.fn(),
     setSimulMt: vi.fn(),
-    setDraftSttEnabled: vi.fn(),
     setDiarizationEnabled: vi.fn(),
     start: vi.fn(),
     stop: vi.fn().mockResolvedValue(undefined)
@@ -64,6 +64,8 @@ function makeCtx(): AppContext {
 }
 
 const config = { mode: 'cascade', sttEngineId: 'stt', translatorEngineId: 'tr' }
+const selection = selectEngines(process.platform, process.arch)
+const selectedConfig = { mode: 'cascade', sttEngineId: selection.sttEngine, translatorEngineId: selection.translatorEngine }
 
 describe('pipeline-start privacy defaults', () => {
   let ctx: AppContext
@@ -98,6 +100,21 @@ describe('pipeline-start privacy defaults', () => {
   it('persists activeSession only after sessionRecoveryEnabled is enabled', async () => {
     store.set('sessionRecoveryEnabled', true)
     await handlers.get('pipeline-start')!(null, { ...config })
-    expect(store.get('activeSession')).toMatchObject({ config })
+    expect(store.get('activeSession')).toMatchObject({ config: selectedConfig })
+  })
+})
+
+describe('pipeline-start engine selection', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    handlers.clear()
+  })
+
+  it('starts the platform engines whatever IDs the renderer sent', async () => {
+    const { registerPipelineIpc } = await import('./pipeline-ipc')
+    const ctx = makeCtx()
+    registerPipelineIpc(ctx)
+    await handlers.get('pipeline-start')!(null, { mode: 'e2e', e2eEngineId: 'removed', sttEngineId: 'apple-speech-transcriber' })
+    expect(ctx.pipeline!.switchEngine).toHaveBeenCalledWith(expect.objectContaining(selectedConfig))
   })
 })

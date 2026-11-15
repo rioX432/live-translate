@@ -5,7 +5,6 @@ import type {
   E2ETranslationEngine,
   SpeakerDiarizer
 } from '../engines/types'
-import { HybridTranslator } from '../engines/translator/HybridTranslator'
 import type { EventEmitter } from 'events'
 import { createLogger } from '../main/logger'
 
@@ -26,7 +25,6 @@ export class EngineManager {
   sttEngine: STTEngine | null = null
   translator: TranslatorEngine | null = null
   e2eEngine: E2ETranslationEngine | null = null
-  draftSttEngine: STTEngine | null = null
   /** Speaker diarizer for multi-speaker identification (#549) */
   diarizer: SpeakerDiarizer | null = null
   config: EngineConfig | null = null
@@ -74,13 +72,6 @@ export class EngineManager {
         emitter.emit('engine-loading', 'Initializing translator...')
         this.translator = await Promise.resolve(translatorFactory())
         await this.withTimeout(this.translator.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Translator initialization')
-
-        // Wire up draft callback for hybrid translator (#235)
-        if (this.translator instanceof HybridTranslator) {
-          this.translator.setOnDraft((draft) => {
-            emitter.emit('draft-result', draft)
-          })
-        }
       } catch (err) {
         await this.disposeEngines()
         throw err
@@ -96,19 +87,6 @@ export class EngineManager {
       this.e2eEngine = await Promise.resolve(e2eFactory())
       await this.withTimeout(this.e2eEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'E2E engine initialization')
     }
-  }
-
-  /**
-   * Initialize the draft STT engine for fast interim results (#536).
-   * Called separately from initializeEngines since draft STT is optional.
-   */
-  async initDraftStt(engineId: string, emitter: EventEmitter): Promise<void> {
-    const factory = this.sttFactories.get(engineId)
-    if (!factory) throw new Error(`Draft STT engine not found: ${engineId}`)
-
-    emitter.emit('engine-loading', 'Loading draft STT model...')
-    this.draftSttEngine = await Promise.resolve(factory())
-    await this.withTimeout(this.draftSttEngine.initialize(), ENGINE_INIT_TIMEOUT_MS, 'Draft STT initialization')
   }
 
   /**
@@ -128,13 +106,11 @@ export class EngineManager {
   /** Dispose all active engines and clear references */
   async disposeEngines(): Promise<void> {
     const engines: Array<{ dispose(): Promise<void> } | null> = [
-      this.sttEngine, this.translator, this.e2eEngine,
-      this.draftSttEngine, this.diarizer
+      this.sttEngine, this.translator, this.e2eEngine, this.diarizer
     ]
     this.sttEngine = null
     this.translator = null
     this.e2eEngine = null
-    this.draftSttEngine = null
     this.diarizer = null
 
     for (const engine of engines) {

@@ -1,6 +1,6 @@
 import { app, ipcMain } from 'electron'
-import { isGGUFDownloaded, getGGUFVariants, getHunyuanMTVariants, getHunyuanMT15Variants, getWhisperVariants, isModelDownloaded as isWhisperModelDownloaded } from '../../engines/model-downloader'
-import type { SLMModelSize, WhisperVariant } from '../../engines/model-downloader'
+import { isGGUFDownloaded, getGGUFVariants } from '../../engines/model-downloader'
+import type { SLMModelSize } from '../../engines/model-downloader'
 import { detectGpu } from '../../engines/gpu-detector'
 import { listPlugins } from '../../engines/plugin-loader'
 import { store } from '../store'
@@ -25,49 +25,8 @@ export function registerModelIpc(): void {
     return draftVariantConfig ? isGGUFDownloaded(draftVariantConfig.filename) : false
   })
 
-  ipcMain.handle('get-hunyuan-mt-variants', () => {
-    const variants = getHunyuanMTVariants()
-    return Object.entries(variants).map(([key, v]) => ({
-      key,
-      label: v.label,
-      filename: v.filename,
-      sizeMB: v.sizeMB,
-      downloaded: isGGUFDownloaded(v.filename)
-    }))
-  })
-
-  ipcMain.handle('get-hunyuan-mt-15-variants', () => {
-    const variants = getHunyuanMT15Variants()
-    return Object.entries(variants).map(([key, v]) => ({
-      key,
-      label: v.label,
-      filename: v.filename,
-      sizeMB: v.sizeMB,
-      downloaded: isGGUFDownloaded(v.filename)
-    }))
-  })
-
-  ipcMain.handle('get-whisper-variants', () => {
-    const variants = getWhisperVariants()
-    return Object.entries(variants).map(([key, v]) => ({
-      key,
-      label: v.label,
-      description: v.description,
-      filename: v.filename,
-      sizeMB: v.sizeMB,
-      downloaded: isWhisperModelDownloaded(key as WhisperVariant)
-    }))
-  })
-
   // Packaged builds never load plugins, so there is nothing to list
   ipcMain.handle('list-plugins', () => (app.isPackaged ? [] : listPlugins()))
   ipcMain.handle('detect-gpu', async () => detectGpu())
   ipcMain.handle('get-platform', () => process.platform)
-
-  // macOS version detection for feature gating (e.g., Apple SpeechTranscriber requires macOS 26+)
-  ipcMain.handle('get-macos-version', () => {
-    if (process.platform !== 'darwin') return null
-    // process.getSystemVersion() returns e.g. "26.0.0" for macOS 26 (Tahoe)
-    return process.getSystemVersion?.() ?? null
-  })
 }

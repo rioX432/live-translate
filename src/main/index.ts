@@ -2,27 +2,8 @@ import { app, protocol, net } from 'electron'
 import { initMain as initAudioLoopback } from 'electron-audio-loopback'
 import { TranslationPipeline } from '../pipeline/TranslationPipeline'
 import { WhisperLocalEngine } from '../engines/stt/WhisperLocalEngine'
-import { MlxWhisperEngine } from '../engines/stt/MlxWhisperEngine'
-import { KotobaWhisperEngine } from '../engines/stt/KotobaWhisperEngine'
-import { SenseVoiceEngine } from '../engines/stt/SenseVoiceEngine'
-import { SherpaOnnxEngine } from '../engines/stt/SherpaOnnxEngine'
-import { SenseVoiceSherpaEngine } from '../engines/stt/SenseVoiceSherpaEngine'
-import { SpeechSwiftEngine } from '../engines/stt/SpeechSwiftEngine'
-import { AppleSpeechTranscriberEngine } from '../engines/stt/AppleSpeechTranscriberEngine'
 import { Qwen3ASREngine } from '../engines/stt/Qwen3ASREngine'
-import { MoonshineTinyJaEngine } from '../engines/stt/MoonshineTinyJaEngine'
-import { QwenAsrNativeEngine } from '../engines/stt/QwenAsrNativeEngine'
-import { CarelessWhisperEngine } from '../engines/stt/CarelessWhisperEngine'
-import { OpusMTTranslator } from '../engines/translator/OpusMTTranslator'
-import { SLMTranslator } from '../engines/translator/SLMTranslator'
-import { HunyuanMTTranslator } from '../engines/translator/HunyuanMTTranslator'
-import { HunyuanMT15Translator } from '../engines/translator/HunyuanMT15Translator'
-import { LFM2Translator } from '../engines/translator/LFM2Translator'
-import { PLaMoTranslator } from '../engines/translator/PLaMoTranslator'
-import { ANETranslator } from '../engines/translator/ANETranslator'
-import { AppleTranslator } from '../engines/translator/AppleTranslator'
-import { OnnxWebTranslator } from '../engines/translator/OnnxWebTranslator'
-import { HybridTranslator } from '../engines/translator/HybridTranslator'
+import { HyMT2Translator } from '../engines/translator/HyMT2Translator'
 import { FluidAudioDiarizer } from '../engines/diarization/FluidAudioDiarizer'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { store } from './store'
@@ -42,9 +23,8 @@ import { TTSManager } from './tts-manager'
 import { VirtualMicManager } from './virtual-mic-manager'
 import { loadMdmConfig } from './mdm-config'
 import { trackTranslatedCharacters } from './ipc/pipeline-ipc'
-import { startOnboardingDownload, isTier1Ready, isTier2Ready } from './onboarding-downloader'
+import { startOnboardingDownload, isTier1Ready } from './onboarding-downloader'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
-import type { WhisperVariant } from '../engines/model-downloader'
 
 const log = createLogger('main')
 
@@ -62,136 +42,13 @@ async function initPipeline(): Promise<void> {
 
   ctx.pipeline = new TranslationPipeline()
 
-  // Register STT engines
-  ctx.pipeline.registerSTT('whisper-local', () => new WhisperLocalEngine({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    modelVariant: (store.get('whisperVariant') as WhisperVariant) || undefined
-  }))
-  // mlx-whisper is Apple Silicon only — skip registration on other platforms
-  if (process.platform === 'darwin') {
-    ctx.pipeline.registerSTT('mlx-whisper', () => new MlxWhisperEngine({
-      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-    }))
-    // Kotoba-Whisper v2.0: JA-optimized MLX Whisper variant (JA CER 5.6%, JA-only output)
-    ctx.pipeline.registerSTT('kotoba-whisper', () => new KotobaWhisperEngine({
-      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-    }))
+  const onProgress = (msg: string): void => { ctx.mainWindow?.webContents.send('status-update', msg) }
+  // One engine per role; selectEngines() decides which of the two STT engines a platform uses.
+  ctx.pipeline.registerSTT('whisper-local', () => new WhisperLocalEngine({ onProgress }))
+  if (process.platform === 'darwin' && process.arch === 'arm64') {
+    ctx.pipeline.registerSTT('qwen3-asr', () => new Qwen3ASREngine({ onProgress }))
   }
-  // Experimental: requires Python funasr — not shown in default UI
-  ctx.pipeline.registerSTT('sensevoice', () => new SenseVoiceEngine({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-  }))
-  // Experimental: requires native addon — not shown in default UI
-  ctx.pipeline.registerSTT('sherpa-onnx', () => new SherpaOnnxEngine({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    modelKey: (store.get('sherpaOnnxModel') as string) || undefined
-  }))
-  // SenseVoice Small via sherpa-onnx — ultra-fast CJK STT, no Python (#554, #692)
-  // Primary candidate: ~70ms for 10s audio, 229MB int8 model, pending benchmark validation
-  ctx.pipeline.registerSTT('sensevoice-sherpa', () => new SenseVoiceSherpaEngine({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-  }))
-  // Qwen3-ASR 0.6B via speech-swift — Apple Silicon only, primary engine
-  if (process.platform === 'darwin') {
-    ctx.pipeline.registerSTT('qwen3-asr', () => new Qwen3ASREngine({
-      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-    }))
-  }
-  // Experimental: requires speech-swift binary (Homebrew) — Apple Silicon only, not shown in UI
-  if (process.platform === 'darwin') {
-    ctx.pipeline.registerSTT('speech-swift', () => new SpeechSwiftEngine({
-      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-    }))
-  }
-  // Apple SpeechTranscriber (macOS 26+) — primary on Tahoe, zero model management, ANE-native (#548)
-  if (process.platform === 'darwin') {
-    ctx.pipeline.registerSTT('apple-speech-transcriber', () => new AppleSpeechTranscriberEngine({
-      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-    }))
-  }
-  // Moonshine Tiny JA: ultra-fast draft STT for Japanese interim results (#536)
-  // Not a primary engine — used as draft STT alongside the primary STT
-  ctx.pipeline.registerSTT('moonshine-tiny-ja', () => new MoonshineTinyJaEngine({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-  }))
-  // Experimental: Qwen3-ASR via antirez/qwen-asr pure C — cross-platform, no Python/Swift (#545)
-  ctx.pipeline.registerSTT('qwen-asr-native', () => new QwenAsrNativeEngine({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-  }))
-  // Experimental: CarelessWhisper — causal streaming Whisper via LoRA, <300ms chunks (#555)
-  ctx.pipeline.registerSTT('careless-whisper', () => new CarelessWhisperEngine({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    modelSize: (store.get('carelessWhisperModel') as string) || undefined,
-    chunkSizeMs: (store.get('carelessWhisperChunkMs') as number) || undefined
-  }))
-  // Register translator engines
-  // ONNX-based OPUS-MT — legacy fallback for low-memory systems and while downloading LLM models
-  ctx.pipeline.registerTranslator('opus-mt', () => new OpusMTTranslator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-  }))
-  // Experimental: TranslateGemma ~8s/sentence — too slow for real-time, kept for hybrid mode
-  ctx.pipeline.registerTranslator('slm-translate', () => new SLMTranslator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant'),
-    modelSize: store.get('slmModelSize'),
-    speculativeDecoding: store.get('slmSpeculativeDecoding')
-  }))
-  ctx.pipeline.registerTranslator('hunyuan-mt', () => new HunyuanMTTranslator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant'),
-    speculativeDecoding: store.get('slmSpeculativeDecoding')
-  }))
-  // LFM2-350M ultra-fast JA↔EN translator — 350M params, ~230MB
-  ctx.pipeline.registerTranslator('lfm2', () => new LFM2Translator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant')
-  }))
-  // PLaMo-2-Translate 10B quality translator — Japan Gov "Gennai" adopted, ~5.5GB
-  ctx.pipeline.registerTranslator('plamo', () => new PLaMoTranslator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant')
-  }))
-  // HY-MT1.5-1.8B — fast default offline translator (#544), replaces OPUS-MT
-  ctx.pipeline.registerTranslator('hunyuan-mt-15', () => new HunyuanMT15Translator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant'),
-    speculativeDecoding: store.get('slmSpeculativeDecoding')
-  }))
-  // ANEMLL Apple Neural Engine translator — macOS Apple Silicon only (#241) — experimental
-  if (process.platform === 'darwin') {
-    ctx.pipeline.registerTranslator('ane-translate', () => new ANETranslator({
-      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-    }))
-  }
-  // Apple Translation framework — macOS 15+ (Sequoia), zero-config, on-device (#557)
-  if (process.platform === 'darwin') {
-    ctx.pipeline.registerTranslator('apple-translate', () => new AppleTranslator({
-      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-    }))
-  }
-  // Experimental: NLLB-200 600M via ONNX Runtime Web — WebGPU/WASM fallback translator (#556)
-  ctx.pipeline.registerTranslator('onnx-web', () => new OnnxWebTranslator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-  }))
-  // Hybrid translator: OPUS-MT instant draft + TranslateGemma refinement (#235)
-  ctx.pipeline.registerTranslator('hybrid', () => new HybridTranslator(
-    new OpusMTTranslator({
-      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg)
-    }),
-    new SLMTranslator({
-      onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-      kvCacheQuant: store.get('slmKvCacheQuant'),
-      modelSize: store.get('slmModelSize'),
-      speculativeDecoding: store.get('slmSpeculativeDecoding')
-    })
-  ))
-  // Speculative decoding: LFM2-350M draft + HY-MT1.5-1.8B verifier (#518)
-  // Token-level speculative decoding for 1.5-2x throughput improvement
-  ctx.pipeline.registerTranslator('speculative-hybrid', () => new HunyuanMT15Translator({
-    onProgress: (msg) => ctx.mainWindow?.webContents.send('status-update', msg),
-    kvCacheQuant: store.get('slmKvCacheQuant'),
-    speculativeDecoding: true
-  }))
+  ctx.pipeline.registerTranslator('hy-mt2', () => new HyMT2Translator({ onProgress }))
   // Register speaker diarizer — experimental, macOS only, requires FluidAudio (#549)
   if (process.platform === 'darwin') {
     ctx.pipeline.registerDiarizer('fluid-audio', () => new FluidAudioDiarizer({
@@ -242,18 +99,6 @@ async function initPipeline(): Promise<void> {
 
   // Forward interim (streaming) results to subtitle window
   ctx.pipeline.on('interim-result', (result: TranslationResult) => {
-    ctx.subtitleWindow?.webContents.send('interim-result', result)
-    ctx.mainWindow?.webContents.send('interim-result', result)
-  })
-
-  // Forward draft results from hybrid translation (#235)
-  ctx.pipeline.on('draft-result', (result: TranslationResult) => {
-    ctx.subtitleWindow?.webContents.send('draft-result', result)
-    ctx.mainWindow?.webContents.send('draft-result', result)
-  })
-
-  // Forward draft STT interim results (#536)
-  ctx.pipeline.on('draft-stt-result', (result: TranslationResult) => {
     ctx.subtitleWindow?.webContents.send('interim-result', result)
     ctx.mainWindow?.webContents.send('interim-result', result)
   })
@@ -382,26 +227,16 @@ app.whenReady().then(async () => {
   cleanupShortcuts = registerGlobalShortcuts(ctx)
   initAutoUpdater(ctx)
 
-  // #694: Start progressive model download for instant offline start
-  // Tier 1 (fast-start ~371MB) downloads first, Tier 2 (full-quality) follows
+  // #694: fetch the default engine models on first run so the first start works offline.
   if (store.get('isFirstRun') && !isTier1Ready()) {
     // Delay to avoid competing with app startup I/O
     setTimeout(() => {
       startOnboardingDownload(ctx.mainWindow).then((engineMode) => {
-        if (engineMode) {
-          log.info(`Tier 1 models ready: ${engineMode} — basic offline translation available`)
-        }
+        if (engineMode) log.info(`Default models ready: ${engineMode}`)
       }).catch((err) => {
-        log.error('Progressive model download failed:', err)
+        log.error('Model download failed:', err)
       })
     }, 5000)
-  } else if (store.get('isFirstRun') && isTier1Ready() && !isTier2Ready()) {
-    // Tier 1 is ready but Tier 2 still needs downloading — resume in background
-    setTimeout(() => {
-      startOnboardingDownload(ctx.mainWindow).catch((err) => {
-        log.error('Tier 2 background download failed:', err)
-      })
-    }, 10000)
   }
 })
 

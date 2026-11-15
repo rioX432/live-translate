@@ -1,49 +1,47 @@
 import { transcribe } from '@kutalia/whisper-node-addon'
 import { getModelPath, isModelDownloaded, downloadModel } from '../model-downloader'
-import type { WhisperVariant } from '../model-downloader'
 import { filterWhisperHallucination } from '../../pipeline/whisper-filter'
 import type { STTEngine, STTResult, Language } from '../types'
 import { createLogger } from '../../main/logger'
 
 const log = createLogger('whisper-local')
 
+const LANGUAGES: ReadonlySet<string> = new Set<Language>([
+  'ja', 'en', 'zh', 'ko', 'fr', 'de', 'es', 'pt', 'ru', 'it', 'nl', 'pl', 'ar', 'th', 'vi', 'id'
+])
+
+/** Whisper reports ISO 639-1 codes; codes the app does not support return null. */
+export function mapWhisperLanguage(code: unknown): Language | null {
+  return typeof code === 'string' && LANGUAGES.has(code) ? (code as Language) : null
+}
+
+/**
+ * whisper.cpp large-v3-turbo through @kutalia/whisper-node-addon. This is the STT on
+ * platforms where Qwen3-ASR (MLX, Apple Silicon only) cannot run: Windows and Intel Macs.
+ */
 export class WhisperLocalEngine implements STTEngine {
   readonly id = 'whisper-local'
-  readonly name: string
+  readonly name = 'Whisper Local (large-v3-turbo)'
   readonly isOffline = true
 
   private modelPath = ''
   private onProgress?: (message: string) => void
-  private modelVariant?: WhisperVariant
 
   // Promise-based mutex — queues callers so only one transcribe() runs at a time (#363)
   private mutex: Promise<void> = Promise.resolve()
 
-  constructor(options?: { onProgress?: (message: string) => void; modelVariant?: WhisperVariant }) {
+  constructor(options?: { onProgress?: (message: string) => void }) {
     this.onProgress = options?.onProgress
-    this.modelVariant = options?.modelVariant
-    const variantNames: Record<string, string> = {
-      'large-v3-turbo': 'large-v3-turbo',
-      'base': 'base',
-      'small': 'small'
-    }
-    const variantLabel = this.modelVariant ? variantNames[this.modelVariant] : null
-    this.name = variantLabel
-      ? `Whisper Local (${variantLabel})`
-      : 'Whisper Local (kotoba-whisper-v2.0)'
   }
 
   async initialize(): Promise<void> {
     if (this.modelPath) return
-    if (!isModelDownloaded(this.modelVariant)) {
-      this.modelPath = await downloadModel(this.onProgress, this.modelVariant)
-    } else {
-      this.modelPath = getModelPath(this.modelVariant)
-    }
+    this.modelPath = isModelDownloaded() ? getModelPath() : await downloadModel(this.onProgress)
   }
 
   async processAudio(audioChunk: Float32Array, _sampleRate: number): Promise<STTResult | null> {
-    if (!this.modelPath) return null
+    if (!this.modelPath) throw new Error('[whisper-local] Not initialized')
+    if (audioChunk.length === 0) return null
 
     // Promise-based mutex — serializes all calls so whisper-node-addon's
     // Metal GPU context is never entered concurrently (#363).
@@ -64,6 +62,8 @@ export class WhisperLocalEngine implements STTEngine {
         model: this.modelPath,
         pcmf32: audioChunk,
         language: 'auto',
+        // The addon's JS wrapper defaults translate to true, which turns Japanese speech into English text.
+        translate: false,
         vad: false,
         no_timestamps: true,
         no_prints: true
@@ -73,7 +73,7 @@ export class WhisperLocalEngine implements STTEngine {
       const text = filterWhisperHallucination(rawText)
       if (!text) return null
 
-      const language = this.detectLanguage(text)
+      const language = mapWhisperLanguage((result as { language?: unknown }).language) ?? this.detectLanguage(text)
 
       return {
         text,
@@ -91,7 +91,10 @@ export class WhisperLocalEngine implements STTEngine {
   }
 
   async dispose(): Promise<void> {
-    log.info('Disposing resources')
+    // Let a transcription in flight finish, so quitting never tears the addon down
+    // under a running worker (#15).
+    await this.mutex.catch(() => {})
+    this.modelPath = ''
   }
 
   private detectLanguage(text: string): Language {
