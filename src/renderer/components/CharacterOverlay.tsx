@@ -87,6 +87,11 @@ export default function CharacterOverlay(): React.JSX.Element | null {
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>): void => {
     const d = drag.current
     if (!d) return
+    // The release can be lost when a meeting turns the window click-through mid-drag
+    if ((e.buttons & 1) === 0) {
+      endDrag(e)
+      return
+    }
     const dx = e.screenX - d.x
     const dy = e.screenY - d.y
     if (dx === 0 && dy === 0) return
@@ -134,7 +139,8 @@ export default function CharacterOverlay(): React.JSX.Element | null {
           width: '100%',
           aspectRatio: '1 / 1',
           opacity: settings.display.opacity,
-          cursor: 'grab',
+          // Main keeps the window click-through during meetings, so it cannot be dragged then
+          cursor: status.mode === 'meeting' ? 'default' : 'grab',
           touchAction: 'none'
         }}
       />

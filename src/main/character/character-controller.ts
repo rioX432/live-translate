@@ -114,6 +114,7 @@ export class CharacterController {
     this.broadcast('character-status', status)
     if (status.mode !== prevMode) {
       log.info(`Mode: ${status.mode}`)
+      if (status.mode === 'meeting') this.setInteractive(false)
       this.syncWindow()
     }
   }
@@ -121,9 +122,12 @@ export class CharacterController {
   // --- overlay interaction ---
 
   setInteractive(interactive: boolean): void {
-    this.interactive = interactive
+    // A click on any window of this app activates it, panel or not, which
+    // takes focus from a full-screen meeting app, so meetings stay click-through
+    const on = interactive && this.lastStatus.mode !== 'meeting'
+    this.interactive = on
     // forward keeps hover events flowing so the overlay can turn this back on
-    this.window?.setIgnoreMouseEvents(!interactive, { forward: true })
+    this.window?.setIgnoreMouseEvents(!on, { forward: true })
   }
 
   moveBy(dx: number, dy: number): void {
