@@ -28,7 +28,11 @@ export function setupAudioPort(ctx: AppContext, target: WebContents): void {
     port1.on('message', (event) => {
       const data = event.data as Record<string, unknown> | null
       const kind = typeof data?.type === 'string' ? KIND_BY_TYPE[data.type] : undefined
-      if (!kind) return
+      if (!kind) {
+        // Never log the payload: it can hold meeting audio
+        log.warn(`Dropped audio-port message without a usable payload (data ${data === null ? 'is null' : typeof data})`)
+        return
+      }
       const msg = parseAudioMessage(kind, data)
       if (!msg) {
         log.warn(`Ignored malformed ${kind} message`)

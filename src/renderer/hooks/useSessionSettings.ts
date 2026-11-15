@@ -123,7 +123,7 @@ export function useSessionSettings(): SessionSettingsState {
       if (!port) return
       audioPortRef.current?.close()
       audioPortRef.current = port
-      console.log('[session] Audio MessagePort received — using zero-copy transfer')
+      console.log('[session] Audio MessagePort received')
     }
     window.addEventListener('message', onMessage)
     window.api.requestAudioPort()
@@ -134,14 +134,15 @@ export function useSessionSettings(): SessionSettingsState {
     }
   }, [])
 
-  // Send audio via MessagePort (zero-copy) or fall back to IPC (JSON-serialized)
+  // Send audio via MessagePort or fall back to IPC (JSON-serialized)
   const sendAudio = useCallback(({ kind, segmentId, audio: data, speechEndedAt }: SegmentAudio) => {
     const type = kind === 'final' ? 'finalize-streaming' : 'process-audio-streaming'
     const port = audioPortRef.current
     if (port) {
-      // Zero-copy: transfer the underlying ArrayBuffer
+      // Sent by copy, not transferred: Electron 33's MessagePortMain receives a transferred
+      // ArrayBuffer as null, so main would silently drop every segment
       const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
-      port.postMessage({ type, segmentId, audio: buffer, speechEndedAt }, [buffer])
+      port.postMessage({ type, segmentId, audio: buffer, speechEndedAt })
       return
     }
     // Fallback until the port arrives: JSON-serialized IPC
