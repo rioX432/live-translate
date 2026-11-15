@@ -105,7 +105,8 @@ export interface STTEngine {
 
   /**
    * Process an audio chunk and return recognized text.
-   * Returns null if no speech detected in the chunk.
+   * Returns null if no speech detected in the chunk. Throws when recognition
+   * itself failed, so the pipeline can surface the error and recover.
    */
   processAudio(audioChunk: Float32Array, sampleRate: number): Promise<STTResult | null>
 

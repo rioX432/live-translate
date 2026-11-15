@@ -66,8 +66,9 @@ globs: src/engines/**/*.ts, src/pipeline/**/*.ts
 - `initialize()` must be idempotent — safe to call multiple times
 - `dispose()` must release all resources and be safe to call even if not initialized
 - `processAudio()` returns `null` for silence/no-speech — never throws for empty input
+- `processAudio()` throws on a real failure (bridge down, model error, timeout) after logging it: the pipeline catches it, shows it on the subtitle, and re-initializes the engines after repeated failures. Returning `null` instead hides the failure as silence
 - `translate()` accepts optional `TranslateContext` for context-aware translation
-- All engines must handle errors internally and log them — pipeline should not crash
+- Never log transcript or translation text — meeting content may be confidential
 
 ## Pipeline
 - `EngineManager` owns engine registration, creation, and lifecycle (init/dispose)
