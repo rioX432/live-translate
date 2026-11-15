@@ -11,6 +11,7 @@ Recover a file with `git show 3db2c34:<path>`.
 | Cloud translators | `src/engines/translator/{GoogleTranslator,DeepLTranslator,GeminiTranslator,MicrosoftTranslator}.ts` and their tests |
 | Provider rotation | `src/engines/translator/ApiRotationController.ts` (+ test), `src/engines/translator/api-utils.ts` |
 | Cloud realtime E2E | `src/engines/e2e/{CloudRealtimeE2E,GeminiLiveE2E,audioEncoding}.ts` (+ tests) |
+| Cloud streaming plumbing | `src/main/realtime-audio.ts`, `src/renderer/hooks/realtimeChunker.ts`, `src/pipeline/E2EStreamingAdapter.ts` (+ tests), the realtime mode of `useAudioCapture`, the preload `#721` realtime API |
 | Shadow harness cloud path | `src/pipeline/shadow/paths/E2EStreamingShadowPath.ts` (+ test) |
 | Benchmark cloud engines | `benchmark/src/engines/{google-translate,deepl,gemini,microsoft}.ts`, `benchmark/gpt-realtime-whisper-eval/*` except `RESULTS.md` |
 | Docs | `docs/cloud-boost.md` |
