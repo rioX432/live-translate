@@ -35,6 +35,7 @@ import { sanitizeErrorMessage, getErrorHint } from './error-utils'
 import { createMainWindow, createSubtitleWindow, registerDisplayHandlers } from './window-manager'
 import { registerAudioHandlers } from './audio-handlers'
 import { setupAudioPort } from './audio-port'
+import { createVadAssetHandler } from './vad-asset-protocol'
 import { registerIpcHandlers } from './ipc-handlers'
 import { createLogger } from './logger'
 import { initAutoUpdater, registerUpdateHandlers, disposeAutoUpdater } from './auto-updater'
@@ -300,14 +301,11 @@ initAudioLoopback()
 app.whenReady().then(async () => {
   // Serve VAD assets (ONNX, WASM, worklet) from filesystem.
   // In packaged app, these are in app.asar.unpacked; dynamic import() can't read from asar.
-  protocol.handle('vad-asset', (request) => {
-    const filename = decodeURIComponent(new URL(request.url).pathname).replace(/^\/+/, '')
-    const { join } = require('path')
-    const vadDir = app.isPackaged
-      ? join(process.resourcesPath, 'app.asar.unpacked', 'out', 'renderer', 'vad')
-      : join(__dirname, '../renderer/vad')
-    return net.fetch(`file://${join(vadDir, filename)}`)
-  })
+  const { join } = require('path')
+  const vadDir = app.isPackaged
+    ? join(process.resourcesPath, 'app.asar.unpacked', 'out', 'renderer', 'vad')
+    : join(__dirname, '../renderer/vad')
+  protocol.handle('vad-asset', createVadAssetHandler(vadDir, (fileUrl) => net.fetch(fileUrl)))
 
   // #519: Load MDM managed preferences early (before pipeline init)
   loadMdmConfig()
