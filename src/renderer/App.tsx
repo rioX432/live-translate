@@ -1,23 +1,26 @@
 import React, { useEffect, useState } from 'react'
 import SubtitleOverlay from './components/SubtitleOverlay'
 import SettingsPanel from './components/SettingsPanel'
+import CharacterOverlay from './components/CharacterOverlay'
 
 function App(): React.JSX.Element {
-  const [isSubtitleMode, setIsSubtitleMode] = useState(false)
+  // Read on first render so an overlay window never mounts the settings panel
+  const [hash, setHash] = useState(() => window.location.hash)
 
   useEffect(() => {
-    // Hash routing: #/subtitle for subtitle overlay window
-    setIsSubtitleMode(window.location.hash === '#/subtitle')
-
+    // Hash routing: #/subtitle and #/character for the overlay windows
     const handleHashChange = (): void => {
-      setIsSubtitleMode(window.location.hash === '#/subtitle')
+      setHash(window.location.hash)
     }
     window.addEventListener('hashchange', handleHashChange)
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
-  if (isSubtitleMode) {
+  if (hash === '#/subtitle') {
     return <SubtitleOverlay />
+  }
+  if (hash === '#/character') {
+    return <CharacterOverlay />
   }
 
   return <SettingsPanel />

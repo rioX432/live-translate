@@ -13,6 +13,22 @@ export function getSubtitleHeight(display: Electron.Display): number {
   return Math.round(baseHeight * Math.min(scaleFactor, 2))
 }
 
+/**
+ * Keep an overlay above other apps, including full-screen meeting apps.
+ *
+ * alwaysOnTop alone uses the 'floating' level, which full-screen apps on macOS
+ * cover. On macOS the window must also be created with type 'panel', which
+ * "enables the window to float on top of full-screened apps" (BaseWindowOptions);
+ * 'screen-saver' is the highest documented level for setAlwaysOnTop.
+ */
+export function applyOverlayWindowLevel(win: BrowserWindow): void {
+  win.setAlwaysOnTop(true, 'screen-saver')
+}
+
+/** Constructor options shared by the subtitle and character overlays */
+export const OVERLAY_PLATFORM_OPTIONS: Electron.BrowserWindowConstructorOptions =
+  process.platform === 'darwin' ? { type: 'panel' } : {}
+
 export function createMainWindow(ctx: AppContext): void {
   ctx.mainWindow = new BrowserWindow({
     width: 520,
@@ -65,6 +81,7 @@ export function createSubtitleWindow(ctx: AppContext): void {
     alwaysOnTop: true,
     skipTaskbar: true,
     hasShadow: false,
+    ...OVERLAY_PLATFORM_OPTIONS,
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       contextIsolation: true,
@@ -72,6 +89,7 @@ export function createSubtitleWindow(ctx: AppContext): void {
     }
   })
 
+  applyOverlayWindowLevel(ctx.subtitleWindow)
   ctx.subtitleWindow.setIgnoreMouseEvents(true, { forward: true })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
