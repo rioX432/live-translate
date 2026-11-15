@@ -118,7 +118,7 @@ live-translate/
 │   │   ├── LocalAgreement.ts       # LCP for streaming stability
 │   │   ├── ContextBuffer.ts        # Ring buffer for context-aware translation
 │   │   ├── TranslationCache.ts     # LRU cache for repeated phrases
-│   │   ├── GERProcessor.ts         # GER processing
+│   │   ├── SegmentTracker.ts       # One final per VAD segment (open → finalizing → finalized)
 │   │   └── whisper-filter.ts       # Hallucination detection
 │   └── logger/
 │       ├── TranscriptLogger.ts     # Plain text session logging

@@ -27,14 +27,12 @@ import { FluidAudioDiarizer } from '../engines/diarization/FluidAudioDiarizer'
 import { discoverPlugins, loadPluginEngine } from '../engines/plugin-loader'
 import { store } from './store'
 import {
-  migrateLegacyAdaptiveRoutingQualityEngine,
   migrateLegacyTranslationEngine,
   type MigratableKey
 } from './store-migrations'
 import { sanitizeErrorMessage, getErrorHint } from './error-utils'
 import { createMainWindow, createSubtitleWindow, registerDisplayHandlers } from './window-manager'
 import { registerAudioHandlers } from './audio-handlers'
-import { setupAudioPort } from './audio-port'
 import { registerIpcHandlers } from './ipc-handlers'
 import { createLogger } from './logger'
 import { initAutoUpdater, registerUpdateHandlers, disposeAutoUpdater } from './auto-updater'
@@ -260,10 +258,19 @@ async function initPipeline(): Promise<void> {
     ctx.mainWindow?.webContents.send('interim-result', result)
   })
 
+  ctx.pipeline.on('segment-dropped', (segmentId: string) => {
+    ctx.subtitleWindow?.webContents.send('segment-dropped', segmentId)
+  })
+
+  ctx.pipeline.on('state-change', (state: string) => {
+    ctx.subtitleWindow?.webContents.send('pipeline-status', { state })
+  })
+
   ctx.pipeline.on('error', (err: Error) => {
     const msg = sanitizeErrorMessage(err.message)
     const hint = getErrorHint(msg)
     ctx.mainWindow?.webContents.send('status-update', `Error: ${msg}${hint}`)
+    ctx.subtitleWindow?.webContents.send('pipeline-status', { state: ctx.pipeline?.state ?? 'idle', error: msg })
   })
 
   ctx.pipeline.on('engine-loading', (msg: string) => {
@@ -321,7 +328,6 @@ app.whenReady().then(async () => {
     set: (key: MigratableKey, value: string) => store.set(key, value)
   }
   migrateLegacyTranslationEngine(migratableStore, log)
-  migrateLegacyAdaptiveRoutingQualityEngine(migratableStore, log)
 
   // #730: dev-only shadow measurement run. Builds its own engines, opens no
   // windows, and quits when the report is written — the production pipeline and
@@ -371,13 +377,6 @@ app.whenReady().then(async () => {
 
   createMainWindow(ctx)
   createSubtitleWindow(ctx)
-
-  // Set up MessagePort for zero-copy audio transfer after renderer loads (#553)
-  if (ctx.mainWindow) {
-    ctx.mainWindow.webContents.on('did-finish-load', () => {
-      setupAudioPort(ctx)
-    })
-  }
 
   cleanupDisplayHandlers = registerDisplayHandlers(ctx)
   cleanupShortcuts = registerGlobalShortcuts(ctx)

@@ -1,12 +1,23 @@
 import { contextBridge, ipcRenderer } from 'electron'
 
+/** window.postMessage type the page listens for to receive the audio MessagePort. */
+const AUDIO_PORT_MESSAGE = 'live-translate:audio-port'
+
+// A MessagePort cannot cross contextBridge (it is not in the supported type
+// list), so relay it to the page with window.postMessage as the Electron
+// MessagePorts guide does for context-isolated pages.
+ipcRenderer.on('audio-port', (event) => {
+  window.postMessage({ type: AUDIO_PORT_MESSAGE }, '*', event.ports)
+})
+
 contextBridge.exposeInMainWorld('api', {
   // Pipeline control
   pipelineStart: (config: unknown) => ipcRenderer.invoke('pipeline-start', config),
   pipelineStop: () => ipcRenderer.invoke('pipeline-stop'),
-  processAudio: (audioData: number[]) => ipcRenderer.invoke('process-audio', audioData),
-  processAudioStreaming: (audioData: number[]) => ipcRenderer.invoke('process-audio-streaming', audioData),
-  finalizeStreaming: (audioData: number[]) => ipcRenderer.invoke('finalize-streaming', audioData),
+  processAudioStreaming: (payload: { segmentId: string; audio: number[] }) =>
+    ipcRenderer.invoke('process-audio-streaming', payload),
+  finalizeStreaming: (payload: { segmentId: string; audio: number[]; speechEndedAt?: number }) =>
+    ipcRenderer.invoke('finalize-streaming', payload),
 
   // Translation results
   onTranslationResult: (callback: (data: unknown) => void) => {
@@ -18,6 +29,18 @@ contextBridge.exposeInMainWorld('api', {
     const handler = (_event: Electron.IpcRendererEvent, data: unknown): void => callback(data)
     ipcRenderer.on('interim-result', handler)
     return () => ipcRenderer.off('interim-result', handler)
+  },
+  // A segment that ended without a final (silence, empty STT, error)
+  onSegmentDropped: (callback: (segmentId: string) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, segmentId: string): void => callback(segmentId)
+    ipcRenderer.on('segment-dropped', handler)
+    return () => ipcRenderer.off('segment-dropped', handler)
+  },
+  // Pipeline state and errors, for surfaces that show them (subtitle overlay)
+  onPipelineStatus: (callback: (status: { state: string; error?: string }) => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, status: { state: string; error?: string }): void => callback(status)
+    ipcRenderer.on('pipeline-status', handler)
+    return () => ipcRenderer.off('pipeline-status', handler)
   },
   // Draft result from hybrid translation (#235)
   onDraftResult: (callback: (data: unknown) => void) => {
@@ -184,16 +207,10 @@ contextBridge.exposeInMainWorld('api', {
   enterpriseGetTelemetryConsent: () => ipcRenderer.invoke('enterprise-get-telemetry-consent'),
   enterpriseSetTelemetryConsent: (consent: boolean) => ipcRenderer.invoke('enterprise-set-telemetry-consent', consent),
 
-  // Audio MessagePort for zero-copy transfer (#553)
-  onAudioPort: (callback: (port: MessagePort) => void) => {
-    const handler = (event: Electron.IpcRendererEvent): void => {
-      if (event.ports && event.ports.length > 0) {
-        callback(event.ports[0])
-      }
-    }
-    ipcRenderer.on('audio-port', handler)
-    return () => ipcRenderer.off('audio-port', handler)
-  },
+  // Audio MessagePort for zero-copy transfer (#553): the port arrives as a
+  // window 'message' event of type audioPortMessageType after this request.
+  requestAudioPort: () => ipcRenderer.send('request-audio-port'),
+  audioPortMessageType: AUDIO_PORT_MESSAGE,
 
   // Onboarding: progressive model loading (#575, #694)
   onboardingGetStatus: () => ipcRenderer.invoke('onboarding-get-status'),

@@ -37,12 +37,17 @@ export interface STTResult {
   isFinal: boolean
   /** Unix timestamp in ms */
   timestamp: number
-  /** STT confidence score (0.0–1.0). Used by GER to decide if correction is needed. */
+  /** STT confidence score (0.0–1.0), when the engine provides one */
   confidence?: number
 }
 
 /** Translation pipeline result */
 export interface TranslationResult {
+  /**
+   * Speech segment (one VAD utterance) this result belongs to. Interim results
+   * update the segment; the single final result closes it.
+   */
+  segmentId?: string
   /** Original recognized text */
   sourceText: string
   /** Translated text */
@@ -59,8 +64,8 @@ export interface TranslationResult {
   confirmedText?: string
   /** Unstable trailing portion still being recognized */
   interimText?: string
-  /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), 'ger-corrected' (GER), 'simulmt-partial' (partial clause), 'simulmt-revised' (full clause revision), 'ssbd-retranslated' (SSBD re-translation) */
-  translationStage?: 'draft' | 'refined' | 'ger-corrected' | 'simulmt-partial' | 'simulmt-revised' | 'ssbd-retranslated'
+  /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), 'simulmt-partial' (partial clause), 'simulmt-revised' (full clause revision), 'ssbd-retranslated' (SSBD re-translation) */
+  translationStage?: 'draft' | 'refined' | 'simulmt-partial' | 'simulmt-revised' | 'ssbd-retranslated'
   /** STT confidence score (0.0–1.0), forwarded from STTResult for UI styling */
   confidence?: number
   /** Speaker label from diarization (e.g. 'Speaker 1', 'Speaker 2') */
@@ -73,6 +78,17 @@ export interface TranslationResult {
    * Absent or empty means uniform confidence (e.g. cloud APIs that don't provide scores).
    */
   tokenConfidences?: number[]
+  /** Final results: wall-clock ms when the audio source detected the end of speech */
+  speechEndedAt?: number
+  /** Final results: where the time between submission and emission went (ms) */
+  timings?: {
+    /** Waiting behind other segments before processing started */
+    queueMs: number
+    sttMs: number
+    translateMs: number
+    /** Speech end → final result emitted; present when speechEndedAt is known */
+    speechEndToResultMs?: number
+  }
 }
 
 /**
@@ -89,7 +105,8 @@ export interface STTEngine {
 
   /**
    * Process an audio chunk and return recognized text.
-   * Returns null if no speech detected in the chunk.
+   * Returns null if no speech detected in the chunk. Throws when recognition
+   * itself failed, so the pipeline can surface the error and recover.
    */
   processAudio(audioChunk: Float32Array, sampleRate: number): Promise<STTResult | null>
 

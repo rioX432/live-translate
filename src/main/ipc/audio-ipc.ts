@@ -2,11 +2,9 @@ import { ipcMain } from 'electron'
 import { WsAudioServer } from '../ws-audio-server'
 import { store } from '../store'
 import { sanitizeErrorMessage } from '../error-utils'
-import { createLogger } from '../logger'
 import type { AppContext } from '../app-context'
-import { DEFAULT_WS_PORT, SAMPLE_RATE } from '../constants'
-
-const log = createLogger('ipc:audio')
+import { DEFAULT_WS_PORT } from '../constants'
+import { routeAudio } from '../audio-routing'
 
 /** Register WebSocket audio server IPC handlers */
 export function registerAudioIpc(ctx: AppContext): void {
@@ -18,15 +16,11 @@ export function registerAudioIpc(ctx: AppContext): void {
 
       ctx.wsAudioServer = new WsAudioServer(port || store.get('wsAudioPort') || DEFAULT_WS_PORT)
 
-      // Forward received audio to the pipeline
-      ctx.wsAudioServer.on('audio', async (chunk: Float32Array) => {
-        if (!ctx.pipeline?.running) return
-
-        try {
-          await ctx.pipeline.process(chunk, SAMPLE_RATE)
-        } catch (err) {
-          log.error('Pipeline processing error (ws-audio):', err)
-        }
+      // Each WebSocket chunk is a complete utterance with no interims, so it
+      // becomes its own segment and is finalized directly.
+      let wsSegment = 0
+      ctx.wsAudioServer.on('audio', (chunk: Float32Array) => {
+        void routeAudio(ctx, { kind: 'final', segmentId: `ws${++wsSegment}`, audio: chunk }, 'ws')
       })
 
       ctx.wsAudioServer.on('connected', () => {

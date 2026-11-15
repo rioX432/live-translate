@@ -6,7 +6,7 @@
  */
 
 /** Persisted-store keys that migrations may read or write */
-export type MigratableKey = 'translationEngine' | 'adaptiveRoutingQualityEngine'
+export type MigratableKey = 'translationEngine'
 
 /** Subset of the electron-store API used by migrations */
 export interface MigratableStore {
@@ -36,14 +36,6 @@ export const LEGACY_TRANSLATION_ENGINES: readonly string[] = [
 ] as const
 
 /**
- * Legacy `adaptiveRoutingQualityEngine` IDs removed from the UI in #705.
- * Each entry maps the legacy value to the replacement engine ID.
- */
-export const LEGACY_ADAPTIVE_QUALITY_ENGINES: Readonly<Record<string, string>> = {
-  plamo: 'hunyuan-mt'
-} as const
-
-/**
  * If the persisted `translationEngine` value is one of the removed legacy IDs,
  * rewrite it to `'auto'` so the renderer never has to render an option that
  * no longer exists in the UI.
@@ -56,26 +48,5 @@ export function migrateLegacyTranslationEngine(store: MigratableStore, logger?: 
   if (!LEGACY_TRANSLATION_ENGINES.includes(current)) return false
   logger?.info(`Migrating translationEngine from "${current}" to "auto"`)
   store.set('translationEngine', 'auto')
-  return true
-}
-
-/**
- * #705: If the persisted `adaptiveRoutingQualityEngine` value is one of the
- * legacy IDs removed from the UI's quality engine selector, rewrite it to the
- * mapped replacement so adaptive routing does not silently fall back when the
- * stored quality engine no longer matches a selectable option.
- *
- * Returns true when a migration was applied, false otherwise.
- */
-export function migrateLegacyAdaptiveRoutingQualityEngine(
-  store: MigratableStore,
-  logger?: MigrationLogger
-): boolean {
-  const current = store.get('adaptiveRoutingQualityEngine')
-  if (typeof current !== 'string') return false
-  const replacement = LEGACY_ADAPTIVE_QUALITY_ENGINES[current]
-  if (!replacement) return false
-  logger?.info(`Migrating adaptiveRoutingQualityEngine from "${current}" to "${replacement}"`)
-  store.set('adaptiveRoutingQualityEngine', replacement)
   return true
 }

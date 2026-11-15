@@ -105,7 +105,8 @@ export class Qwen3ASREngine implements STTEngine {
       }
     } catch (err) {
       log.error('Transcription error:', err instanceof Error ? err.message : err)
-      return null
+      // Thrown, not swallowed: the pipeline reports it and re-initializes after repeated failures
+      throw err
     } finally {
       try { unlinkSync(tempPath) } catch { /* ignore */ }
     }

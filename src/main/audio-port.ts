@@ -1,112 +1,53 @@
-import { MessageChannelMain } from 'electron'
+import { MessageChannelMain, type MessagePortMain, type WebContents } from 'electron'
 import { createLogger } from './logger'
-import { SAMPLE_RATE } from './constants'
-import { MIN_AUDIO_CHUNK_SAMPLES, SILENCE_THRESHOLD } from './audio-constants'
+import { parseAudioMessage, routeAudio, type AudioMessageKind } from './audio-routing'
 import type { AppContext } from './app-context'
 
 const log = createLogger('audio-port')
 
-/**
- * Set up a MessagePort channel for zero-copy audio transfer between
- * renderer and main process.
- *
- * The renderer sends Float32Array buffers as transferable ArrayBuffers
- * via `port.postMessage()`, avoiding the JSON serialization overhead of
- * the standard `ipcRenderer.invoke('process-audio', Array.from(...))` path.
- *
- * Falls back gracefully — if this setup fails, existing IPC handlers in
- * audio-handlers.ts continue to work.
- */
-export function setupAudioPort(ctx: AppContext): void {
-  if (!ctx.mainWindow) {
-    log.warn('Cannot setup audio port: mainWindow is null')
-    return
-  }
+const KIND_BY_TYPE: Record<string, AudioMessageKind> = {
+  'process-audio-streaming': 'interim',
+  'finalize-streaming': 'final'
+}
 
+let activePort: MessagePortMain | null = null
+
+/**
+ * Give the renderer a MessagePort for zero-copy audio transfer.
+ *
+ * The renderer asks for the port once its listener is attached (a port pushed
+ * on did-finish-load can arrive before React mounts and be lost), and asks
+ * again after a reload, so each request replaces the previous channel.
+ * A MessagePort cannot cross contextBridge, so the preload relays it to the
+ * page with window.postMessage.
+ */
+export function setupAudioPort(ctx: AppContext, target: WebContents): void {
   try {
     const { port1, port2 } = new MessageChannelMain()
 
-    // IPC-level concurrency flags — drop duplicate requests before they reach
-    // the pipeline to prevent concurrent native addon calls (#363)
-    let processingAudio = false
-    let processingStreaming = false
-    let processingFinalize = false
-
-    // Main process receives audio on port1
     port1.on('message', (event) => {
-      const { type, audio } = event.data ?? {}
-      if (!audio || !type) return
-
-      // Convert from ArrayBuffer to Float32Array
-      let chunk: Float32Array
-      if (audio instanceof ArrayBuffer) {
-        chunk = new Float32Array(audio)
-      } else if (Buffer.isBuffer(audio)) {
-        chunk = new Float32Array(
-          audio.buffer.slice(audio.byteOffset, audio.byteOffset + audio.byteLength)
-        )
-      } else {
-        log.error('Unexpected audio data type on MessagePort:', typeof audio)
+      const data = event.data as Record<string, unknown> | null
+      const kind = typeof data?.type === 'string' ? KIND_BY_TYPE[data.type] : undefined
+      if (!kind) {
+        // Never log the payload: it can hold meeting audio
+        log.warn(`Dropped audio-port message without a usable payload (data ${data === null ? 'is null' : typeof data})`)
         return
       }
-
-      // Silence and minimum length check
-      if (chunk.length < MIN_AUDIO_CHUNK_SAMPLES) return
-      let maxAmp = 0
-      for (let i = 0; i < chunk.length; i++) {
-        const abs = Math.abs(chunk[i])
-        if (abs > maxAmp) maxAmp = abs
+      const msg = parseAudioMessage(kind, data)
+      if (!msg) {
+        log.warn(`Ignored malformed ${kind} message`)
+        return
       }
-      if (maxAmp < SILENCE_THRESHOLD) return
-
-      // Route to pipeline based on message type
-      if (!ctx.pipeline?.running) return
-
-      if (type === 'process-audio') {
-        if (processingAudio) return
-        processingAudio = true
-        const t0 = performance.now()
-        ctx.pipeline.process(chunk, SAMPLE_RATE).then((result) => {
-          const elapsed = (performance.now() - t0).toFixed(0)
-          if (result) log.info(`process-audio (port): ${elapsed}ms, ${(chunk.length / SAMPLE_RATE).toFixed(1)}s audio`)
-        }).catch((err) => {
-          log.error('Pipeline error (port):', err)
-        }).finally(() => {
-          processingAudio = false
-        })
-      } else if (type === 'process-audio-streaming') {
-        if (processingStreaming) return
-        processingStreaming = true
-        const t0 = performance.now()
-        ctx.pipeline.processStreaming(chunk, SAMPLE_RATE).then((result) => {
-          const elapsed = (performance.now() - t0).toFixed(0)
-          if (result) log.info(`streaming (port): ${elapsed}ms, ${(chunk.length / SAMPLE_RATE).toFixed(1)}s audio`)
-        }).catch((err) => {
-          log.error('Streaming pipeline error (port):', err)
-        }).finally(() => {
-          processingStreaming = false
-        })
-      } else if (type === 'finalize-streaming') {
-        if (processingFinalize) return
-        processingFinalize = true
-        const t0 = performance.now()
-        ctx.pipeline.finalizeStreaming(chunk, SAMPLE_RATE).then((result) => {
-          const elapsed = (performance.now() - t0).toFixed(0)
-          if (result) log.info(`finalize (port): ${elapsed}ms, ${(chunk.length / SAMPLE_RATE).toFixed(1)}s audio`)
-        }).catch((err) => {
-          log.error('Finalize streaming error (port):', err)
-        }).finally(() => {
-          processingFinalize = false
-        })
-      }
+      void routeAudio(ctx, msg, 'port')
     })
-
     port1.start()
 
-    // Send port2 to the renderer via the main window's webContents
-    ctx.mainWindow.webContents.postMessage('audio-port', null, [port2])
+    activePort?.close()
+    activePort = port1
+
+    target.postMessage('audio-port', null, [port2])
     log.info('Audio MessagePort channel established')
   } catch (err) {
-    log.error('Failed to setup audio MessagePort, falling back to IPC:', err)
+    log.error('Failed to set up audio MessagePort; the renderer keeps using invoke IPC:', err)
   }
 }

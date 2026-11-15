@@ -43,6 +43,6 @@ prove nothing about the code that actually ships.
 - **Both paths are warmed before measuring.** Lazy model load and Metal shader
   compilation otherwise land entirely on the first utterance (measured: 16.3s vs a
   2.2s steady-state median), producing a p95 that describes startup, not the path.
-- **`ありがとうございます` measures as an empty segment.** Production's
-  `filterWhisperHallucination` drops thank-you phrases as Whisper hallucinations.
-  The harness reproduces production behavior faithfully; this is not a harness bug.
+- **A thank-you phrase spoken on its own is kept.** `filterWhisperHallucination`
+  no longer drops greetings and thanks, since they are real meeting turns; audio
+  too quiet to be speech is rejected by the energy gate before STT instead.

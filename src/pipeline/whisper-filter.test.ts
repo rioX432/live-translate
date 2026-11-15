@@ -8,15 +8,14 @@ describe('filterWhisperHallucination', () => {
   })
 
   it('filters known hallucination phrases', () => {
-    expect(filterWhisperHallucination('Thank you')).toBeNull()
     expect(filterWhisperHallucination('thanks for watching')).toBeNull()
     expect(filterWhisperHallucination('ご視聴ありがとうございました')).toBeNull()
     expect(filterWhisperHallucination('subscribe')).toBeNull()
   })
 
   it('filters with trailing punctuation', () => {
-    expect(filterWhisperHallucination('Thank you.')).toBeNull()
-    expect(filterWhisperHallucination('Thank you!')).toBeNull()
+    expect(filterWhisperHallucination('Thanks for watching.')).toBeNull()
+    expect(filterWhisperHallucination('Thanks for watching!')).toBeNull()
   })
 
   it('filters repetitive patterns', () => {
@@ -30,12 +29,7 @@ describe('filterWhisperHallucination', () => {
     expect(filterWhisperHallucination('  ---  ')).toBeNull()
   })
 
-  it('filters garbage Japanese fragments', () => {
-    // Short nonsensical kana (common STT errors)
-    expect(filterWhisperHallucination('おやかだ')).toBeNull()
-    expect(filterWhisperHallucination('かへえ')).toBeNull()
-    expect(filterWhisperHallucination('ぱぴ')).toBeNull()
-    // Single kana
+  it('filters a single kana', () => {
     expect(filterWhisperHallucination('あ')).toBeNull()
   })
 
@@ -76,5 +70,30 @@ describe('filterWhisperHallucination logging', () => {
     spy.mockRestore()
     expect(logged).not.toContain('thank you')
     expect(logged).not.toContain(secret)
+  })
+})
+
+describe('filterWhisperHallucination in meetings', () => {
+  it('keeps a stock meeting phrase spoken on its own', () => {
+    for (const phrase of [
+      'よろしくお願いします',
+      'ありがとうございます',
+      'ありがとうございました',
+      'お願いします',
+      'お疲れ様です',
+      'お疲れ様でした',
+      'それでは',
+      'Thank you.',
+      'Goodbye',
+      'See you next time'
+    ]) {
+      expect(filterWhisperHallucination(phrase)).toBe(phrase)
+    }
+  })
+
+  it('keeps short kana replies that are common in meetings', () => {
+    for (const reply of ['そうです', 'ですね', 'いいね', 'わかった', 'はいはい', 'ほんと']) {
+      expect(filterWhisperHallucination(reply)).toBe(reply)
+    }
   })
 })

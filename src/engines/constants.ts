@@ -134,16 +134,3 @@ export const FLUID_AUDIO_DIARIZE_TIMEOUT_MS = 10_000
 
 /** Init timeout for FluidAudio — first run downloads ~32MB of CoreML models (ms) */
 export const FLUID_AUDIO_INIT_TIMEOUT_MS = 300_000
-
-// ---------------------------------------------------------------------------
-// GER (Generative Error Correction) — async STT post-processing (#409)
-// ---------------------------------------------------------------------------
-
-/** STT confidence threshold below which GER correction is triggered (0.0–1.0) */
-export const GER_CONFIDENCE_THRESHOLD = 0.7
-
-/** Maximum latency allowed for GER correction before it is skipped (ms) */
-export const GER_TIMEOUT_MS = 2_000
-
-/** Minimum text length to consider for GER correction (chars) */
-export const GER_MIN_TEXT_LENGTH = 4

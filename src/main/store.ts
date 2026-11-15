@@ -119,14 +119,6 @@ export interface AppSettings {
   telemetryConsentShown: boolean
   /** Enable speaker diarization via FluidAudio for multi-speaker identification (#549) */
   speakerDiarizationEnabled: boolean
-  /** Enable adaptive quality routing between fast and quality translation engines (#547) */
-  adaptiveRoutingEnabled: boolean
-  /** Adaptive routing: token count below this → fast engine only (default 10) */
-  adaptiveRoutingShortThreshold: number
-  /** Adaptive routing: token count above this → quality engine (default 50) */
-  adaptiveRoutingLongThreshold: number
-  /** Adaptive routing: quality engine ID (default 'hunyuan-mt') */
-  adaptiveRoutingQualityEngine: string
   /** History of user corrections for mistranslations (#590) */
   correctionHistory: CorrectionEntry[]
   /** Whether this is a fresh install (never completed first pipeline start) (#575) */
@@ -201,10 +193,6 @@ export const store = new Store<AppSettings>({
     telemetryConsent: false,
     telemetryConsentShown: false,
     speakerDiarizationEnabled: false,
-    adaptiveRoutingEnabled: false,
-    adaptiveRoutingShortThreshold: 10,
-    adaptiveRoutingLongThreshold: 50,
-    adaptiveRoutingQualityEngine: 'hunyuan-mt',
     correctionHistory: [],
     isFirstRun: true,
     onboardingModelStatus: 'idle',

@@ -75,14 +75,14 @@ export class MlxWhisperEngine extends SubprocessBridge implements STTEngine {
           sample_rate: sampleRate
         })
       } catch (err) {
-        // Timeout or bridge error — return null per interface contract
+        // Thrown, not swallowed: the pipeline reports it and re-initializes after repeated failures
         this.log.error('Bridge error:', err instanceof Error ? err.message : err)
-        return null
+        throw err
       }
 
       if (result.error) {
         this.log.error('Transcription error:', result.error)
-        return null
+        throw new Error(`Transcription error: ${String(result.error)}`)
       }
 
       if (!result.text || !(result.text as string).trim()) return null
