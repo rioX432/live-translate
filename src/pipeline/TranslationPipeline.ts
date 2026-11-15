@@ -15,6 +15,7 @@ import { ContextBuffer } from './ContextBuffer'
 import { TranslationCache } from './TranslationCache'
 import { EngineManager } from './EngineManager'
 import { StreamingProcessor } from './StreamingProcessor'
+import type { FinalMeta } from './StreamingProcessor'
 import { MemoryMonitor } from './MemoryMonitor'
 import { createLogger } from '../main/logger'
 
@@ -27,6 +28,8 @@ export interface PipelineEvents {
   'draft-result': (result: TranslationResult) => void
   /** Draft STT interim result — fast Moonshine Tiny JA result before primary STT (#536) */
   'draft-stt-result': (result: TranslationResult) => void
+  /** A segment closed without a final result (silence, empty STT, failure); its interim text is stale */
+  'segment-dropped': (segmentId: string) => void
   error: (error: Error) => void
   'engine-loading': (message: string) => void
   'engine-ready': () => void
@@ -58,14 +61,17 @@ const RECOVERY_DELAY_MS = 1000
 /**
  * Manages the STT → Translation pipeline.
  * Supports two modes:
- * - cascade: STTEngine + TranslatorEngine (online mode)
- * - e2e: E2ETranslationEngine (offline mode)
+ * - cascade: STTEngine + TranslatorEngine
+ * - e2e: E2ETranslationEngine
+ *
+ * Audio arrives per speech segment: interim submissions while the segment is
+ * being spoken, then exactly one final submission for it.
  *
  * Engines are swappable at runtime via switchEngine().
  *
  * Delegates to:
  * - EngineManager — engine registration, creation, lifecycle
- * - StreamingProcessor — streaming audio processing and lock management
+ * - StreamingProcessor — per-segment scheduling of STT and translation
  * - MemoryMonitor — periodic memory usage logging
  */
 export class TranslationPipeline extends EventEmitter {
@@ -87,9 +93,6 @@ export class TranslationPipeline extends EventEmitter {
 
   // Speaker diarization state (#549)
   private diarizationEnabled = false
-
-  // Batch processing mutex — STT engines assume sequential access (#217)
-  private batchLock = false
 
   // Processing lock — prevents disposeEngines() while processAudio is in-flight
   private processingCount = 0
@@ -116,8 +119,10 @@ export class TranslationPipeline extends EventEmitter {
       emitter: this,
       agreement: this.agreement,
       contextBuffer: this.contextBuffer,
+      cache: this.translationCache,
       getSTTEngine: () => this.engineManager.sttEngine,
       getTranslator: () => this.engineManager.translator,
+      getE2EEngine: () => this.engineManager.config?.mode === 'e2e' ? this.engineManager.e2eEngine : null,
       getGlossary: () => this.glossary,
       getSimulMtConfig: () => ({ enabled: this.simulMtEnabled, waitK: this.simulMtWaitK }),
       resolveTargetLanguage: (lang) => this.resolveTargetLanguage(lang),
@@ -129,6 +134,8 @@ export class TranslationPipeline extends EventEmitter {
           this.processingDoneResolvers = []
         }
       },
+      reportFailure: (err) => this.reportFailure(err),
+      reportSuccess: () => { this.consecutiveErrors = 0 },
       getDraftSTTEngine: () => this.draftSttEnabled ? this.engineManager.draftSttEngine : null,
       getDiarizer: () => this.diarizationEnabled ? this.engineManager.diarizer : null,
       getGeneration: () => this.generation
@@ -166,11 +173,6 @@ export class TranslationPipeline extends EventEmitter {
     return this.memoryMonitor.sessionStartTime
   }
 
-  /** Get translation cache hit/miss statistics */
-  get cacheStats() {
-    return this.translationCache.stats
-  }
-
   /** Check if a specific transition is allowed */
   private canTransitionTo(target: PipelineState): boolean {
     switch (target) {
@@ -190,6 +192,8 @@ export class TranslationPipeline extends EventEmitter {
   /** Set glossary terms for context-aware translation */
   setGlossary(glossary: GlossaryEntry[]): void {
     this.glossary = glossary
+    // Cached translations were produced under the old glossary.
+    this.translationCache.clear()
   }
 
   /** Configure source and target languages */
@@ -238,7 +242,7 @@ export class TranslationPipeline extends EventEmitter {
 
   // --- Processing lock ---
 
-  /** Wait until all in-flight processAudio calls complete */
+  /** Wait until the in-flight streaming job completes */
   private async waitForProcessing(): Promise<void> {
     if (this.processingCount === 0) return
     return new Promise((resolve) => {
@@ -290,7 +294,6 @@ export class TranslationPipeline extends EventEmitter {
         }
       }
 
-
       // If was RUNNING (hot-swap), go back to RUNNING; otherwise stay IDLE until start()
       if (prevState === PipelineState.RUNNING) {
         this.setState(PipelineState.RUNNING)
@@ -332,106 +335,18 @@ export class TranslationPipeline extends EventEmitter {
     await this.engineManager.disposeEngines()
   }
 
-  // --- Audio processing ---
+  // --- Failure handling ---
 
-  async process(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (this._state !== PipelineState.RUNNING || !this.engineManager.config) return null
-    if (this.batchLock) return null
-
-    this.processingCount++
-    this.batchLock = true
-    try {
-      let result: TranslationResult | null = null
-
-      if (this.engineManager.config.mode === 'e2e' && this.engineManager.e2eEngine) {
-        result = await this.engineManager.e2eEngine.processAudio(audioChunk, sampleRate)
-      } else if (this.engineManager.config.mode === 'cascade' && this.engineManager.sttEngine) {
-        result = await this.processCascade(audioChunk, sampleRate)
-      }
-
-      if (result) {
-        this.consecutiveErrors = 0
-        this.emit('result', result)
-      }
-      return result
-    } catch (err) {
-      this.consecutiveErrors++
-      const error = err instanceof Error ? err : new Error(String(err))
-      this.emit('error', error)
-
-      if (this.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
-        this.scheduleRecovery()
-      }
-
-      return null
-    } finally {
-      this.batchLock = false
-      this.processingCount--
-      if (this.processingCount === 0) {
-        for (const resolve of this.processingDoneResolvers) resolve()
-        this.processingDoneResolvers = []
-      }
-    }
-  }
-
-  private async processCascade(
-    audioChunk: Float32Array,
-    sampleRate: number
-  ): Promise<TranslationResult | null> {
-    if (!this.engineManager.sttEngine) return null
-
-    const t0 = performance.now()
-    const sttResult = await this.engineManager.sttEngine.processAudio(audioChunk, sampleRate)
-    const sttMs = (performance.now() - t0).toFixed(0)
-    if (!sttResult || !sttResult.isFinal || !sttResult.text.trim()) {
-      log.info(`STT: ${sttMs}ms → (no result)`)
-      return null
-    }
-    log.info(`STT: ${sttMs}ms → ${sttResult.text.length} chars [${sttResult.language}]`)
-
-    const targetLang = this.resolveTargetLanguage(sttResult.language)
-
-    if (!this.engineManager.translator) {
-      this.emit('error', new Error('Translator engine not initialized'))
-      return null
-    }
-
-    try {
-      // Check translation cache before calling engine
-      const cached = this.translationCache.get(sttResult.text, sttResult.language, targetLang)
-      let translated: string
-      if (cached !== undefined) {
-        translated = cached
-        log.info(`Translate: cache hit (${translated.length} chars)`)
-      } else {
-        const t1 = performance.now()
-        const glossary = this.glossary.length > 0 ? this.glossary : undefined
-        translated = await this.engineManager.translator.translate(
-          sttResult.text,
-          sttResult.language,
-          targetLang,
-          this.contextBuffer.getContext(glossary)
-        )
-        const translateMs = (performance.now() - t1).toFixed(0)
-        log.info(`Translate: ${translateMs}ms → ${translated.length} chars`)
-        this.translationCache.set(sttResult.text, sttResult.language, targetLang, translated)
-      }
-
-      this.contextBuffer.add(sttResult.text, translated)
-
-
-      return {
-        sourceText: sttResult.text,
-        translatedText: translated,
-        sourceLanguage: sttResult.language,
-        targetLanguage: targetLang,
-        timestamp: Date.now(),
-        confidence: sttResult.confidence
-      }
-    } catch (translatorErr) {
-      log.error('Translator error:', translatorErr)
-      this.emit('error', new Error(`Translation failed: ${translatorErr instanceof Error ? translatorErr.message : translatorErr}`))
-      return null
+  /**
+   * An engine call failed. Each failure is surfaced as an 'error' event; after
+   * MAX_CONSECUTIVE_ERRORS in a row the engines are re-initialized.
+   */
+  private reportFailure(error: Error): void {
+    log.error('Engine failure:', error.message)
+    this.emit('error', error)
+    this.consecutiveErrors++
+    if (this.consecutiveErrors >= MAX_CONSECUTIVE_ERRORS) {
+      this.scheduleRecovery()
     }
   }
 
@@ -452,12 +367,6 @@ export class TranslationPipeline extends EventEmitter {
     try {
       await new Promise((resolve) => setTimeout(resolve, RECOVERY_DELAY_MS))
 
-      // Reset streaming state before re-initializing engines
-      this.agreement.reset()
-      this.contextBuffer.reset()
-      this.streaming.lastTranslatedConfirmed = ''
-      this.streaming.simulMtPreviousOutput = ''
-
       // Temporarily go to IDLE so switchEngine can transition to INITIALIZING
       this.setState(PipelineState.IDLE)
       await this.switchEngine(this.engineManager.config)
@@ -477,16 +386,29 @@ export class TranslationPipeline extends EventEmitter {
 
   // --- Streaming (delegated to StreamingProcessor) ---
 
-  async processStreaming(audioBuffer: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
+  /** Submit the audio so far of a segment that is still being spoken */
+  async processStreaming(
+    audioBuffer: Float32Array,
+    sampleRate: number,
+    segmentId: string
+  ): Promise<TranslationResult | null> {
     if (this._state !== PipelineState.RUNNING || !this.engineManager.config) return null
-    if (this.engineManager.config.mode !== 'cascade') return null
-    return this.streaming.processStreaming(audioBuffer, sampleRate)
+    return this.streaming.processStreaming(audioBuffer, sampleRate, segmentId)
   }
 
-  async finalizeStreaming(audioChunk: Float32Array, sampleRate: number): Promise<TranslationResult | null> {
-    if (!this.running || !this.engineManager.config) return null
-    if (this.engineManager.config.mode !== 'cascade') return null
-    return this.streaming.finalizeStreaming(audioChunk, sampleRate)
+  /** Submit the complete audio of a segment; each segment is finalized at most once */
+  async finalizeStreaming(
+    audioChunk: Float32Array,
+    sampleRate: number,
+    segmentId: string,
+    meta?: FinalMeta
+  ): Promise<TranslationResult | null> {
+    if (!this.running || !this.engineManager.config) {
+      log.info(`final ${segmentId}: dropped in state ${this._state}`)
+      this.emit('segment-dropped', segmentId)
+      return null
+    }
+    return this.streaming.finalizeStreaming(audioChunk, sampleRate, segmentId, meta)
   }
 
   /**

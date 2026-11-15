@@ -101,7 +101,8 @@ describe('TranslationPipeline engine switching (#719)', () => {
       pipeline.on('result', collect)
 
       // Schedule a debounced streaming translation.
-      await pipeline.processStreaming(new Float32Array(16000), 16000)
+      const speech = new Float32Array(16000).map((_, i) => 0.1 * Math.sin((2 * Math.PI * 220 * i) / 16000))
+      await pipeline.processStreaming(speech, 16000, 's1')
       // Fire the debounce timer so translate() is invoked and left in flight.
       vi.advanceTimersByTime(1500)
       expect(translator.translateCalls.length).toBeGreaterThan(0)

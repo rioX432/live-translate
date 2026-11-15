@@ -136,6 +136,7 @@ live-translate/
 │   │   ├── TranslationPipeline.ts     # Orchestration, streaming, auto-recovery
 │   │   ├── EngineManager.ts           # Engine registration, creation, init/dispose
 │   │   ├── StreamingProcessor.ts      # Streaming audio processing logic
+│   │   ├── SegmentTracker.ts          # One final per VAD segment (open → finalizing → finalized)
 │   │   ├── MemoryMonitor.ts           # Process memory usage monitoring
 │   │   ├── LocalAgreement.ts          # LCP for streaming stability (flicker-free)
 │   │   ├── ContextBuffer.ts           # Ring buffer for context-aware translation

@@ -1,12 +1,13 @@
 export interface ElectronAPI {
   pipelineStart: (config: unknown) => Promise<{ success?: boolean; error?: string }>
   pipelineStop: () => Promise<{ logPath?: string }>
-  processAudio: (audioData: number[]) => Promise<unknown>
-  processAudioStreaming: (audioData: number[]) => Promise<unknown>
-  finalizeStreaming: (audioData: number[]) => Promise<unknown>
+  processAudioStreaming: (payload: { segmentId: string; audio: number[] }) => Promise<unknown>
+  finalizeStreaming: (payload: { segmentId: string; audio: number[]; speechEndedAt?: number }) => Promise<unknown>
   onTranslationResult: (callback: (data: unknown) => void) => (() => void)
   onInterimResult: (callback: (data: unknown) => void) => (() => void)
   onDraftResult: (callback: (data: unknown) => void) => (() => void)
+  onSegmentDropped: (callback: (segmentId: string) => void) => (() => void)
+  onPipelineStatus: (callback: (status: { state: string; error?: string }) => void) => (() => void)
   onStatusUpdate: (callback: (message: string) => void) => (() => void)
   getSessionStartTime: () => Promise<number | null>
   getDisplays: () => Promise<
@@ -191,7 +192,8 @@ export interface ElectronAPI {
   onLanguageSwitched: (callback: (data: { sourceLanguage: string; targetLanguage: string }) => void) => (() => void)
 
   // Audio MessagePort for zero-copy transfer (#553)
-  onAudioPort: (callback: (port: MessagePort) => void) => (() => void)
+  requestAudioPort: () => void
+  audioPortMessageType: string
 
   // Auto-update (#314)
   updateCheck: () => Promise<{ success?: boolean; error?: string }>

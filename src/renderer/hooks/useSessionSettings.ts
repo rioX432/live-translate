@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { bool } from './settingsCastUtils'
-import type { UseAudioCaptureReturn } from './useAudioCapture'
+import type { UseAudioCaptureReturn, SegmentAudio } from './useAudioCapture'
 import type { UseNoiseSuppressionReturn } from './useNoiseSuppression'
 import { useNoiseSuppression } from './useNoiseSuppression'
 import { useAudioCapture } from './useAudioCapture'
@@ -115,54 +115,45 @@ export function useSessionSettings(): SessionSettingsState {
   const audioPortRef = useRef<MessagePort | null>(null)
 
   useEffect(() => {
-    const unsub = window.api.onAudioPort((port) => {
+    // The preload relays the port with window.postMessage (it cannot cross
+    // contextBridge). Listen first, then ask, so the port is never missed.
+    const onMessage = (event: MessageEvent): void => {
+      if (event.source !== window || event.data?.type !== window.api.audioPortMessageType) return
+      const port = event.ports[0]
+      if (!port) return
+      audioPortRef.current?.close()
       audioPortRef.current = port
       console.log('[session] Audio MessagePort received — using zero-copy transfer')
-    })
+    }
+    window.addEventListener('message', onMessage)
+    window.api.requestAudioPort()
     return () => {
-      unsub()
+      window.removeEventListener('message', onMessage)
+      audioPortRef.current?.close()
       audioPortRef.current = null
     }
   }, [])
 
   // Send audio via MessagePort (zero-copy) or fall back to IPC (JSON-serialized)
-  const sendAudio = useCallback((type: string, data: Float32Array) => {
+  const sendAudio = useCallback(({ kind, segmentId, audio: data, speechEndedAt }: SegmentAudio) => {
+    const type = kind === 'final' ? 'finalize-streaming' : 'process-audio-streaming'
     const port = audioPortRef.current
     if (port) {
       // Zero-copy: transfer the underlying ArrayBuffer
       const buffer = data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength)
-      port.postMessage({ type, audio: buffer }, [buffer])
+      port.postMessage({ type, segmentId, audio: buffer, speechEndedAt }, [buffer])
+      return
+    }
+    // Fallback until the port arrives: JSON-serialized IPC
+    const audio = Array.from(data)
+    if (kind === 'final') {
+      void window.api.finalizeStreaming({ segmentId, audio, speechEndedAt })
     } else {
-      // Fallback: JSON-serialized IPC
-      const arr = Array.from(data)
-      if (type === 'process-audio') {
-        window.api.processAudio(arr)
-      } else if (type === 'process-audio-streaming') {
-        window.api.processAudioStreaming(arr)
-      } else if (type === 'finalize-streaming') {
-        window.api.finalizeStreaming(arr)
-      }
+      void window.api.processAudioStreaming({ segmentId, audio })
     }
   }, [])
 
-  // Handle audio: streaming chunks during speech, final segment on speech end
-  useEffect(() => {
-    const unsub1 = audio.onAudioChunk((chunk) => {
-      sendAudio('process-audio', chunk)
-    })
-    const unsub2 = audio.onStreamingChunk((buffer) => {
-      sendAudio('process-audio-streaming', buffer)
-    })
-    const unsub3 = audio.onSpeechSegmentEnd((finalBuffer) => {
-      sendAudio('finalize-streaming', finalBuffer)
-    })
-
-    return () => {
-      unsub1()
-      unsub2()
-      unsub3()
-    }
-  }, [sendAudio])
+  useEffect(() => audio.onSegmentAudio(sendAudio), [sendAudio])
 
   // Listen for status updates from main process
   useEffect(() => {

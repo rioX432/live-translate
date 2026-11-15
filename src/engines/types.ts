@@ -43,6 +43,11 @@ export interface STTResult {
 
 /** Translation pipeline result */
 export interface TranslationResult {
+  /**
+   * Speech segment (one VAD utterance) this result belongs to. Interim results
+   * update the segment; the single final result closes it.
+   */
+  segmentId?: string
   /** Original recognized text */
   sourceText: string
   /** Translated text */
@@ -73,6 +78,17 @@ export interface TranslationResult {
    * Absent or empty means uniform confidence (e.g. cloud APIs that don't provide scores).
    */
   tokenConfidences?: number[]
+  /** Final results: wall-clock ms when the audio source detected the end of speech */
+  speechEndedAt?: number
+  /** Final results: where the time between submission and emission went (ms) */
+  timings?: {
+    /** Waiting behind other segments before processing started */
+    queueMs: number
+    sttMs: number
+    translateMs: number
+    /** Speech end → final result emitted; present when speechEndedAt is known */
+    speechEndToResultMs?: number
+  }
 }
 
 /**
