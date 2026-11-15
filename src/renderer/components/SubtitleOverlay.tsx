@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useReducer, useRef, useState } from 'react'
+import { INITIAL_SUBTITLE_STATE, subtitleReducer, type SubtitleResult } from './subtitle-state'
 
 interface AccessibilityConfig {
   highContrast: boolean
@@ -43,6 +44,9 @@ const FADE_OUT_MS = 800
 
 /** Dimmed color for interim (unconfirmed) text */
 const INTERIM_TEXT_COLOR = 'rgba(255, 255, 255, 0.7)'
+/** The earlier utterance stays readable but recedes behind the current one */
+const PREVIOUS_LINE_OPACITY = 0.55
+const ERROR_TEXT_COLOR = '#fca5a5'
 
 /**
  * Speaker color palette for diarization (#549).
@@ -185,34 +189,23 @@ function ConfidenceText({
   )
 }
 
-interface ResultData {
-  sourceText: string
-  translatedText: string
-  confirmedText?: string
-  interimText?: string
-  speakerLabel?: string
-  speakerIndex?: number
-  /** Sentence-level confidence from STT (0.0–1.0) */
-  confidence?: number
-  /** Per-token confidence scores for translated text (0.0–1.0 each) */
-  tokenConfidences?: number[]
-}
-
 function SubtitleOverlay(): React.JSX.Element {
-  const [confirmedText, setConfirmedText] = useState('')
-  const [interimText, setInterimText] = useState('')
-  const [translatedText, setTranslatedText] = useState('')
+  const [subtitles, dispatch] = useReducer(subtitleReducer, INITIAL_SUBTITLE_STATE)
+  const { current, previous, error } = subtitles
+  const confirmedText = current?.confirmedText ?? ''
+  const interimText = current?.interimText ?? ''
+  const translatedText = current?.translatedText ?? ''
+  const speakerLabel = current?.speakerLabel ?? null
+  const speakerIndex = current?.speakerIndex ?? 0
   const [visible, setVisible] = useState(false)
-  const [confidence, setConfidence] = useState<number | undefined>(undefined)
-  const [tokenConfidences, setTokenConfidences] = useState<number[] | undefined>(undefined)
-  const [speakerLabel, setSpeakerLabel] = useState<string | null>(null)
-  const [speakerIndex, setSpeakerIndex] = useState<number>(0)
   const [config, setConfig] = useState<SubtitleConfig>(DEFAULT_CONFIG)
   const [isDragMode, setIsDragMode] = useState(false)
   const [isEditMode, setIsEditMode] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
   const [editSaving, setEditSaving] = useState(false)
+  // The line being corrected, captured when editing starts: a new utterance may replace `current` meanwhile
+  const [editTarget, setEditTarget] = useState<{ segmentId?: string; sourceText: string; translatedText: string } | null>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDraggingRef = useRef(false)
@@ -227,34 +220,10 @@ function SubtitleOverlay(): React.JSX.Element {
     }, SILENCE_TIMEOUT_MS)
   }, [])
 
-  const handleResult = useCallback((data: unknown) => {
-    const result = data as ResultData
+  const handleResult = useCallback((final: boolean, data: unknown) => {
+    const result = data as SubtitleResult
     if (!result.sourceText?.trim()) return
-
-    // If confirmed/interim split is available, use it for stable display
-    if (result.confirmedText !== undefined) {
-      setConfirmedText(result.confirmedText)
-      setInterimText(result.interimText ?? '')
-    } else {
-      // Final result or non-streaming: all text is confirmed
-      setConfirmedText(result.sourceText)
-      setInterimText('')
-    }
-
-    if (result.translatedText) {
-      setTranslatedText(result.translatedText)
-    }
-
-    // Update confidence data for visualization (#581)
-    setConfidence(result.confidence)
-    setTokenConfidences(result.tokenConfidences)
-
-    // Update speaker label from diarization (#549)
-    if (result.speakerLabel !== undefined) {
-      setSpeakerLabel(result.speakerLabel)
-      setSpeakerIndex(result.speakerIndex ?? 0)
-    }
-
+    dispatch({ type: 'result', final, result })
     setVisible(true)
     resetSilenceTimer()
   }, [resetSilenceTimer])
@@ -332,6 +301,7 @@ function SubtitleOverlay(): React.JSX.Element {
       if (!enabled) {
         setIsEditing(false)
         setEditValue('')
+        setEditTarget(null)
       }
     })
 
@@ -342,16 +312,20 @@ function SubtitleOverlay(): React.JSX.Element {
     }
   }, [])
 
-  // Subscribe to all result types — unified handler
+  // Results are keyed by segment ID, so a late interim cannot overwrite its final
   useEffect(() => {
-    const unsubResult = window.api.onTranslationResult(handleResult)
-    const unsubInterim = window.api.onInterimResult(handleResult)
-    const unsubDraft = window.api.onDraftResult(handleResult)
+    const unsubResult = window.api.onTranslationResult((data) => handleResult(true, data))
+    const unsubInterim = window.api.onInterimResult((data) => handleResult(false, data))
+    const unsubDraft = window.api.onDraftResult((data) => handleResult(false, data))
+    const unsubDropped = window.api.onSegmentDropped((segmentId) => dispatch({ type: 'dropped', segmentId }))
+    const unsubStatus = window.api.onPipelineStatus((status) => dispatch({ type: 'status', ...status }))
 
     return () => {
       unsubResult?.()
       unsubInterim?.()
       unsubDraft?.()
+      unsubDropped?.()
+      unsubStatus?.()
       if (silenceTimerRef.current) clearTimeout(silenceTimerRef.current)
     }
   }, [handleResult])
@@ -359,35 +333,38 @@ function SubtitleOverlay(): React.JSX.Element {
   // Edit mode: click translated text to start editing (#590)
   const handleTranslationClick = useCallback(() => {
     if (!isEditMode || isEditing || !translatedText) return
+    setEditTarget({ segmentId: current?.segmentId, sourceText: confirmedText, translatedText })
     setEditValue(translatedText)
     setIsEditing(true)
     // Focus the input on next render
     setTimeout(() => editInputRef.current?.focus(), 0)
-  }, [isEditMode, isEditing, translatedText])
+  }, [isEditMode, isEditing, translatedText, confirmedText, current?.segmentId])
 
   // Save the corrected translation as a glossary entry (#590)
   const handleEditSave = useCallback(async () => {
     const trimmed = editValue.trim()
-    if (!trimmed || trimmed === translatedText || editSaving) return
+    if (!editTarget || !trimmed || trimmed === editTarget.translatedText || editSaving) return
 
     setEditSaving(true)
     try {
       await window.api.saveCorrection?.({
-        sourceText: confirmedText,
-        originalTranslation: translatedText,
+        sourceText: editTarget.sourceText,
+        originalTranslation: editTarget.translatedText,
         correctedTranslation: trimmed
       })
-      setTranslatedText(trimmed)
+      dispatch({ type: 'corrected', segmentId: editTarget.segmentId, translatedText: trimmed })
     } finally {
       setEditSaving(false)
       setIsEditing(false)
       setEditValue('')
+      setEditTarget(null)
     }
-  }, [editValue, translatedText, confirmedText, editSaving])
+  }, [editValue, editTarget, editSaving])
 
   const handleEditCancel = useCallback(() => {
     setIsEditing(false)
     setEditValue('')
+    setEditTarget(null)
   }, [])
 
   const handleEditKeyDown = useCallback((e: React.KeyboardEvent) => {
@@ -403,7 +380,7 @@ function SubtitleOverlay(): React.JSX.Element {
   // Resolve display values based on accessibility settings
   const effectiveFontSize = a11y.highContrast ? Math.max(config.fontSize + 4, 34) : config.fontSize
   const translatedFontSize = Math.max(effectiveFontSize - 2, 16)
-  const hasContent = confirmedText || interimText
+  const hasContent = confirmedText || interimText || previous
 
   const effectiveSourceColor = a11y.highContrast ? '#ffffff' : config.sourceTextColor
   const effectiveTranslatedColor = a11y.highContrast ? '#ffff00' : config.translatedTextColor
@@ -489,7 +466,28 @@ function SubtitleOverlay(): React.JSX.Element {
         </div>
       )}
 
-      {/* Single subtitle slot */}
+      {/* STT failure: stays up while the pipeline recovers, independent of the subtitle fade */}
+      {error && (
+        <div
+          role="status"
+          aria-live="assertive"
+          style={{
+            alignSelf: 'center',
+            marginBottom: '0.375rem',
+            color: ERROR_TEXT_COLOR,
+            fontSize: `${Math.max(effectiveFontSize - 12, 12)}px`,
+            fontWeight: 600,
+            background: 'rgba(0,0,0,0.7)',
+            padding: '3px 10px',
+            borderRadius: '6px',
+            textShadow: effectiveTextShadow
+          }}
+        >
+          ⚠ {error}
+        </div>
+      )}
+
+      {/* Subtitle slot: the previous utterance above the current one */}
       <div
         style={{
           background: `rgba(0, 0, 0, ${effectiveBgOpacity / 100})`,
@@ -503,6 +501,26 @@ function SubtitleOverlay(): React.JSX.Element {
           textAlign: 'center'
         }}
       >
+        {previous && (
+          <div
+            style={{
+              opacity: PREVIOUS_LINE_OPACITY,
+              fontSize: `${translatedFontSize}px`,
+              fontWeight: 600,
+              lineHeight: 1.4,
+              textShadow: effectiveTextShadow,
+              wordBreak: 'break-word',
+              marginBottom: '0.375rem',
+              ...spacingStyle
+            }}
+          >
+            <div style={{ color: effectiveSourceColor }}>{previous.confirmedText}{previous.interimText}</div>
+            {previous.translatedText && (
+              <div style={{ color: effectiveTranslatedColor }}>{previous.translatedText}</div>
+            )}
+          </div>
+        )}
+
         {/* Speaker label from diarization (#549) */}
         {speakerLabel && (
           <div
@@ -568,8 +586,8 @@ function SubtitleOverlay(): React.JSX.Element {
             {config.showConfidenceIndicator ? (
               <ConfidenceText
                 text={translatedText}
-                confidence={confidence}
-                tokenConfidences={tokenConfidences}
+                confidence={current?.confidence}
+                tokenConfidences={current?.tokenConfidences}
                 color={effectiveTranslatedColor}
                 highContrast={a11y.highContrast}
               />
@@ -605,7 +623,7 @@ function SubtitleOverlay(): React.JSX.Element {
             />
             <button
               onClick={handleEditSave}
-              disabled={editSaving || !editValue.trim() || editValue.trim() === translatedText}
+              disabled={editSaving || !editValue.trim() || editValue.trim() === editTarget?.translatedText}
               aria-label="Save correction"
               style={{
                 background: '#22c55e',
