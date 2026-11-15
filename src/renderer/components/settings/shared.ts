@@ -26,7 +26,7 @@ export const LANGUAGE_LABELS: Record<Language, string> = {
 
 export const ALL_LANGUAGES = Object.keys(LANGUAGE_LABELS) as Language[]
 
-export type EngineMode = 'auto' | 'rotation' | 'online' | 'online-deepl' | 'online-gemini' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-apple'
+export type EngineMode = 'auto' | 'offline-hymt15' | 'offline-hunyuan-mt' | 'offline-apple'
 
 /** Legacy engine mode IDs removed from the UI in #702.
  *  Persisted store values matching these IDs are migrated to 'auto' on startup. */
@@ -34,7 +34,11 @@ export const LEGACY_TRANSLATION_ENGINES: readonly string[] = [
   'offline-lfm2',
   'offline-plamo',
   'offline-hybrid',
-  'offline-opus'
+  'offline-opus',
+  'rotation',
+  'online',
+  'online-deepl',
+  'online-gemini'
 ] as const
 
 export type SttEngineType = 'whisper-local' | 'mlx-whisper' | 'kotoba-whisper' | 'qwen3-asr' | 'sensevoice-sherpa' | 'apple-speech-transcriber'
@@ -153,9 +157,6 @@ export const disclosureArrowStyle = (isOpen: boolean): React.CSSProperties => ({
 
 // --- Engine mode utilities ---
 
-/** API-based engine modes that require at least one API key */
-export const API_ENGINE_MODES: EngineMode[] = ['rotation', 'online', 'online-deepl', 'online-gemini']
-
 /** LLM-based engine modes that support KV cache / SimulMT options */
 export const LLM_ENGINE_MODES: EngineMode[] = ['offline-hymt15', 'offline-hunyuan-mt']
 
@@ -165,10 +166,6 @@ export function getEngineDisplayName(mode: EngineMode): string {
     case 'offline-apple': return 'Apple Translate (Built-in)'
     case 'offline-hymt15': return 'HY-MT 1.5 (Recommended)'
     case 'offline-hunyuan-mt': return 'Hunyuan-MT 7B (High Quality)'
-    case 'rotation': return 'API Auto Rotation'
-    case 'online': return 'Google Translation'
-    case 'online-deepl': return 'DeepL'
-    case 'online-gemini': return 'Gemini 2.5 Flash'
     case 'auto': return 'Auto'
     default: return mode
   }
@@ -196,84 +193,18 @@ export function getSttDisplayName(sttEngine: SttEngineType, whisperVariant: Whis
   }
 }
 
-/** Resolve 'auto' engine mode to a concrete mode based on available keys and GPU */
-export function resolveEngineMode(
-  mode: EngineMode,
-  apiKeys: { apiKey: string; deeplApiKey: string; geminiApiKey: string; microsoftApiKey: string; microsoftRegion: string },
-  gpuInfo: { hasGpu: boolean } | null
-): EngineMode {
+/** Resolve 'auto' engine mode to a concrete local mode based on GPU availability */
+export function resolveEngineMode(mode: EngineMode, gpuInfo: { hasGpu: boolean } | null): EngineMode {
   if (mode !== 'auto') return mode
-  const hasKeys = !!(apiKeys.apiKey || apiKeys.deeplApiKey || apiKeys.geminiApiKey || (apiKeys.microsoftApiKey && apiKeys.microsoftRegion))
-  if (hasKeys) return 'rotation'
   if (gpuInfo?.hasGpu) return 'offline-hunyuan-mt'
   return 'offline-hymt15'
 }
 
 /** Build pipeline config from resolved engine mode and settings */
-export function buildEngineConfig(
-  resolvedMode: EngineMode,
-  sttEngine: SttEngineType,
-  apiKeys: {
-    apiKey: string
-    deeplApiKey: string
-    geminiApiKey: string
-    microsoftApiKey: string
-    microsoftRegion: string
-    openaiApiKey?: string
-    geminiLiveApiKey?: string
-  },
-  /**
-   * Realtime cloud toggles. An object rather than positional booleans: these route
-   * where a user's audio is sent, and two adjacent same-typed flags are swappable
-   * at a call site without any type error.
-   */
-  realtime: { cloudRealtimeEnabled?: boolean; geminiLiveEnabled?: boolean } = {}
-): Record<string, unknown> {
-  // #722/#723: Cloud realtime interpretation is a separate capability axis, not an
-  // extra translation engine — when enabled (with the matching BYOK key) it
-  // overrides the cascade engine selection and runs a speech-native e2e path.
-  // Both default off, keeping the local-first cascade as Core Value ①.
-  //
-  // Only ONE e2e path can own a session. gpt-realtime-translate outranks Gemini
-  // Live, whose model is Preview and may change or break without notice, so its
-  // toggle is checked first and owns the decision outright: a cloudRealtime user
-  // whose OpenAI key is missing falls back to the LOCAL cascade, never sideways to
-  // the other vendor. "Enabled but unusable" is a misconfiguration, not consent to
-  // ship audio to a cloud the user did not choose.
-  if (realtime.cloudRealtimeEnabled) {
-    if (apiKeys.openaiApiKey) {
-      return {
-        mode: 'e2e' as const,
-        e2eEngineId: 'cloud-realtime-e2e',
-        openaiApiKey: apiKeys.openaiApiKey
-      }
-    }
-  } else if (realtime.geminiLiveEnabled && apiKeys.geminiLiveApiKey) {
-    return {
-      mode: 'e2e' as const,
-      e2eEngineId: 'gemini-live-e2e',
-      geminiLiveApiKey: apiKeys.geminiLiveApiKey
-    }
-  }
-
+export function buildEngineConfig(resolvedMode: EngineMode, sttEngine: SttEngineType): Record<string, unknown> {
   const base = { mode: 'cascade' as const, sttEngineId: sttEngine }
 
   switch (resolvedMode) {
-    case 'rotation':
-      return {
-        ...base,
-        translatorEngineId: 'rotation-controller',
-        ...(apiKeys.apiKey && { apiKey: apiKeys.apiKey }),
-        ...(apiKeys.deeplApiKey && { deeplApiKey: apiKeys.deeplApiKey }),
-        ...(apiKeys.geminiApiKey && { geminiApiKey: apiKeys.geminiApiKey }),
-        ...(apiKeys.microsoftApiKey && apiKeys.microsoftRegion && { microsoftApiKey: apiKeys.microsoftApiKey, microsoftRegion: apiKeys.microsoftRegion })
-      }
-    case 'online':
-      return { ...base, translatorEngineId: 'google-translate', apiKey: apiKeys.apiKey }
-    case 'online-deepl':
-      return { ...base, translatorEngineId: 'deepl-translate', deeplApiKey: apiKeys.deeplApiKey }
-    case 'online-gemini':
-      return { ...base, translatorEngineId: 'gemini-translate', geminiApiKey: apiKeys.geminiApiKey }
     case 'offline-hunyuan-mt':
       return { ...base, translatorEngineId: 'hunyuan-mt' }
     case 'offline-apple':

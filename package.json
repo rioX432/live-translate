@@ -20,12 +20,12 @@
     "bench:stt": "cd benchmark && npm run stt",
     "bench:stt:all": "cd benchmark && npm run stt:all",
     "bench:stt:generate": "cd benchmark && npm run stt:generate-testset",
-    "shadow:ja-en": "LT_SHADOW_JA_EN=1 electron-vite dev",
-    "shadow:ja-en:cloud": "LT_SHADOW_JA_EN=1 LT_SHADOW_CLOUD=1 electron-vite dev",
-    "shadow:ja-en:cloud-all": "LT_SHADOW_JA_EN=1 LT_SHADOW_CLOUD=1 LT_SHADOW_GEMINI_LIVE=1 electron-vite dev"
+    "shadow:ja-en": "LT_SHADOW_JA_EN=1 electron-vite dev"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^3.0.0",
+    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@fontsource/noto-sans": "^5.3.0",
     "@huggingface/transformers": "^3.8.0",
     "@kutalia/whisper-node-addon": "^1.1.0",
     "@ricky0123/vad-web": "^0.0.30",

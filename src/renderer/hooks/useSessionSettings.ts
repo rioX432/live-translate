@@ -141,8 +141,6 @@ export function useSessionSettings(): SessionSettingsState {
         window.api.processAudioStreaming(arr)
       } else if (type === 'finalize-streaming') {
         window.api.finalizeStreaming(arr)
-      } else if (type === 'push-realtime-audio') {
-        window.api.pushRealtimeAudio(arr)
       }
     }
   }, [])
@@ -158,20 +156,11 @@ export function useSessionSettings(): SessionSettingsState {
     const unsub3 = audio.onSpeechSegmentEnd((finalBuffer) => {
       sendAudio('finalize-streaming', finalBuffer)
     })
-    // #721: realtime cloud e2e — continuous 100ms chunks + VAD turn-boundary hints
-    const unsub4 = audio.onRealtimeChunk((chunk) => {
-      sendAudio('push-realtime-audio', chunk)
-    })
-    const unsub5 = audio.onSpeechBoundary((boundary) => {
-      window.api.speechBoundary(boundary)
-    })
 
     return () => {
       unsub1()
       unsub2()
       unsub3()
-      unsub4()
-      unsub5()
     }
   }, [sendAudio])
 

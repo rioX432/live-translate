@@ -30,7 +30,7 @@ npm install          # Install deps (postinstall fixes whisper-node-addon)
 - mlx-whisper (Python subprocess bridge, Apple Silicon — JA CER 8.1%, EN WER 3.8%)
 - node-llama-cpp (Hunyuan-MT 7B quality translation, meeting summaries, UtilityProcess)
 - @ricky0123/vad-web (Silero VAD)
-- Primary translation: OPUS-MT (279ms, offline), Hunyuan-MT 7B (3.7s, quality), Google, DeepL, Gemini
+- Primary translation: HY-MT1.5 (fast default), OPUS-MT (legacy fallback), Hunyuan-MT 7B (3.7s, quality); all offline
 - Experimental (hidden): TranslateGemma, HY-MT1.5, CT2 OPUS-MT, CT2 Madlad-400, ANE
 - Local Agreement algorithm for streaming subtitle display
 
@@ -103,18 +103,12 @@ live-translate/
 │   │       ├── HunyuanMTTranslator.ts    # Hunyuan-MT 7B (quality, offline)
 │   │       ├── HunyuanMT15Translator.ts  # HY-MT1.5 (experimental)
 │   │       ├── HybridTranslator.ts       # Two-stage: OPUS-MT draft + LLM refine
-│   │       ├── GoogleTranslator.ts
-│   │       ├── DeepLTranslator.ts
-│   │       ├── GeminiTranslator.ts
-│   │       ├── MicrosoftTranslator.ts
 │   │       ├── SLMTranslator.ts          # TranslateGemma (experimental)
 │   │       ├── LFM2Translator.ts        # LFM2 draft model for speculative decoding
 │   │       ├── LlamaWorkerTranslator.ts # Generic llama worker translator
 │   │       ├── PLaMoTranslator.ts       # PLaMo translation (experimental)
 │   │       ├── ANETranslator.ts         # Apple Neural Engine (experimental)
-│   │       ├── ApiRotationController.ts  # Multi-provider rotation
 │   │       ├── glossary-manager.ts      # Custom glossary management
-│   │       ├── api-utils.ts              # Shared API utilities
 │   │       └── hallucination-filter.ts   # Translation hallucination detection
 │   ├── pipeline/
 │   │   ├── TranslationPipeline.ts  # Orchestration, streaming, auto-recovery
@@ -170,16 +164,11 @@ live-translate/
 
 **Engine Auto-Selection**
 - GPU detection via node-llama-cpp `getGpuDeviceNames()`
-- Auto mode: API rotation (if keys) → Hunyuan-MT 7B (if GPU, quality) → OPUS-MT (fast default)
+- Auto mode: Hunyuan-MT 7B (if GPU, quality) → OPUS-MT (fast default)
 
 **Plugin System**
 - Plugins in `userData/plugins/` with `live-translate-plugin.json` manifest
-- Auto-discovered and registered on startup
-
-**API Rotation**
-- `ApiRotationController` wraps multiple providers
-- Routes to first non-exhausted provider with quota tracking
-- 5-minute cooldown after 5 consecutive failures
+- Auto-discovered and registered on startup in unpackaged builds only (packaged builds never load plugins)
 
 **IPC Architecture**
 - Renderer → Main: audio chunks, pipeline control, settings

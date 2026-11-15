@@ -98,9 +98,10 @@ if (fs.existsSync(vadSrc)) {
   const ortDist = path.join(__dirname, '..', 'node_modules', 'onnxruntime-web', 'dist')
   if (fs.existsSync(ortDist)) {
     for (const file of fs.readdirSync(ortDist)) {
-      if (file.endsWith('.wasm')) {
+      // The .mjs loader is imported at runtime through vad-asset://, so it must ship next to the .wasm
+      if (file.endsWith('.wasm') || (file.startsWith('ort-wasm') && file.endsWith('.mjs'))) {
         fs.copyFileSync(path.join(ortDist, file), path.join(vadDest, file))
-        console.log(`[fix-whisper-addon] Copied ORT WASM: ${file}`)
+        console.log(`[fix-whisper-addon] Copied ORT runtime: ${file}`)
       }
     }
   }

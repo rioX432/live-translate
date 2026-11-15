@@ -1,11 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import {
-  AZURE_FREE_TIER_CHARS,
-  AZURE_TRANSLATOR_PORTAL_URL,
   TIER1_TOTAL_MB,
   TIER2_TOTAL_MB,
   formatSize,
-  isAzureKeyValid,
   nextStep,
   pickInitialStep,
   type DownloadStatus,
@@ -13,7 +10,7 @@ import {
 } from './onboarding-steps'
 
 interface OnboardingProps {
-  /** Called once when the user finishes (or skips through) all three steps. */
+  /** Called once when the user finishes (or skips through) both steps. */
   onComplete: () => void
 }
 
@@ -26,15 +23,13 @@ interface DownloadState {
 }
 
 /**
- * Three-step first-run onboarding (#708):
+ * Two-step first-run onboarding (#708):
  *  1. Quick Start         — Tier 1 (Whisper Base + LFM2 350M, ~371MB)
  *                           "Ready to translate in moments"
  *  2. Quality Upgrade     — Tier 2 (Kotoba Whisper + HY-MT1.5 1.8B, ~1.6GB)
  *                           Downloads in background; auto-switches when ready
- *  3. Cloud Boost (opt.)  — Azure Translator F0 key for 2M chars/month free
  *
- * Every step is skippable. Step 3 is fully optional and can be configured
- * later in Translator Settings.
+ * Every step is skippable.
  */
 export function Onboarding({ onComplete }: OnboardingProps): React.JSX.Element | null {
   const [step, setStep] = useState<OnboardingStep | null>(null)
@@ -44,20 +39,14 @@ export function Onboarding({ onComplete }: OnboardingProps): React.JSX.Element |
     tier1Ready: false,
     tier2Ready: false
   })
-  const [azureKey, setAzureKey] = useState('')
-  const [azureRegion, setAzureRegion] = useState('')
-  const [azureSaving, setAzureSaving] = useState(false)
-  const [azureSaveError, setAzureSaveError] = useState<string | null>(null)
   const [startError, setStartError] = useState<string | null>(null)
 
-  // Bootstrap: load current onboarding status + any persisted Azure credentials
+  // Bootstrap: load current onboarding status
   useEffect(() => {
     let cancelled = false
-    Promise.all([
-      window.api.onboardingGetStatus(),
-      window.api.getSettings()
-    ])
-      .then(([status, settings]) => {
+    window.api
+      .onboardingGetStatus()
+      .then((status) => {
         if (cancelled) return
         const s = status as unknown as DownloadState
         setDownload({
@@ -66,8 +55,6 @@ export function Onboarding({ onComplete }: OnboardingProps): React.JSX.Element |
           tier1Ready: !!s.tier1Ready,
           tier2Ready: !!s.tier2Ready
         })
-        setAzureKey((settings as { microsoftApiKey?: string }).microsoftApiKey ?? '')
-        setAzureRegion((settings as { microsoftRegion?: string }).microsoftRegion ?? '')
         setStep(
           pickInitialStep({
             tier1Ready: !!s.tier1Ready,
@@ -134,27 +121,6 @@ export function Onboarding({ onComplete }: OnboardingProps): React.JSX.Element |
     }
   }, [])
 
-  const handleSaveAzureKey = useCallback(async () => {
-    if (!isAzureKeyValid(azureKey, azureRegion)) {
-      setAzureSaveError('Both API key and region are required.')
-      return
-    }
-    setAzureSaving(true)
-    setAzureSaveError(null)
-    try {
-      await window.api.saveSettings({
-        microsoftApiKey: azureKey.trim(),
-        microsoftRegion: azureRegion.trim()
-      })
-      advance('cloud-boost')
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err)
-      setAzureSaveError(`Failed to save Azure credentials: ${message}`)
-    } finally {
-      setAzureSaving(false)
-    }
-  }, [azureKey, azureRegion, advance])
-
   // Still loading initial state — render placeholder to avoid flicker
   if (!step) {
     return <div style={shellStyle} aria-busy="true" />
@@ -165,7 +131,7 @@ export function Onboarding({ onComplete }: OnboardingProps): React.JSX.Element |
       <header style={headerStyle}>
         <h2 style={titleStyle}>Welcome to live-translate</h2>
         <p style={subtitleStyle}>
-          Three quick steps to set up local-first translation. Skip anything you do not need.
+          Two quick steps to set up local-first translation. Skip anything you do not need.
         </p>
         <StepIndicator current={step} />
       </header>
@@ -234,65 +200,7 @@ export function Onboarding({ onComplete }: OnboardingProps): React.JSX.Element |
             </p>
           )}
           <SkipButton onClick={() => advance('quality-upgrade')}>
-            Next: Optional cloud boost
-          </SkipButton>
-        </StepCard>
-      )}
-
-      {step === 'cloud-boost' && (
-        <StepCard
-          number={3}
-          title="Cloud Boost (Optional)"
-          subtitle={`Azure Translator free tier — ${AZURE_FREE_TIER_CHARS}`}
-          description="You're already translating offline. Adding a free Azure F0 key adds optional cloud-quality fallback for harder phrases. You can do this later in Translator Settings."
-        >
-          <ol style={instructionListStyle}>
-            <li>
-              Open the Azure portal: <a href={AZURE_TRANSLATOR_PORTAL_URL} target="_blank" rel="noreferrer noopener" style={linkStyle}>
-                Create Translator (F0 free tier)
-              </a>
-            </li>
-            <li>Select pricing tier <strong>F0</strong> ({AZURE_FREE_TIER_CHARS}, no card required).</li>
-            <li>Copy <strong>Key 1</strong> and the <strong>Region</strong> from Keys and Endpoint.</li>
-            <li>Paste them below and save — about 5 minutes total.</li>
-          </ol>
-
-          <label style={fieldLabelStyle} htmlFor="onboarding-azure-key">Azure Translator key</label>
-          <input
-            id="onboarding-azure-key"
-            type="password"
-            value={azureKey}
-            onChange={(e) => setAzureKey(e.target.value)}
-            placeholder="Paste Key 1 from the Azure portal"
-            aria-label="Azure Translator key"
-            style={inputStyle}
-            disabled={azureSaving}
-          />
-
-          <label style={fieldLabelStyle} htmlFor="onboarding-azure-region">Azure region</label>
-          <input
-            id="onboarding-azure-region"
-            type="text"
-            value={azureRegion}
-            onChange={(e) => setAzureRegion(e.target.value)}
-            placeholder="e.g. eastus, japaneast"
-            aria-label="Azure region"
-            style={inputStyle}
-            disabled={azureSaving}
-          />
-
-          {azureSaveError && (
-            <div role="alert" style={errorStyle}>{azureSaveError}</div>
-          )}
-
-          <PrimaryButton
-            onClick={handleSaveAzureKey}
-            disabled={azureSaving || !isAzureKeyValid(azureKey, azureRegion)}
-          >
-            {azureSaving ? 'Saving…' : 'Save Azure key & finish'}
-          </PrimaryButton>
-          <SkipButton onClick={() => advance('cloud-boost')}>
-            Skip — works great offline
+            Finish
           </SkipButton>
         </StepCard>
       )}
@@ -307,8 +215,7 @@ export function Onboarding({ onComplete }: OnboardingProps): React.JSX.Element |
 function StepIndicator({ current }: { current: OnboardingStep }): React.JSX.Element {
   const steps: { id: OnboardingStep; label: string }[] = [
     { id: 'quick-start', label: '1. Quick Start' },
-    { id: 'quality-upgrade', label: '2. Quality' },
-    { id: 'cloud-boost', label: '3. Cloud (Optional)' }
+    { id: 'quality-upgrade', label: '2. Quality' }
   ]
   return (
     <nav aria-label="Onboarding progress" style={indicatorWrapStyle}>
@@ -568,38 +475,6 @@ const readyStyle: React.CSSProperties = {
   fontWeight: 600,
   color: '#4ade80',
   margin: '0 0 6px 0'
-}
-
-const instructionListStyle: React.CSSProperties = {
-  margin: '0 0 14px 0',
-  paddingLeft: '20px',
-  fontSize: '12px',
-  color: '#cbd5f5',
-  lineHeight: 1.6
-}
-
-const linkStyle: React.CSSProperties = {
-  color: '#60a5fa',
-  textDecoration: 'underline'
-}
-
-const fieldLabelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: '11px',
-  color: '#94a3b8',
-  marginTop: '8px',
-  marginBottom: '4px'
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  fontSize: '13px',
-  background: '#0f172a',
-  color: '#e2e8f0',
-  border: '1px solid #334155',
-  borderRadius: '6px',
-  fontFamily: 'monospace'
 }
 
 const errorStyle: React.CSSProperties = {

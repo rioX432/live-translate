@@ -33,20 +33,10 @@ export function registerEnterpriseIpc(_ctx: AppContext): void {
   // MDM config: get the current managed configuration
   ipcMain.handle('enterprise-get-mdm-config', () => {
     const config = getMdmConfig()
-    // Strip sensitive managed API keys from the response — renderer only needs
-    // to know if they exist (not the actual values)
     return {
       lockedEngine: config.lockedEngine,
       lockedSttEngine: config.lockedSttEngine,
       telemetryDisabled: config.telemetryDisabled,
-      hasManagedApiKey: config.managedApiKey !== null,
-      hasManagedDeeplApiKey: config.managedDeeplApiKey !== null,
-      hasManagedGeminiApiKey: config.managedGeminiApiKey !== null,
-      // #704: expose Microsoft (Azure) Translator managed state to renderer.
-      // Key is hidden (boolean only) but region is sent as a non-secret value
-      // so the UI can display the configured Azure region.
-      hasManagedMicrosoftApiKey: config.managedMicrosoftApiKey !== null,
-      managedMicrosoftRegion: config.managedMicrosoftRegion,
       organizationName: config.organizationName,
       autoUpdateDisabled: config.autoUpdateDisabled
     }

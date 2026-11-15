@@ -6,11 +6,6 @@ interface MdmConfig {
   lockedEngine: string | null
   lockedSttEngine: string | null
   telemetryDisabled: boolean
-  hasManagedApiKey: boolean
-  hasManagedDeeplApiKey: boolean
-  hasManagedGeminiApiKey: boolean
-  hasManagedMicrosoftApiKey: boolean
-  managedMicrosoftRegion: string | null
   organizationName: string | null
   autoUpdateDisabled: boolean
 }
@@ -93,23 +88,6 @@ export function EnterpriseSettings({ disabled }: Props): React.JSX.Element {
           {mdmConfig.lockedSttEngine && (
             <div style={infoLineStyle}>
               STT engine locked to: <strong>{mdmConfig.lockedSttEngine}</strong>
-            </div>
-          )}
-          {mdmConfig.hasManagedApiKey && (
-            <div style={infoLineStyle}>Google API key provided by organization</div>
-          )}
-          {mdmConfig.hasManagedDeeplApiKey && (
-            <div style={infoLineStyle}>DeepL API key provided by organization</div>
-          )}
-          {mdmConfig.hasManagedGeminiApiKey && (
-            <div style={infoLineStyle}>Gemini API key provided by organization</div>
-          )}
-          {mdmConfig.hasManagedMicrosoftApiKey && (
-            <div style={infoLineStyle}>
-              Microsoft Translator API key provided by organization
-              {mdmConfig.managedMicrosoftRegion && (
-                <> (region: <strong>{mdmConfig.managedMicrosoftRegion}</strong>)</>
-              )}
             </div>
           )}
           {mdmConfig.autoUpdateDisabled && (

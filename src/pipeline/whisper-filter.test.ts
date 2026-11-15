@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { filterWhisperHallucination } from './whisper-filter'
 
 describe('filterWhisperHallucination', () => {
@@ -62,5 +62,19 @@ describe('filterWhisperHallucination', () => {
 
   it('trims whitespace', () => {
     expect(filterWhisperHallucination('  hello world  ')).toBe('hello world')
+  })
+})
+
+describe('filterWhisperHallucination logging', () => {
+  it('never writes the recognized text to the console', () => {
+    const spy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+    const secret = 'CONFIDENTIAL-MEETING-TEXT'
+    filterWhisperHallucination('thank you')
+    filterWhisperHallucination(`${secret} ${secret} ${secret} ${secret}`)
+    filterWhisperHallucination('ああ')
+    const logged = spy.mock.calls.flat().join(' ')
+    spy.mockRestore()
+    expect(logged).not.toContain('thank you')
+    expect(logged).not.toContain(secret)
   })
 })

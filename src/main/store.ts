@@ -1,11 +1,9 @@
+import path from 'path'
+import { app } from 'electron'
 import Store from 'electron-store'
+import { migrateLegacyStoreFile } from './legacy-store'
 import type { GlossaryEntry, Language, SourceLanguage } from '../engines/types'
 import { DEFAULT_WS_PORT } from './constants'
-
-export interface QuotaRecord {
-  monthKey: string
-  charCount: number
-}
 
 /** Persisted session state for crash recovery (#54) */
 export interface ActiveSession {
@@ -52,30 +50,16 @@ export interface CorrectionEntry {
 
 export interface AppSettings {
   translationEngine: string
-  googleApiKey: string
-  microsoftApiKey: string
-  microsoftRegion: string
-  deeplApiKey: string
-  geminiApiKey: string
-  /** OpenAI API key for cloud realtime speech translation (BYOK, #722) */
-  openaiApiKey: string
-  /**
-   * Google AI key for the Gemini Live API (BYOK, #723). Separate from geminiApiKey:
-   * the Live API is separately billed and gated, so a key that works for the
-   * cascade Gemini translator can still 403 on Live.
-   */
-  geminiLiveApiKey: string
-  /** Opt-in cloud realtime interpretation via gpt-realtime-translate (#722). Off = local-first default. */
-  cloudRealtimeEnabled: boolean
-  /**
-   * Opt-in Gemini Live realtime interpretation (#723). Preview model — never a
-   * default, and yields to cloudRealtimeEnabled when both are on.
-   */
-  geminiLiveEnabled: boolean
   selectedMicrophone: string
   sttEngine: string
   selectedDisplay: number
-  quotaTracking: Record<string, QuotaRecord>
+  /**
+   * Opt-in: write plaintext transcripts (source + translation) to userData/logs.
+   * Off by default because meeting content may be confidential.
+   */
+  saveTranscripts: boolean
+  /** Opt-in: persist the running session config so a crash can be offered for recovery (#54). */
+  sessionRecoveryEnabled: boolean
   activeSession: ActiveSession | null
   subtitleSettings: SubtitleSettings
   sessionLogs: SessionLog[]
@@ -157,24 +141,23 @@ export interface AppSettings {
   activeModelTier: 1 | 2 | null
 }
 
+// electron-store's default file is <userData>/config.json. The legacy encrypted file must be
+// rewritten before the Store opens it, otherwise the plain-JSON parse fails and conf resets it.
+try {
+  migrateLegacyStoreFile(path.join(app.getPath('userData'), 'config.json'))
+} catch (err) {
+  console.warn('[store] legacy settings migration failed:', (err as Error).message)
+}
+
 export const store = new Store<AppSettings>({
-  encryptionKey: 'live-translate-v1',
   defaults: {
     hasCompletedSetup: false,
     translationEngine: 'auto',
-    googleApiKey: '',
-    microsoftApiKey: '',
-    microsoftRegion: '',
-    deeplApiKey: '',
-    geminiApiKey: '',
-    openaiApiKey: '',
-    geminiLiveApiKey: '',
-    cloudRealtimeEnabled: false,
-    geminiLiveEnabled: false,
     sttEngine: 'mlx-whisper',
     selectedMicrophone: '',
     selectedDisplay: 0,
-    quotaTracking: {},
+    saveTranscripts: false,
+    sessionRecoveryEnabled: false,
     activeSession: null,
     subtitleSettings: {
       fontSize: 30,

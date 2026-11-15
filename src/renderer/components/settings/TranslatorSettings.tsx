@@ -1,7 +1,7 @@
 import React from 'react'
 import { GlossarySettings } from './GlossarySettings'
 import { Section } from './Section'
-import { LLM_ENGINE_MODES, disclosureArrowStyle, disclosureToggleStyle, inputStyle, radioLabelStyle, selectStyle } from './shared'
+import { LLM_ENGINE_MODES, radioLabelStyle, selectStyle } from './shared'
 import type { EngineMode } from './shared'
 
 interface TranslatorSettingsProps {
@@ -29,30 +29,6 @@ interface TranslatorSettingsProps {
   onAdaptiveRoutingLongThresholdChange: (v: number) => void
   adaptiveRoutingQualityEngine: string
   onAdaptiveRoutingQualityEngineChange: (v: string) => void
-  // API keys
-  apiKey: string
-  onApiKeyChange: (v: string) => void
-  deeplApiKey: string
-  onDeeplApiKeyChange: (v: string) => void
-  geminiApiKey: string
-  onGeminiApiKeyChange: (v: string) => void
-  microsoftApiKey: string
-  onMicrosoftApiKeyChange: (v: string) => void
-  microsoftRegion: string
-  onMicrosoftRegionChange: (v: string) => void
-  // Cloud realtime interpretation (#722, BYOK)
-  openaiApiKey: string
-  onOpenaiApiKeyChange: (v: string) => void
-  cloudRealtimeEnabled: boolean
-  onCloudRealtimeEnabledChange: (v: boolean) => void
-  // Gemini Live realtime interpretation (#723, BYOK, preview)
-  geminiLiveApiKey: string
-  onGeminiLiveApiKeyChange: (v: string) => void
-  geminiLiveEnabled: boolean
-  onGeminiLiveEnabledChange: (v: boolean) => void
-  // API options visibility (controlled by parent for settings restore)
-  showApiOptions: boolean
-  onShowApiOptionsChange: (v: boolean) => void
   // Glossary
   glossaryTerms: Array<{ source: string; target: string }>
   onGlossaryTermsChange: (terms: Array<{ source: string; target: string }>) => void
@@ -83,46 +59,12 @@ export function TranslatorSettings({
   onAdaptiveRoutingLongThresholdChange,
   adaptiveRoutingQualityEngine,
   onAdaptiveRoutingQualityEngineChange,
-  apiKey,
-  onApiKeyChange,
-  deeplApiKey,
-  onDeeplApiKeyChange,
-  geminiApiKey,
-  onGeminiApiKeyChange,
-  microsoftApiKey,
-  onMicrosoftApiKeyChange,
-  microsoftRegion,
-  onMicrosoftRegionChange,
-  openaiApiKey,
-  onOpenaiApiKeyChange,
-  cloudRealtimeEnabled,
-  onCloudRealtimeEnabledChange,
-  geminiLiveApiKey,
-  onGeminiLiveApiKeyChange,
-  geminiLiveEnabled,
-  onGeminiLiveEnabledChange,
-  showApiOptions,
-  onShowApiOptionsChange,
   glossaryTerms,
   onGlossaryTermsChange,
   orgGlossaryTerms,
   onOrgGlossaryTermsChange
 }: TranslatorSettingsProps): React.JSX.Element {
   const showLlmOptions = LLM_ENGINE_MODES.includes(engineMode)
-
-  // 'rotation' (API auto) requires at least one API key — disabled when none configured
-  const hasAnyApiKey = !!(apiKey || deeplApiKey || geminiApiKey || (microsoftApiKey && microsoftRegion))
-
-  // #722: cloud realtime interpretation needs an OpenAI key (BYOK)
-  const hasOpenaiKey = !!openaiApiKey
-
-  // #723: the Gemini Live path needs its own Live-enabled key (BYOK)
-  const hasGeminiLiveKey = !!geminiLiveApiKey
-  // Only one e2e path can own a session and the cloud realtime toggle owns the
-  // decision outright when set (see buildEngineConfig), so the preview toggle is
-  // inert while it is on — mirror that here rather than letting the checkbox imply
-  // it has an effect.
-  const geminiLiveSupersededByOpenai = cloudRealtimeEnabled
 
   return (
     <>
@@ -139,7 +81,7 @@ export function TranslatorSettings({
           />
           <div>
             <div style={{ fontWeight: 500 }}>Auto (Recommended)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Picks the best engine for your hardware and API keys</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Picks the best on-device engine for your hardware</div>
           </div>
         </label>
         <label style={radioLabelStyle}>
@@ -152,7 +94,7 @@ export function TranslatorSettings({
           />
           <div>
             <div style={{ fontWeight: 500 }}>HY-MT 1.5 (Offline default)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Fast + high quality, 36 languages, ~1GB — surpasses Google/DeepL</div>
+            <div style={{ fontSize: '12px', color: '#94a3b8' }}>Fast + high quality, 36 languages, ~1GB, runs fully on-device</div>
           </div>
         </label>
         <label style={radioLabelStyle}>
@@ -183,24 +125,6 @@ export function TranslatorSettings({
             </div>
           </label>
         )}
-        <label style={{ ...radioLabelStyle, opacity: hasAnyApiKey ? 1 : 0.5 }}>
-          <input
-            type="radio"
-            name="engine"
-            checked={engineMode === 'rotation'}
-            onChange={() => onEngineModeChange('rotation')}
-            disabled={disabled || !hasAnyApiKey}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Online API (Auto Rotation)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-              {hasAnyApiKey
-                ? 'Azure → Google → DeepL → Gemini — up to 4M+ chars/month free'
-                : 'Configure an API key below to enable cloud translation'}
-            </div>
-          </div>
-        </label>
-
         {/* LLM sub-options for HY-MT 1.5 and Hunyuan-MT 7B */}
         {showLlmOptions && (
           <>
@@ -344,169 +268,7 @@ export function TranslatorSettings({
           </div>
         )}
 
-        {/* API Keys — collapsed by default. Enables 'Online API' option above. */}
-        <div style={{ marginTop: '12px' }}>
-          <button
-            onClick={() => onShowApiOptionsChange(!showApiOptions)}
-            aria-expanded={showApiOptions}
-            style={disclosureToggleStyle}
-          >
-            <span style={disclosureArrowStyle(showApiOptions)}>
-              ▶
-            </span>
-            API Keys (optional — enables online translation)
-          </button>
-
-          {showApiOptions && (
-            <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-              <input
-                type="password"
-                value={apiKey}
-                onChange={(e) => onApiKeyChange(e.target.value)}
-                placeholder="Google Cloud Translation key"
-                aria-label="Google Cloud Translation API key"
-                style={inputStyle}
-                disabled={disabled}
-              />
-              <input
-                type="password"
-                value={deeplApiKey}
-                onChange={(e) => onDeeplApiKeyChange(e.target.value)}
-                placeholder="DeepL API key"
-                aria-label="DeepL API key"
-                style={inputStyle}
-                disabled={disabled}
-              />
-              <input
-                type="password"
-                value={geminiApiKey}
-                onChange={(e) => onGeminiApiKeyChange(e.target.value)}
-                placeholder="Gemini API key"
-                aria-label="Gemini API key"
-                style={inputStyle}
-                disabled={disabled}
-              />
-              <input
-                type="password"
-                value={microsoftApiKey}
-                onChange={(e) => onMicrosoftApiKeyChange(e.target.value)}
-                placeholder="Azure Microsoft Translator key"
-                aria-label="Azure Microsoft Translator key"
-                style={inputStyle}
-                disabled={disabled}
-              />
-              <input
-                type="text"
-                value={microsoftRegion}
-                onChange={(e) => onMicrosoftRegionChange(e.target.value)}
-                placeholder="Azure region (e.g. eastus)"
-                aria-label="Azure region"
-                style={inputStyle}
-                disabled={disabled}
-              />
-              <input
-                type="password"
-                value={openaiApiKey}
-                onChange={(e) => onOpenaiApiKeyChange(e.target.value)}
-                placeholder="OpenAI API key (realtime interpretation)"
-                aria-label="OpenAI API key"
-                style={inputStyle}
-                disabled={disabled}
-              />
-              <input
-                type="password"
-                value={geminiLiveApiKey}
-                onChange={(e) => onGeminiLiveApiKeyChange(e.target.value)}
-                placeholder="Gemini Live API key (realtime interpretation)"
-                aria-label="Gemini Live API key"
-                style={inputStyle}
-                disabled={disabled}
-              />
-            </div>
-          )}
-        </div>
         </fieldset>
-      </Section>
-
-      {/* #722: Cloud realtime interpretation — a separate capability axis from the
-          engine radios above, so the 4-engine UI cap is respected. Opt-in, BYOK,
-          off by default (local-first stays Core Value ①). */}
-      <Section
-        label="Realtime Interpretation (Cloud)"
-        helpText="Speech-native low-latency translation via OpenAI gpt-realtime-translate. Requires an OpenAI API key and sends audio to the cloud — off by default to keep the offline local-first engines as the default."
-      >
-        <label style={{ ...radioLabelStyle, opacity: hasOpenaiKey ? 1 : 0.5 }}>
-          <input
-            type="checkbox"
-            checked={cloudRealtimeEnabled}
-            onChange={(e) => onCloudRealtimeEnabledChange(e.target.checked)}
-            disabled={disabled || !hasOpenaiKey}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Enable cloud realtime interpretation (BYOK)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-              {hasOpenaiKey
-                ? 'Overrides the engine above while active. Cloud — audio leaves your device. ~$0.034/min. Output language follows your target-language setting.'
-                : 'Add an OpenAI API key in "API Keys" above to enable cloud realtime interpretation.'}
-            </div>
-          </div>
-        </label>
-        {cloudRealtimeEnabled && hasOpenaiKey && (
-          <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 0 24px' }}>
-            Cloud mode active — the offline engine selection above is bypassed while this is on.
-          </div>
-        )}
-      </Section>
-
-      {/* #723: second cloud realtime path, for comparison against gpt-realtime-translate.
-          Preview model — flagged experimental and never a default. */}
-      <Section
-        label="Realtime Interpretation (Gemini Live)"
-        helpText="Experimental second cloud path via Google's gemini-3.5-live-translate-preview. Preview models can change or break without notice, so this is for comparison — not for production meetings. Requires a Gemini Live API key and sends audio to the cloud."
-      >
-        <div
-          style={{
-            display: 'inline-block',
-            fontSize: '10px',
-            fontWeight: 700,
-            letterSpacing: '0.5px',
-            color: '#f59e0b',
-            border: '1px solid #f59e0b',
-            borderRadius: '3px',
-            padding: '1px 5px',
-            marginBottom: '6px'
-          }}
-        >
-          EXPERIMENTAL · PREVIEW
-        </div>
-        <label style={{ ...radioLabelStyle, opacity: hasGeminiLiveKey ? 1 : 0.5 }}>
-          <input
-            type="checkbox"
-            checked={geminiLiveEnabled}
-            onChange={(e) => onGeminiLiveEnabledChange(e.target.checked)}
-            disabled={disabled || !hasGeminiLiveKey}
-          />
-          <div>
-            <div style={{ fontWeight: 500 }}>Enable Gemini Live interpretation (BYOK, preview)</div>
-            <div style={{ fontSize: '12px', color: '#94a3b8' }}>
-              {hasGeminiLiveKey
-                ? 'Preview model — quality and availability may change without notice. Cloud — audio leaves your device. ~$0.0368/min. Output language follows your target-language setting.'
-                : 'Add a Gemini Live API key in "API Keys" above to enable this experimental path.'}
-            </div>
-          </div>
-        </label>
-        {geminiLiveEnabled && hasGeminiLiveKey && geminiLiveSupersededByOpenai && (
-          <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 0 24px' }}>
-            {hasOpenaiKey
-              ? 'Inactive — "Realtime Interpretation (Cloud)" takes precedence. Turn that off to run Gemini Live.'
-              : 'Inactive — "Realtime Interpretation (Cloud)" is on but has no API key, so the offline engine is translating. Turn that off to run Gemini Live.'}
-          </div>
-        )}
-        {geminiLiveEnabled && hasGeminiLiveKey && !geminiLiveSupersededByOpenai && (
-          <div style={{ fontSize: '11px', color: '#f59e0b', padding: '4px 0 0 24px' }}>
-            Preview cloud mode active — the offline engine selection above is bypassed while this is on.
-          </div>
-        )}
       </Section>
 
       <GlossarySettings

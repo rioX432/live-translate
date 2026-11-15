@@ -61,7 +61,7 @@ function buildGoNoGoTable(summaries: EngineSummary[]): string {
     const peakRss = Math.max(...runs.map((r) => r.peakRssMB))
     const latencyOk = avgLatency < LATENCY_THRESHOLD
     const memoryOk = peakRss < MEMORY_THRESHOLD_MB
-    const offline = !id.includes('google')
+    const offline = true
     return { id, label, avgLatency, peakRss, latencyOk, memoryOk, offline }
   })
 

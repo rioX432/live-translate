@@ -1,16 +1,10 @@
 import React from 'react'
 import { Section } from './Section'
 import { buttonStyle, withIpcTimeout } from './shared'
-import type { EngineMode } from './shared'
 
 interface SessionControlsProps {
   isRunning: boolean
   isStarting: boolean
-  engineMode: EngineMode
-  apiKey: string
-  deeplApiKey: string
-  geminiApiKey: string
-  microsoftApiKey: string
   status: string
   sessionDuration: string
   onStart: () => void
@@ -28,11 +22,6 @@ interface SessionControlsProps {
 export function SessionControls({
   isRunning,
   isStarting,
-  engineMode,
-  apiKey,
-  deeplApiKey,
-  geminiApiKey,
-  microsoftApiKey,
   status,
   sessionDuration,
   onStart,
@@ -54,12 +43,7 @@ export function SessionControls({
           ...buttonStyle,
           background: isRunning ? '#dc2626' : isStarting ? '#6b7280' : '#16a34a'
         }}
-        disabled={isStarting || (!isRunning && (
-          (engineMode === 'online' && !apiKey) ||
-          (engineMode === 'online-deepl' && !deeplApiKey) ||
-          (engineMode === 'online-gemini' && !geminiApiKey) ||
-          (engineMode === 'rotation' && !microsoftApiKey && !apiKey && !deeplApiKey && !geminiApiKey)
-        ))}
+        disabled={isStarting}
       >
         {isStarting ? 'Starting...' : isRunning ? '\u23F9 Stop' : '\u25B6 Start'}
       </button>
