@@ -19,3 +19,4 @@ test-results/
 *.tsbuildinfo
 e2e/**/*.js
 scripts/*/.build/
+resources/bin/

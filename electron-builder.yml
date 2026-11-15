@@ -9,11 +9,6 @@ files:
   - '!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
   - '!benchmark/*'
-extraResources:
-  - from: 'resources/'
-    to: 'bridge-scripts/'
-    filter:
-      - '*.py'
 asarUnpack:
   - 'node_modules/@kutalia/whisper-node-addon/**'
   - 'node_modules/node-llama-cpp/**'
@@ -36,6 +31,10 @@ mac:
   entitlements: build/entitlements.mac.plist
   entitlementsInherit: build/entitlements.mac.inherit.plist
   notarize: true
+  # Built by scripts/build-qwen3-asr-helper.sh before packaging
+  extraResources:
+    - from: 'resources/bin/qwen3-asr-helper/'
+      to: 'qwen3-asr-helper/'
   extendInfo:
     NSMicrophoneUsageDescription: "live-translate needs microphone access for real-time speech recognition and translation."
 win:
