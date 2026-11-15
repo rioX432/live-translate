@@ -39,7 +39,7 @@ export function registerSessionIpc(ctx: AppContext): void {
 
       await workerPool.acquire({
         modelPath,
-        kvCacheQuant: store.get('slmKvCacheQuant') as boolean
+        modelType: 'summary'
       }, (msg) => ctx.mainWindow?.webContents.send('status-update', msg))
 
       try {

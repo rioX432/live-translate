@@ -1,6 +1,6 @@
 # Shadow measurement harness (dev only) — #730
 
-Runs the JA⇄EN audio testset through the local cascade (whisper.cpp + HY-MT1.5) and
+Runs the JA⇄EN audio testset through the local cascade (platform STT + Hy-MT2) and
 writes a `ShadowReport` (latency p50/p95, first-subtitle latency, revision stability,
 busy/error rates). Refused in packaged builds (`!app.isPackaged`).
 

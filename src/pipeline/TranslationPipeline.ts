@@ -88,9 +88,6 @@ export class TranslationPipeline extends EventEmitter {
   private simulMtEnabled = false
   private simulMtWaitK = 3
 
-  // Draft STT state (#536)
-  private draftSttEnabled = false
-
   // Speaker diarization state (#549)
   private diarizationEnabled = false
 
@@ -136,7 +133,6 @@ export class TranslationPipeline extends EventEmitter {
       },
       reportFailure: (err) => this.reportFailure(err),
       reportSuccess: () => { this.consecutiveErrors = 0 },
-      getDraftSTTEngine: () => this.draftSttEnabled ? this.engineManager.draftSttEngine : null,
       getDiarizer: () => this.diarizationEnabled ? this.engineManager.diarizer : null,
       getGeneration: () => this.generation
     })
@@ -212,11 +208,6 @@ export class TranslationPipeline extends EventEmitter {
     this.simulMtWaitK = Math.max(1, Math.min(waitK, 10))
   }
 
-  /** Enable or disable draft STT for fast interim results (#536) */
-  setDraftSttEnabled(enabled: boolean): void {
-    this.draftSttEnabled = enabled
-  }
-
   /** Enable or disable speaker diarization (#549) */
   setDiarizationEnabled(enabled: boolean): void {
     this.diarizationEnabled = enabled
@@ -273,16 +264,6 @@ export class TranslationPipeline extends EventEmitter {
       this.translationCache.clear()
       await this.engineManager.disposeEngines()
       await this.engineManager.initializeEngines(config, this)
-
-      // Initialize draft STT if enabled (#536)
-      if (this.draftSttEnabled) {
-        try {
-          await this.engineManager.initDraftStt('moonshine-tiny-ja', this)
-        } catch (err) {
-          log.warn('Draft STT initialization failed (non-fatal):', err)
-          this.emit('engine-loading', 'Draft STT not available — continuing without fast interim results')
-        }
-      }
 
       // Initialize speaker diarizer if enabled (#549)
       if (this.diarizationEnabled && process.platform === 'darwin') {

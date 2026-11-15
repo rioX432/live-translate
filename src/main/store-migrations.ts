@@ -20,7 +20,7 @@ export interface MigrationLogger {
 }
 
 /**
- * Legacy `translationEngine` IDs trimmed from the UI in #702.
+ * Legacy `translationEngine` IDs removed from the app. 'auto' is the only value left.
  * Mirrors LEGACY_TRANSLATION_ENGINES in src/renderer/components/settings/shared.ts.
  */
 export const LEGACY_TRANSLATION_ENGINES: readonly string[] = [
@@ -32,7 +32,11 @@ export const LEGACY_TRANSLATION_ENGINES: readonly string[] = [
   'rotation',
   'online',
   'online-deepl',
-  'online-gemini'
+  'online-gemini',
+  // Replaced by the single Hy-MT2 translator
+  'offline-hymt15',
+  'offline-hunyuan-mt',
+  'offline-apple'
 ] as const
 
 /**

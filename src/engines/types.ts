@@ -64,7 +64,7 @@ export interface TranslationResult {
   confirmedText?: string
   /** Unstable trailing portion still being recognized */
   interimText?: string
-  /** Translation stage: 'draft' (OPUS-MT), 'refined' (LLM), 'simulmt-partial' (partial clause), 'simulmt-revised' (full clause revision), 'ssbd-retranslated' (SSBD re-translation) */
+  /** Translation stage: 'draft' (fast first pass), 'refined' (final), 'simulmt-partial' (partial clause), 'simulmt-revised' (full clause revision), 'ssbd-retranslated' (SSBD re-translation) */
   translationStage?: 'draft' | 'refined' | 'simulmt-partial' | 'simulmt-revised' | 'ssbd-retranslated'
   /** STT confidence score (0.0–1.0), forwarded from STTResult for UI styling */
   confidence?: number
@@ -116,7 +116,7 @@ export interface STTEngine {
 
 /**
  * Text-to-text translation engine interface.
- * Implementations: HunyuanMT15Translator, HunyuanMTTranslator, and the other local engines
+ * Implementation: HyMT2Translator
  */
 export interface TranslatorEngine {
   readonly id: string
@@ -133,7 +133,7 @@ export interface TranslatorEngine {
    * Incremental translation for SimulMT (Wait-k policy).
    * Translates partial source text while maintaining consistency with previous output.
    * The returned translation must extend (not replace) previousOutput.
-   * Optional — only offline LLM engines (TranslateGemma, Hunyuan-MT) support this.
+   * Optional — no current engine implements it.
    */
   translateIncremental?(
     text: string,

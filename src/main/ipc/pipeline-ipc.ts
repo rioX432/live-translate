@@ -6,6 +6,7 @@ import type { EngineConfig } from '../../engines/types'
 import { sanitizeErrorMessage } from '../error-utils'
 import { createLogger } from '../logger'
 import { getMdmConfig } from '../mdm-config'
+import { selectEngines } from '../../engines/engine-selection'
 import { recordSessionEnd } from '../../logger/UsageAnalytics'
 import type { LiveSessionMetrics } from '../../logger/UsageAnalytics'
 
@@ -36,15 +37,18 @@ export function registerPipelineIpc(ctx: AppContext): void {
     }
 
     try {
-      // #519: Apply MDM admin locks — override user-selected engine if locked
+      // The app ships one engine per role, so the platform decides them, not the renderer
+      // or an MDM engine lock: a stored or locked ID may name an engine that no longer exists.
+      const selection = selectEngines(process.platform, process.arch)
       const mdm = getMdmConfig()
-      if (mdm.lockedEngine && config.translatorEngineId) {
-        log.info(`MDM: Overriding translator engine from ${config.translatorEngineId} to ${mdm.lockedEngine}`)
-        config.translatorEngineId = mdm.lockedEngine
+      if (mdm.lockedEngine || mdm.lockedSttEngine) {
+        log.warn('MDM engine locks are ignored: the app ships a single engine per role')
       }
-      if (mdm.lockedSttEngine && config.sttEngineId) {
-        log.info(`MDM: Overriding STT engine from ${config.sttEngineId} to ${mdm.lockedSttEngine}`)
-        config.sttEngineId = mdm.lockedSttEngine
+      config = {
+        ...config,
+        mode: 'cascade',
+        sttEngineId: selection.sttEngine,
+        translatorEngineId: selection.translatorEngine
       }
 
       await ctx.pipeline.switchEngine(config)
@@ -61,19 +65,13 @@ export function registerPipelineIpc(ctx: AppContext): void {
       // Configure SimulMT (#239)
       ctx.pipeline!.setSimulMt(store.get('simulMtEnabled'), store.get('simulMtWaitK'))
 
-      // Configure draft STT (#536)
-      ctx.pipeline!.setDraftSttEnabled(store.get('draftSttEnabled'))
-
       // Configure speaker diarization (#549)
       ctx.pipeline!.setDiarizationEnabled(store.get('speakerDiarizationEnabled'))
 
       // Transcripts contain meeting content: written to disk only when the user opted in.
       if (store.get('saveTranscripts')) {
         ctx.logger = new TranscriptLogger((msg) => ctx.mainWindow?.webContents.send('status-update', msg))
-        const sessionLabel = config.mode === 'e2e'
-          ? 'Offline (Whisper Translate)'
-          : `Cascade (Whisper + ${config.translatorEngineId})`
-        ctx.logger.startSession(sessionLabel)
+        ctx.logger.startSession(`${config.sttEngineId} + ${config.translatorEngineId}`)
       } else {
         ctx.logger = null
       }

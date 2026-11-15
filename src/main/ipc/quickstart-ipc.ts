@@ -2,9 +2,8 @@ import { ipcMain } from 'electron'
 import os from 'os'
 import { detectGpu } from '../../engines/gpu-detector'
 import { recommendEngines } from '../../engines/hardware-recommender'
-import { downloadModel, downloadGGUF } from '../../engines/model-downloader'
-import type { WhisperVariant } from '../../engines/model-downloader'
-import type { EngineRecommendation } from '../../engines/hardware-recommender'
+import { selectEngines } from '../../engines/engine-selection'
+import { requiredModels, isRequiredModelReady, downloadRequiredModel, type RequiredModel } from '../../engines/required-models'
 import { store } from '../store'
 import { createLogger } from '../logger'
 import type { AppContext } from '../app-context'
@@ -14,42 +13,31 @@ const log = createLogger('ipc:quickstart')
 /** Register Quick Start onboarding IPC handlers (#510) */
 export function registerQuickStartIpc(ctx: AppContext): void {
   // Get hardware recommendation without applying it
-  ipcMain.handle('quick-start-recommend', async () => {
-    const gpuInfo = await detectGpu()
-    const totalMemoryMB = Math.round(os.totalmem() / (1024 * 1024))
-    const recommendation = recommendEngines(gpuInfo, process.platform, totalMemoryMB)
-    return recommendation
-  })
+  ipcMain.handle('quick-start-recommend', () => recommendEngines(process.platform, process.arch))
 
-  // Apply recommendation: save settings and start model downloads
+  // The engines are fixed per platform, so the recommendation is recomputed here rather
+  // than trusted from the renderer; only the languages come from the user.
   ipcMain.handle('quick-start-apply', async (
     _event,
-    options: {
-      sourceLanguage: string
-      targetLanguage: string
-      recommendation: EngineRecommendation
-    }
+    options: { sourceLanguage: string; targetLanguage: string }
   ) => {
-    const { sourceLanguage, targetLanguage, recommendation } = options
+    const { sourceLanguage, targetLanguage } = options
+    const selection = selectEngines(process.platform, process.arch)
 
-    // Apply recommended settings to store
-    store.set('sttEngine', recommendation.sttEngine)
-    store.set('translationEngine', recommendation.translationEngine)
-    store.set('whisperVariant', recommendation.whisperVariant)
+    store.set('sttEngine', selection.sttEngine)
+    store.set('translationEngine', 'auto')
     store.set('sourceLanguage', sourceLanguage as never)
     store.set('targetLanguage', targetLanguage as never)
     store.set('hasCompletedSetup', true)
+    log.info(`Quick Start applied: STT=${selection.sttEngine}, Translator=${selection.translatorEngine}`)
 
-    log.info(`Quick Start applied: STT=${recommendation.sttEngine}, Translator=${recommendation.translationEngine}, Whisper=${recommendation.whisperVariant}`)
-
-    // Start model downloads in background
-    if (recommendation.needsDownload) {
+    const missing = requiredModels(selection).filter((m) => !isRequiredModelReady(m))
+    if (missing.length > 0) {
       const sendProgress = (msg: string): void => {
         ctx.mainWindow?.webContents.send('status-update', msg)
       }
-
       // Don't await — let downloads happen in background
-      downloadModelsInBackground(recommendation, sendProgress).catch((err) => {
+      downloadModelsInBackground(missing, sendProgress).catch((err) => {
         log.error('Background model download failed:', err)
         ctx.mainWindow?.webContents.send('status-update', `Download failed: ${err instanceof Error ? err.message : String(err)}`)
       })
@@ -84,15 +72,11 @@ export function registerQuickStartIpc(ctx: AppContext): void {
 
 /** Download required models in background with progress reporting */
 async function downloadModelsInBackground(
-  recommendation: EngineRecommendation,
+  models: RequiredModel[],
   onProgress: (msg: string) => void
 ): Promise<void> {
-  for (const download of recommendation.downloads) {
-    if (download.type === 'whisper') {
-      await downloadModel(onProgress, download.key as WhisperVariant)
-    } else if (download.type === 'gguf') {
-      await downloadGGUF(download.filename, download.url, onProgress)
-    }
+  for (const model of models) {
+    await downloadRequiredModel(model, onProgress)
   }
   onProgress('All models downloaded — ready to translate')
 }

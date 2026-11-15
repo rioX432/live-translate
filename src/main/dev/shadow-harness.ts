@@ -17,9 +17,10 @@ import { ShadowRunner } from '../../pipeline/shadow/ShadowRunner'
 import { CascadeShadowPath } from '../../pipeline/shadow/paths/CascadeShadowPath'
 import type { ShadowReport } from '../../pipeline/shadow/metrics'
 import { WhisperLocalEngine } from '../../engines/stt/WhisperLocalEngine'
-import type { WhisperVariant } from '../../engines/model-downloader'
-import { HunyuanMT15Translator } from '../../engines/translator/HunyuanMT15Translator'
-import type { Language } from '../../engines/types'
+import { Qwen3ASREngine } from '../../engines/stt/Qwen3ASREngine'
+import { HyMT2Translator } from '../../engines/translator/HyMT2Translator'
+import { selectEngines } from '../../engines/engine-selection'
+import type { Language, STTEngine } from '../../engines/types'
 import { createLogger } from '../logger'
 import { readWav } from './wav'
 
@@ -27,8 +28,6 @@ const log = createLogger('shadow-harness')
 
 const DEFAULT_TESTSET_DIR = 'benchmark/testset'
 const MANIFEST_NAME = 'stt-manifest.jsonl'
-/** Bilingual variant — see ShadowHarnessOptions.whisperVariant. */
-const DEFAULT_WHISPER_VARIANT: WhisperVariant = 'large-v3-turbo'
 
 interface ManifestEntry {
   id: string
@@ -45,12 +44,6 @@ export interface ShadowHarnessOptions {
   outPath?: string
   /** Limit the number of utterances (smoke runs). */
   limit?: number
-  /**
-   * Whisper variant for the cascade's STT stage. Must be bilingual: the engine's
-   * own default (kotoba-whisper-v2.0) is JA-only and returns nothing for English,
-   * which silently zeroes out half of a JA⇄EN comparison.
-   */
-  whisperVariant?: WhisperVariant
 }
 
 function loadManifest(testsetDir: string, limit?: number): ManifestEntry[] {
@@ -96,15 +89,15 @@ export async function runShadowJaEnHarness(options: ShadowHarnessOptions = {}): 
   const entries = loadManifest(testsetDir, options.limit)
   log.info(`Loaded ${entries.length} utterances from ${testsetDir}`)
 
-  const stt = new WhisperLocalEngine({
-    onProgress: (msg) => log.info(msg),
-    modelVariant: options.whisperVariant ?? DEFAULT_WHISPER_VARIANT
-  })
-  const translator = new HunyuanMT15Translator({ onProgress: (msg) => log.info(msg) })
+  const onProgress = (msg: string): void => log.info(msg)
+  const stt: STTEngine = selectEngines(process.platform, process.arch).sttEngine === 'qwen3-asr'
+    ? new Qwen3ASREngine({ onProgress })
+    : new WhisperLocalEngine({ onProgress })
+  const translator = new HyMT2Translator({ onProgress })
   const cascade = new CascadeShadowPath({
     stt,
     translator,
-    // HY-MT1.5 runs in the shared slm-worker UtilityProcess.
+    // Hy-MT2 runs in the shared slm-worker UtilityProcess.
     usesLocalLlm: true
   })
 
