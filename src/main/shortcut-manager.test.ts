@@ -57,10 +57,7 @@ describe('shortcut-manager', () => {
         mainWindow: null,
         subtitleWindow: null,
         pipeline: null,
-        logger: null,
-        wsAudioServer: null,
-        ttsManager: null,
-        virtualMicManager: null
+        logger: null
       }
 
       const dispose = registerGlobalShortcuts(ctx as never)

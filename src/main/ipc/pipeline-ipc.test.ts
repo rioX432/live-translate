@@ -41,7 +41,6 @@ vi.mock('../../logger/TranscriptLogger', () => ({
 vi.mock('../logger', () => ({
   createLogger: () => ({ info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() })
 }))
-vi.mock('../mdm-config', () => ({ getMdmConfig: () => ({}) }))
 vi.mock('../../logger/UsageAnalytics', () => ({ recordSessionEnd: vi.fn() }))
 vi.mock('../error-utils', () => ({ sanitizeErrorMessage: (m: string) => m }))
 vi.mock('../../engines/translator/glossary-manager', () => ({ mergeGlossaries: () => [] }))

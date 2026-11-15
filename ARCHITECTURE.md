@@ -74,14 +74,11 @@ live-translate/
 ├── src/
 │   ├── main/
 │   │   ├── index.ts                   # Entry point, pipeline wiring, startup migrations
-│   │   ├── ipc/                       # Modular IPC: audio, pipeline, settings, enterprise, onboarding, shortcuts
+│   │   ├── ipc/                       # Modular IPC: pipeline, settings, onboarding, shortcuts
 │   │   ├── shortcut-manager.ts        # Global keyboard shortcuts (Ctrl+Shift based)
-│   │   ├── mdm-config.ts             # MDM/enterprise managed preferences (Azure key, region, admin lock)
 │   │   ├── onboarding-downloader.ts   # Tier 1/2 progressive model loading (LFM2 → HY-MT1.5)
 │   │   ├── store.ts                   # electron-store (encrypted settings, quota state)
 │   │   ├── store-migrations.ts        # Startup migrations for legacy engine IDs (#702, #705)
-│   │   ├── tts-manager.ts             # Text-to-speech (Kokoro engine, behind opt-in flag)
-│   │   ├── virtual-mic-manager.ts     # Virtual microphone via naudiodon (Zoom/Teams)
 │   │   ├── worker-pool.ts             # Shared UtilityProcess pool for LLM engines
 │   │   └── slm-worker.ts              # UtilityProcess: Hunyuan-MT family + LLM tasks
 │   ├── preload/
@@ -96,7 +93,6 @@ live-translate/
 │   │   │   └── settings/              # Modular settings panels
 │   │   │       ├── AccessibilitySettings.tsx  # High contrast, dyslexia font, WCAG
 │   │   │       ├── KeyboardShortcuts.tsx      # Shortcut configuration UI
-│   │   │       ├── EnterpriseSettings.tsx     # MDM config, admin lock, telemetry
 │   │   │       ├── TranslatorSettings.tsx     # 5-option engine selector
 │   │   │       └── ...                        # Audio, Language, STT, Subtitle, etc.
 │   │   └── hooks/
@@ -162,7 +158,6 @@ live-translate/
 ├── docs/
 │   ├── cloud-boost.md                 # Azure F0 setup + ApiRotation behavior
 │   ├── glossary.md                    # Glossary format and usage
-│   ├── mdm-config.md                  # MDM managed-preferences reference
 │   └── RESEARCH.md                    # 2026-06 market & technology research
 ├── e2e/                               # Playwright end-to-end tests
 └── models/                            # Auto-downloaded models (gitignored)
@@ -211,7 +206,6 @@ Plugins are auto-discovered and registered on app startup.
 | `subtitle-settings-changed` | M→S | Live subtitle preview |
 | `detect-gpu` | R→M | GPU info for auto-selection |
 | `onboarding-*` | R→M | Tier 1/2 download progress, skip, completion state |
-| `enterprise-get-mdm-config` | R→M | MDM presence flags (secrets stripped) |
 | `shortcut-*` | R→M | Global keyboard shortcut registration |
 | `glossary-*` | R→M | Personal/org glossary CRUD |
 | `list-sessions` / `export-session` | R→M | Session management |

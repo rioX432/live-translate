@@ -198,7 +198,6 @@ export class MyTranslator implements TranslatorEngine {
 ## Further reading
 
 - [docs/glossary.md](docs/glossary.md) — Personal and organization glossary usage
-- [docs/mdm-config.md](docs/mdm-config.md) — Enterprise MDM-managed configuration
 - [docs/RESEARCH.md](docs/RESEARCH.md) — Market and technology research
 - [benchmark/conversational-ja-en/README.md](benchmark/conversational-ja-en/README.md) — Conversational JA↔EN benchmark
 - [ARCHITECTURE.md](ARCHITECTURE.md) — System diagram, directory layout, IPC channels

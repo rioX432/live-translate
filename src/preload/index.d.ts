@@ -59,32 +59,9 @@ export interface ElectronAPI {
     orgCount: number
   }>
   isDraftModelAvailable: (engine?: string) => Promise<boolean>
-  wsAudioStart: (port?: number) => Promise<void>
-  wsAudioStop: () => Promise<void>
-  wsAudioGetStatus: () => Promise<{ running: boolean; connected: boolean; port: number | null }>
-  onWsAudioStatus: (callback: (status: { running: boolean; connected: boolean; port: number | null }) => void) => (() => void)
   // System audio loopback (#501)
   enableLoopbackAudio: () => Promise<void>
   disableLoopbackAudio: () => Promise<void>
-  // TTS (#508)
-  ttsSetEnabled: (enabled: boolean) => Promise<{ success?: boolean; error?: string }>
-  ttsSetVoice: (voiceId: string) => Promise<void>
-  ttsSetVolume: (volume: number) => Promise<void>
-  ttsSetOutputDevice: (deviceId: string) => Promise<void>
-  ttsGetSettings: () => Promise<{ enabled: boolean; voice: string; outputDevice: string; volume: number }>
-  onTtsAudio: (callback: (data: { audio: number[]; sampleRate: number; volume: number }) => void) => (() => void)
-
-  // Virtual Mic (#515)
-  virtualMicGetStatus: () => Promise<{
-    enabled: boolean
-    activeDeviceId: number | null
-    activeDeviceName: string | null
-    availableDevices: Array<{ id: number; name: string; maxOutputChannels: number; defaultSampleRate: number }>
-  }>
-  virtualMicEnable: (deviceId: number) => Promise<{ success?: boolean; error?: string }>
-  virtualMicDisable: () => Promise<{ success?: boolean; error?: string }>
-  virtualMicRefreshDevices: () => Promise<Array<{ id: number; name: string; maxOutputChannels: number; defaultSampleRate: number }>>
-
   // Quick Start onboarding (#510)
   quickStartRecommend: () => Promise<{
     sttEngine: string
@@ -100,41 +77,6 @@ export interface ElectronAPI {
   quickStartIsCompleted: () => Promise<boolean>
   quickStartSkip: () => Promise<{ success: boolean }>
   quickStartSystemInfo: () => Promise<{ platform: string; totalMemoryMB: number; gpuInfo: { hasGpu: boolean; gpuNames: string[] } }>
-
-  // Enterprise features (#519)
-  enterpriseGetUsageSummary: (days?: number) => Promise<{
-    periodStart: string
-    periodEnd: string
-    totalSessions: number
-    totalDurationMs: number
-    totalCharacters: number
-    averageSessionDurationMs: number
-    engineBreakdown: Record<string, number>
-    languagePairBreakdown: Record<string, number>
-    dailyStats: Array<{
-      date: string
-      totalSessionCount: number
-      totalDurationMs: number
-      totalCharacterCount: number
-      engineUsage: Record<string, number>
-      languagePairs: Record<string, number>
-    }>
-    error?: string
-  }>
-  enterpriseGetQuickStats: () => Promise<{ totalSessions: number; totalDurationMs: number }>
-  enterpriseGetMdmConfig: () => Promise<{
-    lockedEngine: string | null
-    lockedSttEngine: string | null
-    telemetryDisabled: boolean
-    organizationName: string | null
-    autoUpdateDisabled: boolean
-  }>
-  enterpriseGetTelemetryConsent: () => Promise<{
-    consent: boolean
-    consentShown: boolean
-    mdmDisabled: boolean
-  }>
-  enterpriseSetTelemetryConsent: (consent: boolean) => Promise<{ success: boolean; reason?: string }>
 
   // Subtitle drag mode (#509)
   toggleSubtitleDragMode: (enabled: boolean) => Promise<void>

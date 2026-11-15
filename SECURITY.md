@@ -27,7 +27,6 @@ This project bundles or downloads several external runtimes (whisper.cpp, node-l
 - Electron main/preload code (`src/main/`, `src/preload/`) — IPC validation, sandbox escapes, file-path traversal, native-addon loading
 - Renderer-side handling of untrusted content (transcripts, glossary CSV/JSON, plugin manifests)
 - Cloud API key storage and transport (`src/main/store.ts`, `src/engines/translator/`)
-- MDM / managed-preferences parsing (`src/main/mdm-config.ts`)
 - Auto-update flow (`electron-updater` integration)
 
 ## Out of Scope

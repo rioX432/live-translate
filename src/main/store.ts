@@ -3,7 +3,6 @@ import { app } from 'electron'
 import Store from 'electron-store'
 import { migrateLegacyStoreFile } from './legacy-store'
 import type { GlossaryEntry, Language, SourceLanguage } from '../engines/types'
-import { DEFAULT_WS_PORT } from './constants'
 
 /** Persisted session state for crash recovery (#54) */
 export interface ActiveSession {
@@ -87,8 +86,6 @@ export interface AppSettings {
   sourceLanguage: SourceLanguage
   /** Target language for translation output */
   targetLanguage: Language
-  /** WebSocket port for Chrome extension audio server (default 9876) */
-  wsAudioPort: number
   /** Enable DeepFilterNet3 noise suppression for cleaner STT input (#313) */
   noiseSuppressionEnabled: boolean
   /** Streaming chunk interval in ms (default 1000, range 500-3000) */
@@ -99,24 +96,8 @@ export interface AppSettings {
   audioSource: 'microphone' | 'system' | 'both'
   /** Whether the user has completed the Quick Start onboarding (#510) */
   hasCompletedSetup: boolean
-  /** Enable text-to-speech for translated output (#508) */
-  ttsEnabled: boolean
-  /** TTS voice ID (e.g. 'af_heart', 'jf_alpha') */
-  ttsVoice: string
-  /** TTS output device ID (empty = default output) */
-  ttsOutputDevice: string
-  /** TTS playback volume (0.0-1.0) */
-  ttsVolume: number
-  /** Enable virtual mic output for meeting translation sharing (#515) */
-  virtualMicEnabled: boolean
-  /** PortAudio device ID for virtual mic output (#515) */
-  virtualMicDeviceId: number
   /** Enable draft STT (Moonshine Tiny JA) for fast interim results (#536) */
   draftSttEnabled: boolean
-  /** Opt-in anonymous telemetry consent (#519) */
-  telemetryConsent: boolean
-  /** Whether the telemetry consent dialog has been shown */
-  telemetryConsentShown: boolean
   /** Enable speaker diarization via FluidAudio for multi-speaker identification (#549) */
   speakerDiarizationEnabled: boolean
   /** History of user corrections for mistranslations (#590) */
@@ -178,20 +159,11 @@ export const store = new Store<AppSettings>({
     sherpaOnnxModel: 'whisper-base',
     sourceLanguage: 'auto',
     targetLanguage: 'en',
-    wsAudioPort: DEFAULT_WS_PORT,
     noiseSuppressionEnabled: false,
     streamingIntervalMs: 800,
     showConfidenceIndicator: true,
     audioSource: 'microphone',
-    ttsEnabled: false,
-    ttsVoice: 'af_heart',
-    ttsOutputDevice: '',
-    ttsVolume: 0.8,
-    virtualMicEnabled: false,
-    virtualMicDeviceId: -1,
     draftSttEnabled: false,
-    telemetryConsent: false,
-    telemetryConsentShown: false,
     speakerDiarizationEnabled: false,
     correctionHistory: [],
     isFirstRun: true,

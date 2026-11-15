@@ -38,9 +38,6 @@ import { createLogger } from './logger'
 import { initAutoUpdater, registerUpdateHandlers, disposeAutoUpdater } from './auto-updater'
 import { createAppContext } from './app-context'
 import { registerGlobalShortcuts, setLastSubtitleText } from './shortcut-manager'
-import { TTSManager } from './tts-manager'
-import { VirtualMicManager } from './virtual-mic-manager'
-import { loadMdmConfig } from './mdm-config'
 import { trackTranslatedCharacters } from './ipc/pipeline-ipc'
 import { startOnboardingDownload, isTier1Ready, isTier2Ready } from './onboarding-downloader'
 import type { STTEngine, TranslatorEngine, E2ETranslationEngine, TranslationResult } from '../engines/types'
@@ -234,10 +231,6 @@ async function initPipeline(): Promise<void> {
     if (result.translatedText) {
       trackTranslatedCharacters(result.translatedText.length)
     }
-    // TTS: synthesize translated text and send audio to renderer (#508)
-    ctx.ttsManager?.handleTranslationResult(result, ctx.mainWindow).catch((err) => {
-      log.error('TTS error:', err)
-    })
   })
 
   // Forward interim (streaming) results to subtitle window
@@ -311,9 +304,6 @@ app.whenReady().then(async () => {
     return net.fetch(`file://${join(vadDir, filename)}`)
   })
 
-  // #519: Load MDM managed preferences early (before pipeline init)
-  loadMdmConfig()
-
   // #575: Migration for existing users — if setup was already completed,
   // mark as not first run to avoid showing onboarding download banner
   if (store.get('hasCompletedSetup') && store.get('isFirstRun')) {
@@ -348,32 +338,6 @@ app.whenReady().then(async () => {
   }
 
   await initPipeline()
-
-  // Initialize TTS manager (#508)
-  ctx.ttsManager = new TTSManager()
-  const ttsEnabled = store.get('ttsEnabled')
-  if (ttsEnabled) {
-    ctx.ttsManager.setEnabled(true).catch((err) => {
-      log.error('TTS auto-init failed:', err)
-    })
-  }
-  const ttsVoice = store.get('ttsVoice')
-  if (ttsVoice) ctx.ttsManager.setVoice(ttsVoice)
-  ctx.ttsManager.setVolume(store.get('ttsVolume') ?? 0.8)
-
-  // Initialize virtual mic manager (#515)
-  ctx.virtualMicManager = new VirtualMicManager()
-  await ctx.virtualMicManager.initialize()
-  // Connect TTS → virtual mic routing
-  ctx.ttsManager.setVirtualMicManager(ctx.virtualMicManager)
-  // Restore virtual mic state from persisted settings
-  const vmEnabled = store.get('virtualMicEnabled')
-  const vmDeviceId = store.get('virtualMicDeviceId')
-  if (vmEnabled && vmDeviceId >= 0 && ctx.virtualMicManager.isAvailable()) {
-    ctx.virtualMicManager.enable(vmDeviceId).catch((err) => {
-      log.error('Virtual mic auto-restore failed:', err)
-    })
-  }
 
   createMainWindow(ctx)
   createSubtitleWindow(ctx)
@@ -426,10 +390,7 @@ app.on('before-quit', (event) => {
       store.set('activeSession', null)
       await Promise.race([
         Promise.all([
-          ctx.pipeline?.dispose() ?? Promise.resolve(),
-          ctx.wsAudioServer?.stop() ?? Promise.resolve(),
-          ctx.ttsManager?.dispose() ?? Promise.resolve(),
-          ctx.virtualMicManager?.dispose() ?? Promise.resolve()
+          ctx.pipeline?.dispose() ?? Promise.resolve()
         ]),
         new Promise((_resolve, reject) =>
           setTimeout(() => reject(new Error('Cleanup timed out')), 5000)
