@@ -6,7 +6,8 @@ import {
   exportCsvGlossary,
   mergeGlossaries,
   detectGlossaryFormat,
-  parseGlossary
+  parseGlossary,
+  sanitizeGlossaryEntries
 } from './glossary-manager'
 
 describe('parseJsonGlossary', () => {
@@ -41,6 +42,23 @@ describe('parseJsonGlossary', () => {
 
   it('throws on non-array JSON', () => {
     expect(() => parseJsonGlossary('{"source": "AI"}')).toThrow('must be an array')
+  })
+})
+
+describe('sanitizeGlossaryEntries', () => {
+  it('keeps trimmed source, target and aliases and drops anything else the renderer sends', () => {
+    const input: unknown[] = [
+      { source: ' アビィ ', target: ' Avvy ', aliases: [' アビー ', '', 'アビィ', 'アビー', 3], note: 'x' },
+      { source: 'Luminaris', target: 'ルミナリス', aliases: 'luminous' },
+      { source: '', target: 'x' },
+      { source: 'a' },
+      null,
+      'text'
+    ]
+    expect(sanitizeGlossaryEntries(input)).toEqual([
+      { source: 'アビィ', target: 'Avvy', aliases: ['アビー'] },
+      { source: 'Luminaris', target: 'ルミナリス' }
+    ])
   })
 })
 
@@ -161,5 +179,27 @@ describe('parseGlossary', () => {
 
     const csv = 'source,target\nA,B'
     expect(parseGlossary(csv, 'csv')).toEqual([{ source: 'A', target: 'B' }])
+  })
+})
+
+describe('glossary aliases', () => {
+  it('round-trips aliases through JSON', () => {
+    const entries = [{ source: 'アビィ', target: 'Avvy', aliases: ['アビー', 'あびい'] }]
+    expect(parseJsonGlossary(exportJsonGlossary(entries))).toEqual(entries)
+  })
+
+  it('round-trips aliases through CSV', () => {
+    const entries = [
+      { source: 'Avvy', target: 'アビィ', aliases: ['Abby', 'Avi'] },
+      { source: 'Orbina', target: 'オルビナ' }
+    ]
+    const csv = exportCsvGlossary(entries)
+    expect(csv.split('\n')[0]).toBe('source,target,aliases')
+    expect(parseCsvGlossary(csv)).toEqual(entries)
+  })
+
+  it('drops empty, duplicate and source-equal aliases', () => {
+    const json = JSON.stringify([{ source: 'Avvy', target: 'アビィ', aliases: [' Abby ', '', 'Abby', 'Avvy', 3] }])
+    expect(parseJsonGlossary(json)).toEqual([{ source: 'Avvy', target: 'アビィ', aliases: ['Abby'] }])
   })
 })

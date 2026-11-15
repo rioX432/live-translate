@@ -1,5 +1,6 @@
 import React from 'react'
 import { GlossarySettings } from './GlossarySettings'
+import type { GlossaryTerm } from './glossary-terms'
 import { Section } from './Section'
 import { radioLabelStyle } from './shared'
 
@@ -12,11 +13,11 @@ interface TranslatorSettingsProps {
   simulMtWaitK: number
   onSimulMtWaitKChange: (v: number) => void
   // Glossary
-  glossaryTerms: Array<{ source: string; target: string }>
-  onGlossaryTermsChange: (terms: Array<{ source: string; target: string }>) => void
+  glossaryTerms: GlossaryTerm[]
+  onGlossaryTermsChange: (terms: GlossaryTerm[]) => void
   // Organization glossary (#517)
-  orgGlossaryTerms: Array<{ source: string; target: string }>
-  onOrgGlossaryTermsChange: (terms: Array<{ source: string; target: string }>) => void
+  orgGlossaryTerms: GlossaryTerm[]
+  onOrgGlossaryTermsChange: (terms: GlossaryTerm[]) => void
 }
 
 export function TranslatorSettings({
@@ -71,7 +72,6 @@ export function TranslatorSettings({
       </Section>
 
       <GlossarySettings
-        disabled={disabled}
         glossaryTerms={glossaryTerms}
         onGlossaryTermsChange={onGlossaryTermsChange}
         orgGlossaryTerms={orgGlossaryTerms}

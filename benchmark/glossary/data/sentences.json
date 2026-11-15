@@ -1,0 +1,735 @@
+{
+ "note": "Synthetic sentences only (macOS say). Terms are fictional except アビィ/Avvy. teach = sentences whose no-correction transcripts supply the aliases a user would register; test = new sentences with the same terms, scored with those aliases; control = no glossary terms, for false replacements.",
+ "terms": [
+  {
+   "ja": "アビィ",
+   "en": "Avvy"
+  },
+  {
+   "ja": "ルミナリス",
+   "en": "Luminaris"
+  },
+  {
+   "ja": "クロノメッシュ",
+   "en": "ChronoMesh"
+  },
+  {
+   "ja": "ソラニア",
+   "en": "Solania"
+  },
+  {
+   "ja": "ヴェルデ指数",
+   "en": "Verde Index"
+  },
+  {
+   "ja": "ハルシオン基盤",
+   "en": "Halcyon Platform"
+  },
+  {
+   "ja": "ミルフォード",
+   "en": "Milford"
+  },
+  {
+   "ja": "トキゲート",
+   "en": "Tokigate"
+  },
+  {
+   "ja": "ペトラシンク",
+   "en": "PetraSync"
+  },
+  {
+   "ja": "オルビナ",
+   "en": "Orbina"
+  },
+  {
+   "ja": "カゼマチ",
+   "en": "Kazemachi"
+  },
+  {
+   "ja": "ネビュラス計画",
+   "en": "Project Nebulus"
+  }
+ ],
+ "glossary": [
+  {
+   "source": "アビィ",
+   "target": "Avvy"
+  },
+  {
+   "source": "ルミナリス",
+   "target": "Luminaris"
+  },
+  {
+   "source": "クロノメッシュ",
+   "target": "ChronoMesh"
+  },
+  {
+   "source": "ソラニア",
+   "target": "Solania"
+  },
+  {
+   "source": "ヴェルデ指数",
+   "target": "Verde Index"
+  },
+  {
+   "source": "ハルシオン基盤",
+   "target": "Halcyon Platform"
+  },
+  {
+   "source": "ミルフォード",
+   "target": "Milford"
+  },
+  {
+   "source": "トキゲート",
+   "target": "Tokigate"
+  },
+  {
+   "source": "ペトラシンク",
+   "target": "PetraSync"
+  },
+  {
+   "source": "オルビナ",
+   "target": "Orbina"
+  },
+  {
+   "source": "カゼマチ",
+   "target": "Kazemachi"
+  },
+  {
+   "source": "ネビュラス計画",
+   "target": "Project Nebulus"
+  },
+  {
+   "source": "Avvy",
+   "target": "アビィ"
+  },
+  {
+   "source": "Luminaris",
+   "target": "ルミナリス"
+  },
+  {
+   "source": "ChronoMesh",
+   "target": "クロノメッシュ"
+  },
+  {
+   "source": "Solania",
+   "target": "ソラニア"
+  },
+  {
+   "source": "Verde Index",
+   "target": "ヴェルデ指数"
+  },
+  {
+   "source": "Halcyon Platform",
+   "target": "ハルシオン基盤"
+  },
+  {
+   "source": "Milford",
+   "target": "ミルフォード"
+  },
+  {
+   "source": "Tokigate",
+   "target": "トキゲート"
+  },
+  {
+   "source": "PetraSync",
+   "target": "ペトラシンク"
+  },
+  {
+   "source": "Orbina",
+   "target": "オルビナ"
+  },
+  {
+   "source": "Kazemachi",
+   "target": "カゼマチ"
+  },
+  {
+   "source": "Project Nebulus",
+   "target": "ネビュラス計画"
+  }
+ ],
+ "sets": {
+  "teach": [
+   {
+    "id": "teach-ja-01",
+    "lang": "ja",
+    "text": "アビィの新しい配信画面は来週から全員に公開します。",
+    "expect": [
+     "Avvy"
+    ],
+    "expectSrc": [
+     "アビィ"
+    ]
+   },
+   {
+    "id": "teach-ja-02",
+    "lang": "ja",
+    "text": "ルミナリスのログイン画面でエラーが出ているそうです。",
+    "expect": [
+     "Luminaris"
+    ],
+    "expectSrc": [
+     "ルミナリス"
+    ]
+   },
+   {
+    "id": "teach-ja-03",
+    "lang": "ja",
+    "text": "クロノメッシュの同期処理を今日中に見直してください。",
+    "expect": [
+     "ChronoMesh"
+    ],
+    "expectSrc": [
+     "クロノメッシュ"
+    ]
+   },
+   {
+    "id": "teach-ja-04",
+    "lang": "ja",
+    "text": "ソラニアのクラスタは先週から負荷が高い状態です。",
+    "expect": [
+     "Solania"
+    ],
+    "expectSrc": [
+     "ソラニア"
+    ]
+   },
+   {
+    "id": "teach-ja-05",
+    "lang": "ja",
+    "text": "今月のヴェルデ指数は先月より少し下がりました。",
+    "expect": [
+     "Verde Index"
+    ],
+    "expectSrc": [
+     "ヴェルデ指数|ベルデ指数"
+    ]
+   },
+   {
+    "id": "teach-ja-06",
+    "lang": "ja",
+    "text": "ハルシオン基盤への移行は年内に終わらせたいです。",
+    "expect": [
+     "Halcyon Platform"
+    ],
+    "expectSrc": [
+     "ハルシオン基盤"
+    ]
+   },
+   {
+    "id": "teach-ja-07",
+    "lang": "ja",
+    "text": "ミルフォードチームから仕様の確認依頼が来ています。",
+    "expect": [
+     "Milford"
+    ],
+    "expectSrc": [
+     "ミルフォード"
+    ]
+   },
+   {
+    "id": "teach-ja-08",
+    "lang": "ja",
+    "text": "トキゲートの認証まわりは私が担当します。",
+    "expect": [
+     "Tokigate"
+    ],
+    "expectSrc": [
+     "トキゲート"
+    ]
+   },
+   {
+    "id": "teach-ja-09",
+    "lang": "ja",
+    "text": "ペトラシンクを使えば議事録の共有が早くなります。",
+    "expect": [
+     "PetraSync"
+    ],
+    "expectSrc": [
+     "ペトラシンク"
+    ]
+   },
+   {
+    "id": "teach-ja-10",
+    "lang": "ja",
+    "text": "オルビナの決済機能はまだテスト中です。",
+    "expect": [
+     "Orbina"
+    ],
+    "expectSrc": [
+     "オルビナ"
+    ]
+   },
+   {
+    "id": "teach-ja-11",
+    "lang": "ja",
+    "text": "カゼマチのデザインはアビィと揃えてください。",
+    "expect": [
+     "Kazemachi",
+     "Avvy"
+    ],
+    "expectSrc": [
+     "カゼマチ",
+     "アビィ"
+    ]
+   },
+   {
+    "id": "teach-ja-12",
+    "lang": "ja",
+    "text": "ネビュラス計画の予算は来期に回すことになりました。",
+    "expect": [
+     "Nebulus"
+    ],
+    "expectSrc": [
+     "ネビュラス計画"
+    ]
+   },
+   {
+    "id": "teach-ja-13",
+    "lang": "ja",
+    "text": "ルミナリスとクロノメッシュの連携は次のスプリントで対応します。",
+    "expect": [
+     "Luminaris",
+     "ChronoMesh"
+    ],
+    "expectSrc": [
+     "ルミナリス",
+     "クロノメッシュ"
+    ]
+   },
+   {
+    "id": "teach-ja-14",
+    "lang": "ja",
+    "text": "アビィのライバー向け通知はトキゲート経由で送ります。",
+    "expect": [
+     "Avvy",
+     "Tokigate"
+    ],
+    "expectSrc": [
+     "アビィ",
+     "トキゲート"
+    ]
+   },
+   {
+    "id": "teach-ja-15",
+    "lang": "ja",
+    "text": "ソラニアからハルシオン基盤へのデータ移行で問題が出ました。",
+    "expect": [
+     "Solania",
+     "Halcyon"
+    ],
+    "expectSrc": [
+     "ソラニア",
+     "ハルシオン"
+    ]
+   },
+   {
+    "id": "teach-ja-16",
+    "lang": "ja",
+    "text": "オルビナとペトラシンクの契約更新は来月です。",
+    "expect": [
+     "Orbina",
+     "PetraSync"
+    ],
+    "expectSrc": [
+     "オルビナ",
+     "ペトラシンク"
+    ]
+   },
+   {
+    "id": "teach-en-01",
+    "lang": "en",
+    "text": "Avvy will ship the new gift feature next month.",
+    "expect": [
+     "アビィ"
+    ],
+    "expectSrc": [
+     "Avvy"
+    ]
+   },
+   {
+    "id": "teach-en-02",
+    "lang": "en",
+    "text": "The Luminaris dashboard is down again this morning.",
+    "expect": [
+     "ルミナリス"
+    ],
+    "expectSrc": [
+     "Luminaris"
+    ]
+   },
+   {
+    "id": "teach-en-03",
+    "lang": "en",
+    "text": "Can you check the ChronoMesh logs before the meeting?",
+    "expect": [
+     "クロノメッシュ"
+    ],
+    "expectSrc": [
+     "ChronoMesh|Chrono Mesh"
+    ]
+   },
+   {
+    "id": "teach-en-04",
+    "lang": "en",
+    "text": "We are moving the Solania servers to the Halcyon Platform.",
+    "expect": [
+     "ソラニア",
+     "ハルシオン"
+    ],
+    "expectSrc": [
+     "Solania",
+     "Halcyon"
+    ]
+   },
+   {
+    "id": "teach-en-05",
+    "lang": "en",
+    "text": "The Verde Index went up after the Milford update.",
+    "expect": [
+     "ヴェルデ|ベルデ",
+     "ミルフォード"
+    ],
+    "expectSrc": [
+     "Verde",
+     "Milford"
+    ]
+   },
+   {
+    "id": "teach-en-06",
+    "lang": "en",
+    "text": "Tokigate handles login for both Orbina and Kazemachi.",
+    "expect": [
+     "トキゲート",
+     "オルビナ",
+     "カゼマチ"
+    ],
+    "expectSrc": [
+     "Tokigate|Toki Gate",
+     "Orbina",
+     "Kazemachi"
+    ]
+   },
+   {
+    "id": "teach-en-07",
+    "lang": "en",
+    "text": "PetraSync is not ready for Project Nebulus yet.",
+    "expect": [
+     "ペトラシンク",
+     "ネビュラス"
+    ],
+    "expectSrc": [
+     "PetraSync|Petra Sync",
+     "Nebulus"
+    ]
+   },
+   {
+    "id": "teach-en-08",
+    "lang": "en",
+    "text": "Let's demo Avvy and Luminaris together on Friday.",
+    "expect": [
+     "アビィ",
+     "ルミナリス"
+    ],
+    "expectSrc": [
+     "Avvy",
+     "Luminaris"
+    ]
+   }
+  ],
+  "test": [
+   {
+    "id": "test-ja-01",
+    "lang": "ja",
+    "text": "アビィのランキング画面を明日までに直してください。",
+    "expect": [
+     "Avvy"
+    ],
+    "expectSrc": [
+     "アビィ"
+    ]
+   },
+   {
+    "id": "test-ja-02",
+    "lang": "ja",
+    "text": "ルミナリスの新しいプランは三月に始まります。",
+    "expect": [
+     "Luminaris"
+    ],
+    "expectSrc": [
+     "ルミナリス"
+    ]
+   },
+   {
+    "id": "test-ja-03",
+    "lang": "ja",
+    "text": "クロノメッシュのサーバー費用が増えています。",
+    "expect": [
+     "ChronoMesh"
+    ],
+    "expectSrc": [
+     "クロノメッシュ"
+    ]
+   },
+   {
+    "id": "test-ja-04",
+    "lang": "ja",
+    "text": "ソラニアの担当者と午後に打ち合わせをします。",
+    "expect": [
+     "Solania"
+    ],
+    "expectSrc": [
+     "ソラニア"
+    ]
+   },
+   {
+    "id": "test-ja-05",
+    "lang": "ja",
+    "text": "ヴェルデ指数の計算方法を変更しました。",
+    "expect": [
+     "Verde Index"
+    ],
+    "expectSrc": [
+     "ヴェルデ指数|ベルデ指数"
+    ]
+   },
+   {
+    "id": "test-ja-06",
+    "lang": "ja",
+    "text": "ミルフォードの資料は共有フォルダにあります。",
+    "expect": [
+     "Milford"
+    ],
+    "expectSrc": [
+     "ミルフォード"
+    ]
+   },
+   {
+    "id": "test-ja-07",
+    "lang": "ja",
+    "text": "トキゲートの障害は昨夜のうちに復旧しました。",
+    "expect": [
+     "Tokigate"
+    ],
+    "expectSrc": [
+     "トキゲート"
+    ]
+   },
+   {
+    "id": "test-ja-08",
+    "lang": "ja",
+    "text": "ペトラシンクのアップデートで通知が遅れています。",
+    "expect": [
+     "PetraSync"
+    ],
+    "expectSrc": [
+     "ペトラシンク"
+    ]
+   },
+   {
+    "id": "test-ja-09",
+    "lang": "ja",
+    "text": "カゼマチの新しいロゴを社内で投票します。",
+    "expect": [
+     "Kazemachi"
+    ],
+    "expectSrc": [
+     "カゼマチ"
+    ]
+   },
+   {
+    "id": "test-ja-10",
+    "lang": "ja",
+    "text": "ネビュラス計画のメンバーを二人増やします。",
+    "expect": [
+     "Nebulus"
+    ],
+    "expectSrc": [
+     "ネビュラス計画"
+    ]
+   },
+   {
+    "id": "test-ja-11",
+    "lang": "ja",
+    "text": "ハルシオン基盤の監視はオルビナのチームに任せます。",
+    "expect": [
+     "Halcyon",
+     "Orbina"
+    ],
+    "expectSrc": [
+     "ハルシオン基盤",
+     "オルビナ"
+    ]
+   },
+   {
+    "id": "test-ja-12",
+    "lang": "ja",
+    "text": "アビィとペトラシンクの連携を来週試します。",
+    "expect": [
+     "Avvy",
+     "PetraSync"
+    ],
+    "expectSrc": [
+     "アビィ",
+     "ペトラシンク"
+    ]
+   },
+   {
+    "id": "test-en-01",
+    "lang": "en",
+    "text": "The Avvy team is hiring two more engineers.",
+    "expect": [
+     "アビィ"
+    ],
+    "expectSrc": [
+     "Avvy"
+    ]
+   },
+   {
+    "id": "test-en-02",
+    "lang": "en",
+    "text": "Orbina crashed twice during the demo.",
+    "expect": [
+     "オルビナ"
+    ],
+    "expectSrc": [
+     "Orbina"
+    ]
+   },
+   {
+    "id": "test-en-03",
+    "lang": "en",
+    "text": "We need a ChronoMesh expert on this project.",
+    "expect": [
+     "クロノメッシュ"
+    ],
+    "expectSrc": [
+     "ChronoMesh|Chrono Mesh"
+    ]
+   },
+   {
+    "id": "test-en-04",
+    "lang": "en",
+    "text": "Kazemachi and Solania share the same database.",
+    "expect": [
+     "カゼマチ",
+     "ソラニア"
+    ],
+    "expectSrc": [
+     "Kazemachi",
+     "Solania"
+    ]
+   },
+   {
+    "id": "test-en-05",
+    "lang": "en",
+    "text": "The Halcyon Platform migration is almost done.",
+    "expect": [
+     "ハルシオン"
+    ],
+    "expectSrc": [
+     "Halcyon"
+    ]
+   },
+   {
+    "id": "test-en-06",
+    "lang": "en",
+    "text": "Did Milford approve the Tokigate budget?",
+    "expect": [
+     "ミルフォード",
+     "トキゲート"
+    ],
+    "expectSrc": [
+     "Milford",
+     "Tokigate|Toki Gate"
+    ]
+   }
+  ],
+  "control": [
+   {
+    "id": "control-ja-01",
+    "lang": "ja",
+    "text": "アビーロードのレコードを会議室に飾りました。",
+    "expect": [],
+    "expectSrc": []
+   },
+   {
+    "id": "control-ja-02",
+    "lang": "ja",
+    "text": "風邪気味なので今日は早めに帰ります。",
+    "expect": [],
+    "expectSrc": []
+   },
+   {
+    "id": "control-ja-03",
+    "lang": "ja",
+    "text": "時々ゲートの前で待ち合わせをします。",
+    "expect": [],
+    "expectSrc": []
+   },
+   {
+    "id": "control-ja-04",
+    "lang": "ja",
+    "text": "オルガンの練習は毎週土曜日です。",
+    "expect": [],
+    "expectSrc": []
+   },
+   {
+    "id": "control-ja-05",
+    "lang": "ja",
+    "text": "ミルクティーを二つお願いします。",
+    "expect": [],
+    "expectSrc": []
+   },
+   {
+    "id": "control-ja-06",
+    "lang": "ja",
+    "text": "ルームキーは受付で受け取ってください。",
+    "expect": [],
+    "expectSrc": []
+   },
+   {
+    "id": "control-ja-07",
+    "lang": "ja",
+    "text": "ネットワークの計画を来週までにまとめます。",
+    "expect": [],
+    "expectSrc": []
+   },
+   {
+    "id": "control-ja-08",
+    "lang": "ja",
+    "text": "ペットの写真を共有チャンネルに上げました。",
+    "expect": [],
+    "expectSrc": []
+   },
+   {
+    "id": "control-en-01",
+    "lang": "en",
+    "text": "Abby will join the call from London.",
+    "expect": [],
+    "expectSrc": []
+   },
+   {
+    "id": "control-en-02",
+    "lang": "en",
+    "text": "The ivy on the office wall needs trimming.",
+    "expect": [],
+    "expectSrc": []
+   },
+   {
+    "id": "control-en-03",
+    "lang": "en",
+    "text": "Our orbit simulation finished overnight.",
+    "expect": [],
+    "expectSrc": []
+   },
+   {
+    "id": "control-en-04",
+    "lang": "en",
+    "text": "Please send the final verdict by Friday.",
+    "expect": [],
+    "expectSrc": []
+   }
+  ]
+ }
+}

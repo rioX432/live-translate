@@ -1,7 +1,7 @@
 import { ipcMain, dialog } from 'electron'
 import { readFile, writeFile } from 'fs/promises'
 import { store } from '../store'
-import type { AppSettings, SubtitleSettings, CorrectionEntry } from '../store'
+import type { AppSettings, SubtitleSettings } from '../store'
 import { validateSubtitleSettings } from '../ipc-validators'
 import { validateSettingsUpdate } from '../settings-validation'
 import type { AppContext } from '../app-context'
@@ -11,7 +11,8 @@ import {
   detectGlossaryFormat,
   exportJsonGlossary,
   exportCsvGlossary,
-  mergeGlossaries
+  mergeGlossaries,
+  sanitizeGlossaryEntries
 } from '../../engines/translator/glossary-manager'
 
 const _log = createLogger('ipc:settings')
@@ -76,14 +77,14 @@ export function registerSettingsIpc(ctx: AppContext): void {
   }
 
   // Glossary terms persistence (#240)
-  ipcMain.handle('save-glossary', (_event, terms: Array<{ source: string; target: string }>) => {
-    store.set('glossaryTerms', terms)
+  ipcMain.handle('save-glossary', (_event, terms: unknown) => {
+    store.set('glossaryTerms', Array.isArray(terms) ? sanitizeGlossaryEntries(terms) : [])
     syncMergedGlossary()
   })
 
   // Organization glossary persistence (#517)
-  ipcMain.handle('save-org-glossary', (_event, terms: Array<{ source: string; target: string }>) => {
-    store.set('orgGlossaryTerms', terms)
+  ipcMain.handle('save-org-glossary', (_event, terms: unknown) => {
+    store.set('orgGlossaryTerms', Array.isArray(terms) ? sanitizeGlossaryEntries(terms) : [])
     syncMergedGlossary()
   })
 
@@ -128,7 +129,8 @@ export function registerSettingsIpc(ctx: AppContext): void {
       return { entries, count: entries.length }
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err)
-      _log.error(`Glossary import failed: ${message}`)
+      // The message can quote the file (JSON syntax errors do), so only its type is logged
+      _log.error(`Glossary import failed (${err instanceof Error ? err.name : typeof err})`)
       return { error: `Import failed: ${message}` }
     }
   })
@@ -187,56 +189,6 @@ export function registerSettingsIpc(ctx: AppContext): void {
         orgTarget: e.target
       }))
     return { merged, conflicts, personalCount: personal.length, orgCount: org.length }
-  })
-
-  // Save a user correction as a glossary entry and record in correction history (#590)
-  ipcMain.handle('save-correction', (_event, correction: {
-    sourceText: string
-    originalTranslation: string
-    correctedTranslation: string
-  }) => {
-    const { sourceText, originalTranslation, correctedTranslation } = correction
-    if (!sourceText?.trim() || !correctedTranslation?.trim()) {
-      return { error: 'Source text and corrected translation are required' }
-    }
-
-    // Add to personal glossary (deduplicates by source term)
-    const glossary = store.get('glossaryTerms') || []
-    const existingIdx = glossary.findIndex((e) => e.source === sourceText)
-    if (existingIdx >= 0) {
-      glossary[existingIdx] = { source: sourceText, target: correctedTranslation }
-    } else {
-      glossary.push({ source: sourceText, target: correctedTranslation })
-    }
-    store.set('glossaryTerms', glossary)
-    syncMergedGlossary()
-
-    // Record in correction history
-    const history = store.get('correctionHistory') || []
-    const entry: CorrectionEntry = {
-      sourceText,
-      originalTranslation: originalTranslation || '',
-      correctedTranslation,
-      timestamp: Date.now()
-    }
-    // Keep last 500 entries to avoid unbounded growth
-    history.push(entry)
-    if (history.length > 500) history.splice(0, history.length - 500)
-    store.set('correctionHistory', history)
-
-    _log.info(`Correction saved (glossary size ${glossary.length})`)
-    return { success: true, glossaryCount: glossary.length }
-  })
-
-  // Get correction history (#590)
-  ipcMain.handle('get-correction-history', () => {
-    return store.get('correctionHistory') || []
-  })
-
-  // Clear correction history (#590)
-  ipcMain.handle('clear-correction-history', () => {
-    store.set('correctionHistory', [])
-    return { success: true }
   })
 
   // #54: crash recovery — check if previous session ended uncleanly

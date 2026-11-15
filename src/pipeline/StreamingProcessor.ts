@@ -16,6 +16,7 @@ import type { TranslationCache } from './TranslationCache'
 import { SegmentTracker } from './SegmentTracker'
 import { isLowEnergy } from './audio-energy'
 import { detectClauseBoundary, countUnits } from './ClauseBoundaryDetector'
+import { buildAsrContext, correctTranscript } from '../engines/stt/term-correction'
 import { createLogger } from '../main/logger'
 
 const log = createLogger('pipeline:stream')
@@ -245,8 +246,11 @@ export class StreamingProcessor {
     sampleRate: number
   ): Promise<STTResult | null | undefined> {
     try {
+      const glossary = this.deps.getGlossary()
+      engine.setContext?.(buildAsrContext(glossary))
       const result = await engine.processAudio(audio, sampleRate)
       this.deps.reportSuccess()
+      if (result?.text) result.text = correctTranscript(result.text, glossary)
       return result
     } catch (err) {
       this.deps.reportFailure(err instanceof Error ? err : new Error(String(err)))
@@ -537,7 +541,10 @@ export class StreamingProcessor {
         targetLang,
         this.deps.contextBuffer.getContext(glossary)
       )
-      if (cached === undefined) this.deps.cache.set(sourceText, sourceLang, targetLang, translatedText)
+      // setGlossary clears the cache; a translation made under the replaced glossary must not refill it
+      if (cached === undefined && this.deps.getGlossary() === glossaryEntries) {
+        this.deps.cache.set(sourceText, sourceLang, targetLang, translatedText)
+      }
       this.deps.contextBuffer.add(sourceText, translatedText)
       return { translatedText }
     } catch (err) {

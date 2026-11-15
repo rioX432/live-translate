@@ -77,6 +77,7 @@ export class Qwen3ASREngine implements STTEngine {
   readonly isOffline = true
 
   private helper: ResidentProcess | null = null
+  private context = ''
   private initPromise: Promise<void> | null = null
   private readonly onProgress?: (message: string) => void
   private readonly helperPath?: string
@@ -142,7 +143,9 @@ export class Qwen3ASREngine implements STTEngine {
 
     let reply: Record<string, unknown>
     try {
-      reply = await this.helper.request({ pcm_f32_b64: encodePcm(audioChunk) })
+      const request: Record<string, unknown> = { pcm_f32_b64: encodePcm(audioChunk) }
+      if (this.context) request.context = this.context
+      reply = await this.helper.request(request)
     } catch (err) {
       log.error('Transcription failed:', err instanceof Error ? err.message : err)
       throw err
@@ -162,6 +165,10 @@ export class Qwen3ASREngine implements STTEngine {
       isFinal: true,
       timestamp: Date.now()
     }
+  }
+
+  setContext(context: string): void {
+    this.context = context
   }
 
   async dispose(): Promise<void> {

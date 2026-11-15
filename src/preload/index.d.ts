@@ -1,3 +1,9 @@
+export interface GlossaryTerm {
+  source: string
+  target: string
+  aliases?: string[]
+}
+
 export interface ElectronAPI {
   pipelineStart: (config: unknown) => Promise<{ success?: boolean; error?: string }>
   pipelineStop: () => Promise<{ logPath?: string }>
@@ -35,10 +41,10 @@ export interface ElectronAPI {
   onSubtitleSettingsChanged: (callback: (settings: unknown) => void) => (() => void)
   onDisplaysChanged: (callback: () => void) => (() => void)
   getPlatform: () => Promise<string>
-  saveGlossary: (terms: Array<{ source: string; target: string }>) => Promise<void>
-  saveOrgGlossary: (terms: Array<{ source: string; target: string }>) => Promise<void>
+  saveGlossary: (terms: GlossaryTerm[]) => Promise<void>
+  saveOrgGlossary: (terms: GlossaryTerm[]) => Promise<void>
   importGlossary: (target: 'personal' | 'org') => Promise<{
-    entries?: Array<{ source: string; target: string }>
+    entries?: GlossaryTerm[]
     count?: number
     canceled?: boolean
     error?: string
@@ -51,7 +57,7 @@ export interface ElectronAPI {
     error?: string
   }>
   getMergedGlossary: () => Promise<{
-    merged: Array<{ source: string; target: string }>
+    merged: GlossaryTerm[]
     conflicts: Array<{ source: string; personalTarget: string; orgTarget: string }>
     personalCount: number
     orgCount: number
@@ -144,18 +150,6 @@ export interface ElectronAPI {
   // Subtitle edit mode (#590)
   toggleSubtitleEditMode: (enabled: boolean) => Promise<void>
   onEditModeChanged: (callback: (enabled: boolean) => void) => (() => void)
-  saveCorrection: (correction: {
-    sourceText: string
-    originalTranslation: string
-    correctedTranslation: string
-  }) => Promise<{ success?: boolean; error?: string; glossaryCount?: number }>
-  getCorrectionHistory: () => Promise<Array<{
-    sourceText: string
-    originalTranslation: string
-    correctedTranslation: string
-    timestamp: number
-  }>>
-  clearCorrectionHistory: () => Promise<{ success: boolean }>
 
   // Onboarding: cloud-first progressive download (#575)
   onboardingGetStatus: () => Promise<{

@@ -61,6 +61,41 @@ describe('legacy settings migration', () => {
     expect(JSON.parse(fs.readFileSync(file, 'utf-8'))).toEqual({ targetLanguage: 'en' })
   })
 
+  it('removes the stored correction history', () => {
+    fs.writeFileSync(file, JSON.stringify({
+      targetLanguage: 'en',
+      correctionHistory: [{ sourceText: 's', originalTranslation: 'o', correctedTranslation: 'c', timestamp: 1 }]
+    }))
+    expect(migrateLegacyStoreFile(file)).toBe('plain-cleaned')
+    expect(JSON.parse(fs.readFileSync(file, 'utf-8'))).toEqual({ targetLanguage: 'en' })
+  })
+
+  it('drops the glossary entries subtitle corrections saved with the history', () => {
+    fs.writeFileSync(file, JSON.stringify({
+      glossaryTerms: [
+        { source: 'whole sentence', target: 'corrected' },
+        { source: 'edited later', target: 'user fix' },
+        { source: 'アビィ', target: 'Avvy' }
+      ],
+      correctionHistory: [
+        { sourceText: 'whole sentence', originalTranslation: 'o', correctedTranslation: 'corrected', timestamp: 1 },
+        { sourceText: 'edited later', originalTranslation: 'o', correctedTranslation: 'first fix', timestamp: 2 }
+      ]
+    }))
+    expect(migrateLegacyStoreFile(file)).toBe('plain-cleaned')
+    expect(JSON.parse(fs.readFileSync(file, 'utf-8'))).toEqual({
+      glossaryTerms: [
+        { source: 'edited later', target: 'user fix' },
+        { source: 'アビィ', target: 'Avvy' }
+      ]
+    })
+  })
+
+  it('keeps the glossary when there is no correction history', () => {
+    const settings = { glossaryTerms: [{ source: 'whole sentence', target: 'corrected' }] }
+    expect(stripRemovedSettings(settings)).toEqual(settings)
+  })
+
   it('leaves a clean plain file untouched', () => {
     const content = JSON.stringify({ targetLanguage: 'en' })
     fs.writeFileSync(file, content)

@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react'
 import { Section } from './Section'
 import { disclosureArrowStyle, disclosureToggleStyle, inputStyle } from './shared'
+import { type GlossaryTerm, termFromInput, upsertTerm } from './glossary-terms'
 
 interface GlossarySettingsProps {
-  disabled: boolean
-  glossaryTerms: Array<{ source: string; target: string }>
-  onGlossaryTermsChange: (terms: Array<{ source: string; target: string }>) => void
-  orgGlossaryTerms: Array<{ source: string; target: string }>
-  onOrgGlossaryTermsChange: (terms: Array<{ source: string; target: string }>) => void
+  glossaryTerms: GlossaryTerm[]
+  onGlossaryTermsChange: (terms: GlossaryTerm[]) => void
+  orgGlossaryTerms: GlossaryTerm[]
+  onOrgGlossaryTermsChange: (terms: GlossaryTerm[]) => void
 }
 
 const glossaryButtonStyle: React.CSSProperties = {
@@ -24,14 +24,11 @@ const glossaryButtonStyle: React.CSSProperties = {
 }
 
 export function GlossarySettings({
-  disabled,
   glossaryTerms,
   onGlossaryTermsChange,
   orgGlossaryTerms,
   onOrgGlossaryTermsChange
 }: GlossarySettingsProps): React.JSX.Element {
-  const [newGlossarySource, setNewGlossarySource] = useState('')
-  const [newGlossaryTarget, setNewGlossaryTarget] = useState('')
   const [glossaryStatus, setGlossaryStatus] = useState('')
   const [showOrgGlossary, setShowOrgGlossary] = useState(orgGlossaryTerms.length > 0)
   const [conflicts, setConflicts] = useState<Array<{ source: string; personalTarget: string; orgTarget: string }>>([])
@@ -53,6 +50,16 @@ export function GlossarySettings({
     if (orgGlossaryTerms.length > 0) setShowOrgGlossary(true)
   }, [orgGlossaryTerms.length])
 
+  // The pipeline reads the glossary on every utterance, so edits need no restart
+  const savePersonal = (terms: GlossaryTerm[]): void => {
+    onGlossaryTermsChange(terms)
+    window.api.saveGlossary(terms)
+  }
+  const saveOrg = (terms: GlossaryTerm[]): void => {
+    onOrgGlossaryTermsChange(terms)
+    window.api.saveOrgGlossary(terms)
+  }
+
   const handleImport = async (target: 'personal' | 'org'): Promise<void> => {
     setGlossaryStatus('Importing...')
     try {
@@ -66,6 +73,7 @@ export function GlossarySettings({
         return
       }
       if (result.entries) {
+        // The main process already stored the imported list
         if (target === 'org') {
           onOrgGlossaryTermsChange(result.entries)
         } else {
@@ -104,18 +112,20 @@ export function GlossarySettings({
     <>
       <Section label="Personal Glossary">
         <div style={{ fontSize: '12px', color: '#94a3b8', marginBottom: '8px' }}>
-          Define fixed translations for specific terms (e.g. proper nouns).
+          Fixed translations for specific terms (e.g. proper nouns). Changes apply from the next
+          sentence, also during a meeting. &ldquo;Heard as&rdquo; lists spellings speech recognition
+          writes for the term; they are corrected to the term.
         </div>
         <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
-          <button onClick={() => handleImport('personal')} disabled={disabled} style={glossaryButtonStyle}>
+          <button onClick={() => handleImport('personal')} style={glossaryButtonStyle}>
             Import JSON/CSV
           </button>
           {glossaryTerms.length > 0 && (
             <>
-              <button onClick={() => handleExport('personal', 'json')} disabled={disabled} style={glossaryButtonStyle}>
+              <button onClick={() => handleExport('personal', 'json')} style={glossaryButtonStyle}>
                 Export JSON
               </button>
-              <button onClick={() => handleExport('personal', 'csv')} disabled={disabled} style={glossaryButtonStyle}>
+              <button onClick={() => handleExport('personal', 'csv')} style={glossaryButtonStyle}>
                 Export CSV
               </button>
             </>
@@ -137,114 +147,9 @@ export function GlossarySettings({
             No glossary terms added yet
           </div>
         ) : (
-          <div style={{ marginBottom: '8px', maxHeight: '200px', overflowY: 'auto' }}>
-            {glossaryTerms.map((term, idx) => (
-              <div
-                key={idx}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '4px 0',
-                  borderBottom: '1px solid #1e293b',
-                  fontSize: '12px'
-                }}
-              >
-                <span
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    color: '#e2e8f0',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}
-                  title={term.source}
-                >
-                  {term.source}
-                </span>
-                <span style={{ color: '#94a3b8', flexShrink: 0 }}>&rarr;</span>
-                <span
-                  style={{
-                    flex: 1,
-                    minWidth: 0,
-                    color: '#93c5fd',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap'
-                  }}
-                  title={term.target}
-                >
-                  {term.target}
-                </span>
-                <button
-                  onClick={() => {
-                    const updated = glossaryTerms.filter((_, i) => i !== idx)
-                    onGlossaryTermsChange(updated)
-                    window.api.saveGlossary(updated)
-                  }}
-                  disabled={disabled}
-                  style={{
-                    padding: '8px 16px',
-                    minHeight: '44px',
-                    fontSize: '12px',
-                    background: '#334155',
-                    color: '#ef4444',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: disabled ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-          </div>
+          <TermList terms={glossaryTerms} onChange={savePersonal} targetColor="#93c5fd" maxHeight="240px" />
         )}
-        <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-          <input
-            type="text"
-            value={newGlossarySource}
-            onChange={(e) => setNewGlossarySource(e.target.value)}
-            placeholder="Source term"
-            aria-label="Source term"
-            style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
-            disabled={disabled}
-          />
-          <input
-            type="text"
-            value={newGlossaryTarget}
-            onChange={(e) => setNewGlossaryTarget(e.target.value)}
-            placeholder="Translation"
-            aria-label="Translation"
-            style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
-            disabled={disabled}
-          />
-          <button
-            onClick={() => {
-              if (!newGlossarySource.trim() || !newGlossaryTarget.trim()) return
-              const updated = [...glossaryTerms, { source: newGlossarySource.trim(), target: newGlossaryTarget.trim() }]
-              onGlossaryTermsChange(updated)
-              window.api.saveGlossary(updated)
-              setNewGlossarySource('')
-              setNewGlossaryTarget('')
-            }}
-            disabled={disabled || !newGlossarySource.trim() || !newGlossaryTarget.trim()}
-            style={{
-              padding: '8px 12px',
-              fontSize: '12px',
-              fontWeight: 600,
-              background: '#334155',
-              color: '#e2e8f0',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: (disabled || !newGlossarySource.trim() || !newGlossaryTarget.trim()) ? 'not-allowed' : 'pointer',
-              whiteSpace: 'nowrap'
-            }}
-          >
-            Add
-          </button>
-        </div>
+        <TermForm submitLabel="Add" onSubmit={(term) => savePersonal(upsertTerm(glossaryTerms, term))} />
       </Section>
 
       <Section label="Organization Glossary">
@@ -262,25 +167,23 @@ export function GlossarySettings({
         {showOrgGlossary && (
           <div style={{ marginTop: '8px' }}>
             <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
-              <button onClick={() => handleImport('org')} disabled={disabled} style={glossaryButtonStyle}>
+              <button onClick={() => handleImport('org')} style={glossaryButtonStyle}>
                 Import JSON/CSV
               </button>
               {orgGlossaryTerms.length > 0 && (
                 <>
-                  <button onClick={() => handleExport('org', 'json')} disabled={disabled} style={glossaryButtonStyle}>
+                  <button onClick={() => handleExport('org', 'json')} style={glossaryButtonStyle}>
                     Export JSON
                   </button>
-                  <button onClick={() => handleExport('org', 'csv')} disabled={disabled} style={glossaryButtonStyle}>
+                  <button onClick={() => handleExport('org', 'csv')} style={glossaryButtonStyle}>
                     Export CSV
                   </button>
                   <button
                     onClick={() => {
                       if (!window.confirm('Clear organization glossary? This cannot be undone.')) return
-                      onOrgGlossaryTermsChange([])
-                      window.api.saveOrgGlossary([])
+                      saveOrg([])
                       setGlossaryStatus('Organization glossary cleared')
                     }}
-                    disabled={disabled}
                     style={{ ...glossaryButtonStyle, color: '#ef4444' }}
                   >
                     Clear
@@ -297,29 +200,7 @@ export function GlossarySettings({
                 No organization glossary imported. Import a JSON or CSV file shared by your team.
               </div>
             ) : (
-              <div style={{ maxHeight: '150px', overflowY: 'auto' }}>
-                {orgGlossaryTerms.map((term, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      padding: '4px 0',
-                      borderBottom: '1px solid #1e293b',
-                      fontSize: '12px'
-                    }}
-                  >
-                    <span style={{ flex: 1, minWidth: 0, color: '#e2e8f0', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={term.source}>
-                      {term.source}
-                    </span>
-                    <span style={{ color: '#94a3b8', flexShrink: 0 }}>&rarr;</span>
-                    <span style={{ flex: 1, minWidth: 0, color: '#a78bfa', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={term.target}>
-                      {term.target}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <TermList terms={orgGlossaryTerms} onChange={saveOrg} targetColor="#a78bfa" maxHeight="180px" />
             )}
 
             {conflicts.length > 0 && (
@@ -354,4 +235,167 @@ export function GlossarySettings({
       </Section>
     </>
   )
+}
+
+function TermForm({
+  initial,
+  submitLabel,
+  onSubmit,
+  onCancel
+}: {
+  initial?: GlossaryTerm
+  submitLabel: string
+  onSubmit: (term: GlossaryTerm) => void
+  onCancel?: () => void
+}): React.JSX.Element {
+  const [source, setSource] = useState(initial?.source ?? '')
+  const [target, setTarget] = useState(initial?.target ?? '')
+  const [aliases, setAliases] = useState(initial?.aliases?.join(', ') ?? '')
+  const term = termFromInput(source, target, aliases)
+  const ready = term !== null
+
+  const submit = (): void => {
+    if (!term) return
+    onSubmit(term)
+    if (!initial) {
+      setSource('')
+      setTarget('')
+      setAliases('')
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginTop: '8px' }}>
+      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+        <input
+          type="text"
+          value={source}
+          onChange={(e) => setSource(e.target.value)}
+          placeholder="Source term"
+          aria-label="Source term"
+          style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
+        />
+        <input
+          type="text"
+          value={target}
+          onChange={(e) => setTarget(e.target.value)}
+          placeholder="Translation"
+          aria-label="Translation"
+          style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
+        />
+      </div>
+      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+        <input
+          type="text"
+          value={aliases}
+          onChange={(e) => setAliases(e.target.value)}
+          placeholder="Heard as (optional, comma-separated)"
+          aria-label="Heard as"
+          style={{ ...inputStyle, flex: 1, fontFamily: 'inherit' }}
+        />
+        <button
+          type="button"
+          onClick={submit}
+          disabled={!ready}
+          style={{ ...termButtonStyle, color: '#e2e8f0', cursor: ready ? 'pointer' : 'not-allowed' }}
+        >
+          {submitLabel}
+        </button>
+        {onCancel && (
+          <button type="button" onClick={onCancel} style={{ ...termButtonStyle, color: '#94a3b8' }}>
+            Cancel
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function TermList({
+  terms,
+  onChange,
+  targetColor,
+  maxHeight
+}: {
+  terms: GlossaryTerm[]
+  onChange: (terms: GlossaryTerm[]) => void
+  targetColor: string
+  maxHeight: string
+}): React.JSX.Element {
+  const [editing, setEditing] = useState<number | null>(null)
+
+  return (
+    <div style={{ marginBottom: '8px', maxHeight, overflowY: 'auto' }}>
+      {terms.map((term, idx) => editing === idx ? (
+        <div key={`${idx}-${term.source}`} style={{ padding: '4px 0 8px', borderBottom: '1px solid #1e293b' }}>
+          <TermForm
+            initial={term}
+            submitLabel="Save"
+            onSubmit={(updated) => { onChange(upsertTerm(terms, updated, idx)); setEditing(null) }}
+            onCancel={() => setEditing(null)}
+          />
+        </div>
+      ) : (
+        <div
+          key={`${idx}-${term.source}`}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '4px 0',
+            borderBottom: '1px solid #1e293b',
+            fontSize: '12px'
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <span style={{ ...cellStyle, color: '#e2e8f0' }} title={term.source}>{term.source}</span>
+              <span style={{ color: '#94a3b8', flexShrink: 0 }}>&rarr;</span>
+              <span style={{ ...cellStyle, color: targetColor }} title={term.target}>{term.target}</span>
+            </div>
+            {term.aliases?.length ? (
+              <div style={{ ...cellStyle, fontSize: '11px', color: '#94a3b8' }} title={term.aliases.join(', ')}>
+                Heard as: {term.aliases.join(', ')}
+              </div>
+            ) : null}
+          </div>
+          <button
+            onClick={() => setEditing(idx)}
+            aria-label={`Edit ${term.source}`}
+            style={{ ...termButtonStyle, color: '#e2e8f0' }}
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => { onChange(terms.filter((_, i) => i !== idx)); setEditing(null) }}
+            aria-label={`Remove ${term.source}`}
+            style={{ ...termButtonStyle, color: '#ef4444' }}
+          >
+            Remove
+          </button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const cellStyle: React.CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  overflow: 'hidden',
+  textOverflow: 'ellipsis',
+  whiteSpace: 'nowrap'
+}
+
+const termButtonStyle: React.CSSProperties = {
+  padding: '8px 12px',
+  minHeight: '44px',
+  fontSize: '12px',
+  fontWeight: 600,
+  background: '#334155',
+  border: 'none',
+  borderRadius: '4px',
+  cursor: 'pointer',
+  whiteSpace: 'nowrap',
+  flexShrink: 0
 }

@@ -17,7 +17,7 @@ const IV_LENGTH = 16
 const PBKDF2_ITERATIONS = 10_000
 const PBKDF2_KEY_LENGTH = 32
 
-/** Settings keys that held secrets or cloud routing and must not survive the migration */
+/** Settings keys that held secrets, cloud routing or meeting content and must not survive the migration */
 export const REMOVED_SETTINGS_KEYS: readonly string[] = [
   'googleApiKey',
   'microsoftApiKey',
@@ -30,7 +30,10 @@ export const REMOVED_SETTINGS_KEYS: readonly string[] = [
   'geminiLiveEnabled',
   'quotaTracking',
   // Holds the pipeline config of the last session; session persistence is opt-in now
-  'activeSession'
+  'activeSession',
+  // Whole transcript sentences and engine translations saved by subtitle corrections;
+  // the app no longer stores meeting content
+  'correctionHistory'
 ]
 
 export interface LegacyStoreLogger {
@@ -59,9 +62,31 @@ export function decryptLegacyConfig(
   }
 }
 
-/** Return a copy of the settings without the removed secret/cloud keys */
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+/**
+ * Subtitle corrections in older builds also saved the whole sentence and its corrected
+ * translation as a personal glossary entry. Drop the entries the history still
+ * identifies (exact source and target); an entry the user edited later is kept.
+ */
+function withoutCorrectionEntries(glossary: unknown, history: unknown): unknown[] | null {
+  if (!Array.isArray(glossary) || !Array.isArray(history) || history.length === 0) return null
+  const saved = new Set<string>()
+  for (const h of history) {
+    if (isRecord(h) && typeof h.sourceText === 'string' && typeof h.correctedTranslation === 'string') {
+      saved.add(JSON.stringify([h.sourceText, h.correctedTranslation]))
+    }
+  }
+  return glossary.filter((e) => !(isRecord(e) && saved.has(JSON.stringify([e.source, e.target]))))
+}
+
+/** Return a copy of the settings without the removed keys or the meeting content they left behind */
 export function stripRemovedSettings(settings: Record<string, unknown>): Record<string, unknown> {
   const copy = { ...settings }
+  const glossary = withoutCorrectionEntries(copy.glossaryTerms, copy.correctionHistory)
+  if (glossary) copy.glossaryTerms = glossary
   for (const key of REMOVED_SETTINGS_KEYS) delete copy[key]
   return copy
 }
@@ -103,7 +128,7 @@ export function migrateLegacyStoreFile(filePath: string, logger?: LegacyStoreLog
   logger?.info(
     wasEncrypted
       ? 'Migrated encrypted settings to plain JSON (secrets removed)'
-      : 'Removed leftover credential keys from settings'
+      : 'Removed leftover keys from settings'
   )
   return wasEncrypted ? 'decrypted' : 'plain-cleaned'
 }

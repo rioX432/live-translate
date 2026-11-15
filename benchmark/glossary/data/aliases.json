@@ -1,0 +1,18 @@
+{
+  "note": "Spellings Qwen3-ASR produced for each term on the teach set only (with and without context), registered as a user would after seeing them. Spans where ASR merged a term with a neighbouring word (ルミナリスト, Avian) are left out because they do not map to one term. The test and control sets are never used here.",
+  "aliases": {
+    "アビィ": ["アビ", "アビー"],
+    "Avvy": ["Avi"],
+    "Luminaris": ["luminous", "Luminaryus"],
+    "クロノメッシュ": ["黒のメッシュ"],
+    "ChronoMesh": ["chrono mesh"],
+    "Solania": ["Selenium"],
+    "ヴェルデ指数": ["ベルデ指数"],
+    "ハルシオン基盤": ["春試験基盤"],
+    "Halcyon Platform": ["Halsian platform"],
+    "トキゲート": ["時ゲート"],
+    "Tokigate": ["Talkigot", "Tokigut"],
+    "カゼマチ": ["風町"],
+    "ネビュラス計画": ["レビューース計画", "レビューラス計画"]
+  }
+}

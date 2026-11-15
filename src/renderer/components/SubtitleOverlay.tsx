@@ -203,9 +203,8 @@ function SubtitleOverlay(): React.JSX.Element {
   const [isEditMode, setIsEditMode] = useState(false)
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState('')
-  const [editSaving, setEditSaving] = useState(false)
   // The line being corrected, captured when editing starts: a new utterance may replace `current` meanwhile
-  const [editTarget, setEditTarget] = useState<{ segmentId?: string; sourceText: string; translatedText: string } | null>(null)
+  const [editTarget, setEditTarget] = useState<{ segmentId?: string; translatedText: string } | null>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
   const silenceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isDraggingRef = useRef(false)
@@ -333,33 +332,24 @@ function SubtitleOverlay(): React.JSX.Element {
   // Edit mode: click translated text to start editing (#590)
   const handleTranslationClick = useCallback(() => {
     if (!isEditMode || isEditing || !translatedText) return
-    setEditTarget({ segmentId: current?.segmentId, sourceText: confirmedText, translatedText })
+    setEditTarget({ segmentId: current?.segmentId, translatedText })
     setEditValue(translatedText)
     setIsEditing(true)
     // Focus the input on next render
     setTimeout(() => editInputRef.current?.focus(), 0)
-  }, [isEditMode, isEditing, translatedText, confirmedText, current?.segmentId])
+  }, [isEditMode, isEditing, translatedText, current?.segmentId])
 
-  // Save the corrected translation as a glossary entry (#590)
-  const handleEditSave = useCallback(async () => {
+  // On-screen fix only: the sentence is meeting content and the translation is engine
+  // output, so neither is stored. Terms are taught in the glossary settings instead.
+  const handleEditSave = useCallback(() => {
     const trimmed = editValue.trim()
-    if (!editTarget || !trimmed || trimmed === editTarget.translatedText || editSaving) return
-
-    setEditSaving(true)
-    try {
-      await window.api.saveCorrection?.({
-        sourceText: editTarget.sourceText,
-        originalTranslation: editTarget.translatedText,
-        correctedTranslation: trimmed
-      })
+    if (editTarget && trimmed && trimmed !== editTarget.translatedText) {
       dispatch({ type: 'corrected', segmentId: editTarget.segmentId, translatedText: trimmed })
-    } finally {
-      setEditSaving(false)
-      setIsEditing(false)
-      setEditValue('')
-      setEditTarget(null)
     }
-  }, [editValue, editTarget, editSaving])
+    setIsEditing(false)
+    setEditValue('')
+    setEditTarget(null)
+  }, [editValue, editTarget])
 
   const handleEditCancel = useCallback(() => {
     setIsEditing(false)
@@ -623,8 +613,8 @@ function SubtitleOverlay(): React.JSX.Element {
             />
             <button
               onClick={handleEditSave}
-              disabled={editSaving || !editValue.trim() || editValue.trim() === editTarget?.translatedText}
-              aria-label="Save correction"
+              disabled={!editValue.trim() || editValue.trim() === editTarget?.translatedText}
+              aria-label="Apply correction"
               style={{
                 background: '#22c55e',
                 color: '#fff',
@@ -634,11 +624,10 @@ function SubtitleOverlay(): React.JSX.Element {
                 minHeight: '44px',
                 fontSize: '12px',
                 fontWeight: 700,
-                cursor: 'pointer',
-                opacity: editSaving ? 0.5 : 1
+                cursor: 'pointer'
               }}
             >
-              {editSaving ? '...' : 'Save'}
+              Apply
             </button>
             <button
               onClick={handleEditCancel}

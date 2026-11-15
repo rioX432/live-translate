@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { bool, num, arr } from './settingsCastUtils'
 import type { SttEngineType } from '../components/settings/shared'
+import type { GlossaryTerm } from '../components/settings/glossary-terms'
 
 export interface EngineSettingsState {
   /** STT engine main selected for this platform, shown read-only */
@@ -12,10 +13,10 @@ export interface EngineSettingsState {
   simulMtWaitK: number
   setSimulMtWaitK: (v: number) => void
 
-  glossaryTerms: Array<{ source: string; target: string }>
-  setGlossaryTerms: (v: Array<{ source: string; target: string }>) => void
-  orgGlossaryTerms: Array<{ source: string; target: string }>
-  setOrgGlossaryTerms: (v: Array<{ source: string; target: string }>) => void
+  glossaryTerms: GlossaryTerm[]
+  setGlossaryTerms: (v: GlossaryTerm[]) => void
+  orgGlossaryTerms: GlossaryTerm[]
+  setOrgGlossaryTerms: (v: GlossaryTerm[]) => void
 
 }
 
@@ -24,14 +25,14 @@ export function useEngineSettings(): EngineSettingsState {
   const [gpuInfo, setGpuInfo] = useState<{ hasGpu: boolean; gpuNames: string[] } | null>(null)
   const [simulMtEnabled, setSimulMtEnabled] = useState(false)
   const [simulMtWaitK, setSimulMtWaitK] = useState(3)
-  const [glossaryTerms, setGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
-  const [orgGlossaryTerms, setOrgGlossaryTerms] = useState<Array<{ source: string; target: string }>>([])
+  const [glossaryTerms, setGlossaryTerms] = useState<GlossaryTerm[]>([])
+  const [orgGlossaryTerms, setOrgGlossaryTerms] = useState<GlossaryTerm[]>([])
 
   // Load engine-related settings on mount
   useEffect(() => {
     window.api.getSettings().then((s) => {
-      if (s.glossaryTerms) setGlossaryTerms(arr<{ source: string; target: string }>(s.glossaryTerms, []))
-      if (s.orgGlossaryTerms) setOrgGlossaryTerms(arr<{ source: string; target: string }>(s.orgGlossaryTerms, []))
+      if (s.glossaryTerms) setGlossaryTerms(arr<GlossaryTerm>(s.glossaryTerms, []))
+      if (s.orgGlossaryTerms) setOrgGlossaryTerms(arr<GlossaryTerm>(s.orgGlossaryTerms, []))
       if (s.simulMtEnabled !== undefined) setSimulMtEnabled(bool(s.simulMtEnabled, false))
       if (s.simulMtWaitK !== undefined) setSimulMtWaitK(num(s.simulMtWaitK, 3))
     })

@@ -110,6 +110,12 @@ export interface STTEngine {
    */
   processAudio(audioChunk: Float32Array, sampleRate: number): Promise<STTResult | null>
 
+  /**
+   * Terms to bias recognition towards on the following requests. Optional: only
+   * engines whose model accepts a text context implement it.
+   */
+  setContext?(context: string): void
+
   /** Release resources */
   dispose(): Promise<void>
 }
@@ -205,6 +211,8 @@ export interface E2ETranslationEngine {
 export interface GlossaryEntry {
   source: string
   target: string
+  /** Spellings ASR produces for `source`; transcripts are rewritten to `source` */
+  aliases?: string[]
 }
 
 /** Context passed to translators that support context-aware translation */
