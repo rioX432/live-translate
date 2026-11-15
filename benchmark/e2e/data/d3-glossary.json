@@ -1,0 +1,98 @@
+[
+ {
+  "source": "アビィ",
+  "target": "Avvy"
+ },
+ {
+  "source": "Avvy",
+  "target": "アビィ"
+ },
+ {
+  "source": "ルミナリス",
+  "target": "Luminaris"
+ },
+ {
+  "source": "Luminaris",
+  "target": "ルミナリス"
+ },
+ {
+  "source": "クロノメッシュ",
+  "target": "ChronoMesh"
+ },
+ {
+  "source": "ChronoMesh",
+  "target": "クロノメッシュ"
+ },
+ {
+  "source": "ソラニア",
+  "target": "Solania"
+ },
+ {
+  "source": "Solania",
+  "target": "ソラニア"
+ },
+ {
+  "source": "ヴェルデ指数",
+  "target": "Verde Index"
+ },
+ {
+  "source": "Verde Index",
+  "target": "ヴェルデ指数"
+ },
+ {
+  "source": "ハルシオン基盤",
+  "target": "Halcyon Platform"
+ },
+ {
+  "source": "Halcyon Platform",
+  "target": "ハルシオン基盤"
+ },
+ {
+  "source": "ミルフォード",
+  "target": "Milford"
+ },
+ {
+  "source": "Milford",
+  "target": "ミルフォード"
+ },
+ {
+  "source": "トキゲート",
+  "target": "Tokigate"
+ },
+ {
+  "source": "Tokigate",
+  "target": "トキゲート"
+ },
+ {
+  "source": "ペトラシンク",
+  "target": "PetraSync"
+ },
+ {
+  "source": "PetraSync",
+  "target": "ペトラシンク"
+ },
+ {
+  "source": "オルビナ",
+  "target": "Orbina"
+ },
+ {
+  "source": "Orbina",
+  "target": "オルビナ"
+ },
+ {
+  "source": "カゼマチ",
+  "target": "Kazemachi"
+ },
+ {
+  "source": "Kazemachi",
+  "target": "カゼマチ"
+ },
+ {
+  "source": "ネビュラス計画",
+  "target": "Project Nebulus"
+ },
+ {
+  "source": "Project Nebulus",
+  "target": "ネビュラス計画"
+ }
+]
