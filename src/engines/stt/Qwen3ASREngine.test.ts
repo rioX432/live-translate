@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events'
 import { PassThrough } from 'stream'
 import type { ChildProcessWithoutNullStreams } from 'child_process'
+import { join } from 'path'
 import { describe, it, expect, vi } from 'vitest'
 
 // model-downloader imports electron's app at module load.
@@ -68,9 +69,9 @@ describe('mapQwen3Language', () => {
 describe('resolveQwen3HelperPath', () => {
   it('uses Resources/ in a packaged app and resources/bin in a checkout', () => {
     expect(resolveQwen3HelperPath(true, '/App.app/Contents/Resources', '/repo'))
-      .toBe('/App.app/Contents/Resources/qwen3-asr-helper/qwen3-asr-helper')
+      .toBe(join('/App.app/Contents/Resources', 'qwen3-asr-helper', 'qwen3-asr-helper'))
     expect(resolveQwen3HelperPath(false, '/ignored', '/repo'))
-      .toBe('/repo/resources/bin/qwen3-asr-helper/qwen3-asr-helper')
+      .toBe(join('/repo', 'resources', 'bin', 'qwen3-asr-helper', 'qwen3-asr-helper'))
   })
 })
 
